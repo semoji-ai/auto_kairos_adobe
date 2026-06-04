@@ -249,5 +249,7 @@ projects/{project_id}/
 ## 부록 A. 빌드 착수 시 1차 검증 항목 (PoC 진행 현황)
 - ✅ **[검증완료 2026-06-04]** Codex 통합 경로 = `codex exec`(구조화 출력). 공식 Python SDK는 부재. 라이브 왕복 성공(codex 인증, API키 불필요, gpt-5.5). → `docs/poc/POC_codex_runner.md`
 - ✅ **[track record로 실증]** codex imagegen — config.toml에 auto-kairos-codex-imagegen 이력 다수 + v4 스크립트 존재. 라이브 1장 생성은 선택 스모크로 남김
-- ⏳ CEP 익스텐션 ↔ localhost 백엔드 통신 + 백엔드 자동 spawn PoC (AE 환경 필요)
-- ⏳ ae_manifest.json → 최소 모션 JSX 생성 → AE 컴프 1씬 왕복 PoC (AE 환경 필요)
+- ✅ **[검증완료 2026-06-04]** CEP 익스텐션 ↔ localhost 백엔드 통신 — AE 2026 패널에서 `/health` 연결 확인(codex=ready)
+- ✅ **[검증완료 2026-06-04]** ae_manifest.json → JSX → AE 컴프 — 3씬 컴프 + Final 자동 생성 성공. → `docs/poc/RUNBOOK_ae_vertical_slice.md`
+
+> **PoC 4건 전부 통과** — 스펙 v0.2의 핵심 아키텍처(codex 단일 인증 LLM+이미지 / CEP↔백엔드 / manifest→JSX→AE 컴프)가 엔드투엔드 실증됨. 빌드 착수 가능.

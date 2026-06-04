@@ -29,6 +29,11 @@ python3 /Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/backend/app.py
 ## 성공 기준 (스펙 §6.2)
 프로젝트 패널에 **씬 컴프 3개 + Final 컴프**가 생기고, Final에 씬이 순서대로 배치되면 PoC 성공.
 
+## ✅ 검증 결과 (2026-06-04): 전체 통과
+- #3 백엔드 연결: 패널 「백엔드 확인」 → connected / codex ready 확인
+- #4 컴프 생성: 「샘플 manifest → AE 컴프 생성」 → Scene_001~003 + Final 자동 생성 확인
+- AE 2026 + CEP(미서명, 디버그모드) + 표준라이브러리 백엔드 조합 동작 검증
+
 ## 안 될 때
 | 증상 | 점검 |
 |------|------|
