@@ -1,0 +1,79 @@
+"""codex exec 래퍼 — 커맨드 빌드(순수) + 스킬 실행(subprocess, 스트리밍)."""
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+
+def build_codex_cmd(
+    prompt: str,
+    *,
+    session_id: str | None = None,
+    output_schema: str | None = None,
+    output_last: str | None = None,
+    json_events: bool = True,
+    skip_git: bool = True,
+) -> list[str]:
+    """codex exec 커맨드 리스트. session_id 있으면 resume."""
+    cmd = ["codex", "exec"]
+    if session_id:
+        cmd += ["resume", session_id]
+    if skip_git:
+        cmd += ["--skip-git-repo-check"]
+    if json_events:
+        cmd += ["--json"]
+    if output_schema:
+        cmd += ["--output-schema", output_schema]
+    if output_last:
+        cmd += ["-o", output_last]
+    cmd += [prompt]
+    return cmd
+
+
+def _extract_session_id(json_line: str) -> str | None:
+    try:
+        evt = json.loads(json_line)
+    except ValueError:
+        return None
+    for key in ("session_id", "sessionId", "conversation_id"):
+        if isinstance(evt, dict) and evt.get(key):
+            return str(evt[key])
+    return None
+
+
+def run_skill(
+    prompt: str,
+    cwd: Path,
+    *,
+    session_id: str | None = None,
+    output_schema: str | None = None,
+    output_last: str | None = None,
+    on_line=None,
+) -> dict:
+    """codex exec 실행. 각 stdout 라인을 on_line(line)으로 흘림.
+    반환: {returncode, session_id, output_last}."""
+    cmd = build_codex_cmd(
+        prompt, session_id=session_id,
+        output_schema=output_schema, output_last=output_last,
+    )
+    proc = subprocess.Popen(
+        cmd, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", bufsize=1,
+    )
+    found_session = session_id
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        line = line.rstrip("\n")
+        if on_line:
+            on_line(line)
+        if found_session is None:
+            sid = _extract_session_id(line)
+            if sid:
+                found_session = sid
+    proc.wait()
+    return {
+        "returncode": proc.returncode,
+        "session_id": found_session,
+        "output_last": output_last,
+    }
