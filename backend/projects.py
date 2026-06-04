@@ -28,9 +28,9 @@ def _artifacts(proj_dir: Path) -> dict:
 
 
 def _status(arts: dict) -> str:
-    if arts["scenes.json"]:
+    if arts.get("scenes.json"):
         return "decomposed"
-    if arts["final_manuscript.md"]:
+    if arts.get("final_manuscript.md"):
         return "manuscript"
     return "empty"
 
