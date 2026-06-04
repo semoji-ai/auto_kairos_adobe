@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>auto_kairos PD</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; background:#23262b; color:#e6e6e6;
+           margin:0; padding:16px; font-size:13px; }
+    h1 { font-size:15px; margin:0 0 12px; }
+    button { width:100%; padding:10px; margin:6px 0; border:0; border-radius:6px;
+             background:#3a6df0; color:#fff; font-size:13px; cursor:pointer; }
+    button.alt { background:#444; }
+    .box { background:#1b1d21; border:1px solid #33363c; border-radius:6px;
+           padding:10px; margin:8px 0; white-space:pre-wrap; word-break:break-all;
+           min-height:18px; font-family: ui-monospace, monospace; font-size:12px; }
+    .label { color:#9aa0a6; margin-top:10px; }
+  </style>
+</head>
+<body>
+  <h1>auto_kairos PD — PoC</h1>
+
+  <div class="label">1) 백엔드 연결 (#3 검증)</div>
+  <button id="btnHealth">백엔드 확인</button>
+  <div class="box" id="status">아직 확인 안 함</div>
+
+  <div class="label">2) AE 컴프 생성 (#4 검증)</div>
+  <button id="btnBuild" class="alt">샘플 manifest → AE 컴프 생성</button>
+  <div class="box" id="aeresult">대기 중</div>
+
+  <script src="./js/main.js"></script>
+</body>
+</html>
