@@ -16,7 +16,7 @@
 | 4 | 렌더 흐름 | **AE 렌더 신설(post-MVP)**, remotion-render는 이 제품에 미포함(v3/v4에 잔존) |
 | 5 | imagegen MVP 포함 여부 | **포함**. 단 빌드 순서상 **맨 마지막 단계**(먼저 기존 이미지로 AE 왕복 증명 → 그 위에 codex imagegen) |
 | 6 | 이미지·LLM provider | **둘 다 Codex 인증 단일** (`codex login` 1회로 image_gen 빌트인 + LLM 모델). raw OPENAI_API_KEY/CLI 폴백은 비상용, FAL 제외 |
-| 7 | 백엔드 ↔ codex 연결 | **Codex Python SDK 우선**, 없으면 `codex app-server`(상주) + 단발은 `codex exec` |
+| 7 | 백엔드 ↔ codex 연결 | **`codex exec`(구조화 출력 `-o`/`--json`/`--output-schema`) 주력** + 멀티스텝은 `codex mcp-server`/app-server. ~~Python SDK~~는 부재 확인(PoC 2026-06-04) |
 | 8 | 패널 기술 / 기동 | **CEP** + 패널 기동 시 **백엔드 자동 spawn/health-check** |
 
 ---
@@ -246,8 +246,8 @@ projects/{project_id}/
 
 ---
 
-## 부록 A. 빌드 착수 시 1차 검증 항목
-- Codex **Python SDK** 정확한 패키지명/버전 (현재 venv 미설치 — 설치·확인 필요). 없으면 `codex app-server`/`exec` 폴백
-- codex 빌트인 image_gen 호출 인터페이스(스타일/캐릭터 reference 첨부 방식) — auto_kairos_v4 image-generate 스킬 패턴 참고
-- CEP 익스텐션 ↔ localhost 백엔드 통신 + 백엔드 자동 spawn PoC
-- ae_manifest.json → 최소 모션 JSX 생성 → AE 컴프 1씬 왕복 PoC
+## 부록 A. 빌드 착수 시 1차 검증 항목 (PoC 진행 현황)
+- ✅ **[검증완료 2026-06-04]** Codex 통합 경로 = `codex exec`(구조화 출력). 공식 Python SDK는 부재. 라이브 왕복 성공(codex 인증, API키 불필요, gpt-5.5). → `docs/poc/POC_codex_runner.md`
+- ✅ **[track record로 실증]** codex imagegen — config.toml에 auto-kairos-codex-imagegen 이력 다수 + v4 스크립트 존재. 라이브 1장 생성은 선택 스모크로 남김
+- ⏳ CEP 익스텐션 ↔ localhost 백엔드 통신 + 백엔드 자동 spawn PoC (AE 환경 필요)
+- ⏳ ae_manifest.json → 최소 모션 JSX 생성 → AE 컴프 1씬 왕복 PoC (AE 환경 필요)
