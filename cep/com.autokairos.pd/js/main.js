@@ -52,7 +52,64 @@ function buildComp() {
   });
 }
 
+var SELECTED_PROJECT = null;
+
+function loadProjects() {
+  $("projects").textContent = "불러오는 중...";
+  fetch(BACKEND + "/api/projects").then(function (r) { return r.json(); })
+    .then(function (j) {
+      var rows = j.projects || [];
+      if (!rows.length) { $("projects").textContent = "(프로젝트 없음)"; return; }
+      $("projects").innerHTML = rows.map(function (p) {
+        return '<div><a href="#" data-pid="' + p.project_id + '">'
+          + p.project_id + " · " + p.title + " [" + p.status + "]</a></div>";
+      }).join("");
+      var links = $("projects").querySelectorAll("a[data-pid]");
+      for (var i = 0; i < links.length; i++) {
+        links[i].addEventListener("click", function (e) {
+          e.preventDefault();
+          SELECTED_PROJECT = this.getAttribute("data-pid");
+          var all = $("projects").querySelectorAll("a");
+          for (var k = 0; k < all.length; k++) { all[k].style.fontWeight = "normal"; }
+          this.style.fontWeight = "bold";
+        });
+      }
+    })
+    .catch(function (e) { $("projects").textContent = "실패: " + e; });
+}
+
+function decompose() {
+  if (!SELECTED_PROJECT) { $("scenes").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("scenes").textContent = "씬 분해 중... (codex)";
+  fetch(BACKEND + "/api/skills/run", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, skill_name: "scene-decompose" }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "completed") { $("scenes").textContent = "실패: " + JSON.stringify(j); return; }
+      return renderScenes();
+    })
+    .catch(function (e) { $("scenes").textContent = "오류: " + e; });
+}
+
+function renderScenes() {
+  var path = "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/" + SELECTED_PROJECT + "/scenes.json";
+  evalScript('(function(){var f=new File(' + JSON.stringify(path) +
+    ');if(!f.exists)return "no scenes";f.open("r");var c=f.read();f.close();return c;})()')
+    .then(function (txt) {
+      try {
+        var doc = JSON.parse(txt);
+        $("scenes").innerHTML = (doc.scenes || []).map(function (s) {
+          return "<div>#" + s.sceneNumber + " <b>" + s.title + "</b> — " +
+            (s.narration || "").slice(0, 40) + "...</div>";
+        }).join("") || "(씬 없음)";
+      } catch (e) { $("scenes").textContent = txt; }
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   $("btnHealth").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
+  $("btnProjects").addEventListener("click", loadProjects);
+  $("btnDecompose").addEventListener("click", decompose);
 });
