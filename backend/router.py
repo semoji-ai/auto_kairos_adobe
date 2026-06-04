@@ -42,6 +42,8 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         proj_dir = root / pid
         if not proj_dir.is_dir():
             return 404, {"error": f"project not found: {pid}"}
+        if skill == "scene-decompose" and not (proj_dir / "final_manuscript.md").exists():
+            return 422, {"error": f"final_manuscript.md 없음: {pid}"}
         jobs = ctx["jobs"]
         jid = jobs.create(skill, pid)
         skill_md = (SKILLS_DIR / skill / "SKILL.md")

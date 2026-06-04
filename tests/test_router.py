@@ -59,3 +59,14 @@ def test_skills_run_returns_job_id(monkeypatch, tmp_path):
     assert code2 == 200
     assert jbody["status"] == "completed"
     assert any("scenes.json" in a for a in jbody["artifact_paths"])
+
+
+def test_skills_run_missing_manuscript_422(tmp_path):
+    proj = tmp_path / "noman"
+    proj.mkdir()
+    (proj / "plan.md").write_text("# 제목", encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/skills/run", {},
+                                {"project_id": "noman", "skill_name": "scene-decompose"}, ctx)
+    assert code == 422
+    assert "final_manuscript.md" in body["error"]
