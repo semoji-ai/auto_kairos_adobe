@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "required": ["version", "project_id", "total_scenes", "scenes"],
+  "properties": {
+    "version": { "type": "string" },
+    "project_id": { "type": "string" },
+    "topic": { "type": "string" },
+    "total_scenes": { "type": "integer" },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sceneNumber", "title", "narration"],
+        "properties": {
+          "sceneNumber": { "type": "integer" },
+          "section": { "type": ["string", "null"] },
+          "title": { "type": "string" },
+          "narration": { "type": "string" },
+          "characters": { "type": "array", "items": { "type": "string" } },
+          "visual_summary": { "type": "string" },
+          "image_prompt": { "type": "string" },
+          "duration_estimate_sec": { "type": "number" }
+        }
+      }
+    }
+  }
+}
