@@ -30,10 +30,10 @@ M0 PoC (완료) ─→ M1 골격(완료, 수직슬라이스) ─→ M2 프로젝
 **목표**: 샘플이 아니라 **실제 v4 프로젝트**를 읽고, codex로 씬 분해까지.
 - 산출물:
   - 백엔드 `GET /api/projects`, `POST /api/projects/load` — v4 `projects/{id}/` 스캔/요약
-  - 백엔드 `POST /api/skills/run` + `GET /api/jobs/{id}` — `codex exec` 래퍼(job_id, 로그, `-o` 캡처)
-  - 패널 Project 탭(목록/상태/아티팩트) + PD Chat 최소(씬분해 모드)
-  - Scene Decompose: final_manuscript.md → units.json (codex exec)
-- 의존성: v4 projects 스토어 경로 확정, scene-decompose 스킬/프롬프트
+  - 백엔드 `POST /api/skills/run` + `GET /api/jobs/{id}` — `codex exec` 래퍼(job_id, 로그, `-o` 캡처, **session id 유지 + `--json` 스트리밍**)
+  - 패널 Project 탭(목록/상태/아티팩트) + PD Chat **다회차 대화 + 스트리밍**(씬분해 모드)
+  - **자체 구현** Scene Decompose 스킬(v4 참고): final_manuscript.md → units.json (codex exec)
+- 의존성: **자체 projects 스토어 스키마 확정**(v4 참고), scene-decompose 스킬/프롬프트 자체 작성
 - **exit 기준 (데모)**: 실제 v4 프로젝트 선택 → "씬 분해" → units.json 생성 + 패널에 씬 목록 표시
 - FR: FR-1·2·3·4·9
 

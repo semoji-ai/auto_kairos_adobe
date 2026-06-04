@@ -6,7 +6,7 @@
 
 ---
 
-## 0. v0.1 → v0.2에서 고정된 8개 결정
+## 0. v0.1 → v0.2 고정 결정
 
 | # | 항목 | 확정 |
 |---|------|------|
@@ -16,7 +16,8 @@
 | 4 | 렌더 흐름 | **AE 렌더 신설(post-MVP)**, remotion-render는 이 제품에 미포함(v3/v4에 잔존) |
 | 5 | imagegen MVP 포함 여부 | **포함**. 단 빌드 순서상 **맨 마지막 단계**(먼저 기존 이미지로 AE 왕복 증명 → 그 위에 codex imagegen) |
 | 6 | 이미지·LLM provider | **둘 다 Codex 인증 단일** (`codex login` 1회로 image_gen 빌트인 + LLM 모델). raw OPENAI_API_KEY/CLI 폴백은 비상용, FAL 제외 |
-| 7 | 백엔드 ↔ codex 연결 | **`codex exec`(구조화 출력 `-o`/`--json`/`--output-schema`) 주력** + 멀티스텝은 `codex mcp-server`/app-server. ~~Python SDK~~는 부재 확인(PoC 2026-06-04) |
+| 7 | 백엔드 ↔ codex 연결 | **`codex exec` 주력**(`-o`/`--json`/`--output-schema`). **대화형: `codex exec resume <session_id>`로 멀티턴 + `--json` 스트리밍** → PD Chat 협업. (옵션 `app-server`). ~~Python SDK~~ 부재 확인(PoC) |
+| 9 | v4 관계 | **참고 전용 — 자체 구현, v4 호출/의존 없음** `[v0.2 추가]` |
 | 8 | 패널 기술 / 기동 | **CEP** + 패널 기동 시 **백엔드 자동 spawn/health-check** |
 
 ---
@@ -46,7 +47,12 @@ auto_kairos Adobe PD Assistant는 After Effects(1차)와 Premiere Pro(2차) 안�
 [After Effects]                     ← 패널이 JSX 실행 → 컴프 생성
 ```
 
-**재사용 모델**: 콘텐츠 엔진은 **auto_kairos_v4의 프로젝트 스토어 + 스킬(scene-decompose/motion-plan/image-generate 등) + codex imagegen**을 재사용한다. 이 제품은 그 위의 **Adobe-facing 레이어**다. auto_kairos_v3(Remotion 기반)는 별개 제품으로 손대지 않는다.
+**재사용 모델 (참고 전용, v4 호출 안 함)** `[v0.2 변경]`: auto_kairos_v4를 **설계 레퍼런스**로만 삼고, 동등 기능(프로젝트 스토어 + 스킬: scene-decompose/motion-plan/image-generate 등 + codex imagegen)을 **이 레포에 자체 구현**한다. auto_kairos_v4 폴더에 대한 import/호출/런타임 의존은 **없다**(완전 자체완결). auto_kairos_v3(Remotion 기반)도 손대지 않는다.
+
+**대화형 협업 (A 구조 + B 경험)** `[v0.2 변경]`: 백엔드는 헤드리스 서비스(A)지만, PD Chat은 codex와 **다회차 대화 + 실시간 작업 스트리밍**으로 "함께 만들어가는"(B) 경험을 준다. 메커니즘:
+- 세션 지속: `codex exec resume <session_id> "<후속>"` — 프로젝트/대화별 session id 유지로 멀티턴
+- 스트리밍: `codex exec --json`(JSONL 이벤트)을 패널로 흘려 에이전트 작업 과정 실시간 표시
+- (옵션) 상주 채널: `codex app-server` daemon
 
 **기술 선택 근거 (CEP)**: 패널이 localhost 백엔드와 HTTP 통신하려면 CEP가 안정적(Node 가능, localhost fetch 제약 없음). UXP는 localhost 통신 제약으로 MVP 부적합. CEP deprecation 리스크는 인지하되 현실해. `[v0.2 변경]`
 
