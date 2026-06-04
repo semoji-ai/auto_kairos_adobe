@@ -34,18 +34,25 @@ def test_unknown_404():
     assert code == 404
 
 
-def test_skills_run_returns_job_id(monkeypatch):
+def test_skills_run_returns_job_id(monkeypatch, tmp_path):
     import backend.router as r
+    proj = tmp_path / "demoX"
+    proj.mkdir()
+    (proj / "final_manuscript.md").write_text("원고 텍스트.", encoding="utf-8")
+
     def fake_run(prompt, cwd, **kw):
         out = kw.get("output_last")
         if out:
             from pathlib import Path as _P
-            _P(out).write_text('{"version":"adobe-0.1","project_id":"demo01","total_scenes":0,"scenes":[]}', encoding="utf-8")
+            _P(out).write_text(
+                '{"version":"adobe-0.1","project_id":"demoX","total_scenes":0,"scenes":[]}',
+                encoding="utf-8")
         return {"returncode": 0, "session_id": "sess-1", "output_last": out}
+
     monkeypatch.setattr(r, "run_skill", fake_run)
-    ctx = _ctx()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/skills/run", {},
-                                {"project_id": "demo01", "skill_name": "scene-decompose"}, ctx)
+                                {"project_id": "demoX", "skill_name": "scene-decompose"}, ctx)
     assert code == 200
     jid = body["job_id"]
     code2, jbody = handle_request("GET", f"/api/jobs/{jid}", {}, None, ctx)
