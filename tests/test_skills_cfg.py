@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 from backend import skills_cfg
 
@@ -26,3 +27,15 @@ def test_missing_inputs(tmp_path):
     c = skills_cfg.load_config(SKILLS, "scene-decompose")
     missing = skills_cfg.missing_inputs(c, proj)
     assert "final_manuscript.md" in missing
+
+
+PIPELINE = ["plan-explore", "deep-research", "draft-write",
+            "target-research", "finalize-manuscript", "review-refine"]
+
+
+@pytest.mark.parametrize("name", PIPELINE)
+def test_pipeline_skill_configs_load(name):
+    c = skills_cfg.load_config(SKILLS, name)
+    assert c["name"] == name
+    assert c["output"]
+    assert (SKILLS / name / "SKILL.md").exists()
