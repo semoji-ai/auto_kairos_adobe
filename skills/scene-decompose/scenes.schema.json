@@ -1,6 +1,7 @@
 {
   "type": "object",
-  "required": ["version", "project_id", "total_scenes", "scenes"],
+  "additionalProperties": false,
+  "required": ["version", "project_id", "topic", "total_scenes", "scenes"],
   "properties": {
     "version": { "type": "string" },
     "project_id": { "type": "string" },
@@ -10,7 +11,8 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["sceneNumber", "title", "narration"],
+        "additionalProperties": false,
+        "required": ["sceneNumber", "section", "title", "narration", "characters", "visual_summary", "image_prompt", "duration_estimate_sec"],
         "properties": {
           "sceneNumber": { "type": "integer" },
           "section": { "type": ["string", "null"] },

@@ -30,6 +30,7 @@ description: final_manuscript.md를 의미·길이·인물 기준으로 씬으�
 
 ## 출력
 - `scenes.json` 만 출력. JSON 외 텍스트 금지(--output-schema 강제).
+- 모든 씬은 8개 필드(sceneNumber, section, title, narration, characters, visual_summary, image_prompt, duration_estimate_sec)를 빠짐없이 채운다. 없으면 section은 null, characters는 빈 배열.
 
 ## 금지
 - narration 변경(요약/오탈자 수정 포함)
