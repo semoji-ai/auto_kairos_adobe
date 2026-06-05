@@ -4,7 +4,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from backend import projects
+from backend import projects, skills_cfg, sessions
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -42,25 +42,29 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         proj_dir = root / pid
         if not proj_dir.is_dir():
             return 404, {"error": f"project not found: {pid}"}
-        if skill == "scene-decompose" and not (proj_dir / "final_manuscript.md").exists():
-            return 422, {"error": f"final_manuscript.md 없음: {pid}"}
+        try:
+            cfg = skills_cfg.load_config(SKILLS_DIR, skill)
+        except FileNotFoundError:
+            return 404, {"error": f"skill not found: {skill}"}
+        miss = skills_cfg.missing_inputs(cfg, proj_dir)
+        if miss:
+            return 422, {"error": f"입력 누락: {', '.join(miss)}"}
         jobs = ctx["jobs"]
         jid = jobs.create(skill, pid)
-        skill_md = (SKILLS_DIR / skill / "SKILL.md")
-        schema = (SKILLS_DIR / skill / "scenes.schema.json")
-        out = proj_dir / "scenes.json"
-        manuscript = (proj_dir / "final_manuscript.md")
-        prompt = (
-            skill_md.read_text(encoding="utf-8") if skill_md.exists() else f"skill: {skill}"
-        ) + "\n\n## 입력 원고\n" + (
-            manuscript.read_text(encoding="utf-8") if manuscript.exists() else ""
-        ) + f"\n\nproject_id={pid}. scenes.json 형식으로만 출력."
+        prompt = skills_cfg.build_prompt(SKILLS_DIR, skill, cfg, proj_dir)
+        out = proj_dir / cfg["output"]
+        out.parent.mkdir(parents=True, exist_ok=True)
+        schema = (SKILLS_DIR / skill / cfg["schema"]) if cfg.get("schema") else None
+        sid = sessions.load_session(proj_dir)
         result = run_skill(
             prompt, proj_dir,
-            output_schema=str(schema) if schema.exists() else None,
+            session_id=sid,
+            output_schema=str(schema) if schema else None,
             output_last=str(out),
             on_line=lambda ln: jobs.append_log(jid, ln),
         )
+        if result.get("session_id"):
+            sessions.save_session(proj_dir, result["session_id"])
         if result["returncode"] == 0 and out.exists():
             jobs.set_status(jid, "completed", artifact_paths=[str(out)])
         else:
