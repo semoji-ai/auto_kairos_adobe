@@ -10,3 +10,4 @@ logs/
 projects/*/scenes.json
 projects/*/logs/
 projects/*/image_results/
+projects/*/.codex_session
