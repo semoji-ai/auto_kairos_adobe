@@ -107,9 +107,22 @@ function renderScenes() {
     });
 }
 
+function showManuscript() {
+  if (!SELECTED_PROJECT) { $("manuscript").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("manuscript").textContent = "불러오는 중...";
+  fetch(BACKEND + "/api/projects/file?project_id=" + encodeURIComponent(SELECTED_PROJECT) +
+        "&name=final_manuscript.md")
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      $("manuscript").textContent = j.content != null ? j.content : ("(원고 없음) " + JSON.stringify(j));
+    })
+    .catch(function (e) { $("manuscript").textContent = "오류: " + e; });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   $("btnHealth").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
   $("btnProjects").addEventListener("click", loadProjects);
+  $("btnManuscript").addEventListener("click", showManuscript);
   $("btnDecompose").addEventListener("click", decompose);
 });

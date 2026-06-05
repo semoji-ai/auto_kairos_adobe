@@ -67,6 +67,19 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             jobs.set_status(jid, "failed", error=f"rc={result['returncode']}")
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"]}
 
+    if method == "GET" and p == "/api/projects/file":
+        pid = query.get("project_id", "")
+        name = query.get("name", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": f"project not found: {pid}"}
+        if (not name) or ("/" in name) or ("\\" in name) or (".." in name):
+            return 400, {"error": "invalid name"}
+        fp = proj_dir / name
+        if not fp.is_file():
+            return 404, {"error": f"file not found: {name}"}
+        return 200, {"name": name, "content": fp.read_text(encoding="utf-8")}
+
     if method == "GET" and p.startswith("/api/jobs/"):
         jid = p.rsplit("/", 1)[-1]
         j = ctx["jobs"].get(jid)

@@ -70,3 +70,26 @@ def test_skills_run_missing_manuscript_422(tmp_path):
                                 {"project_id": "noman", "skill_name": "scene-decompose"}, ctx)
     assert code == 422
     assert "final_manuscript.md" in body["error"]
+
+
+def test_projects_file_returns_manuscript():
+    ctx = _ctx()
+    code, body = handle_request("GET", "/api/projects/file",
+                                {"project_id": "demo01", "name": "final_manuscript.md"}, None, ctx)
+    assert code == 200
+    assert body["name"] == "final_manuscript.md"
+    assert "카지노" in body["content"]
+
+
+def test_projects_file_rejects_traversal():
+    ctx = _ctx()
+    code, body = handle_request("GET", "/api/projects/file",
+                                {"project_id": "demo01", "name": "../../backend/app.py"}, None, ctx)
+    assert code == 400
+
+
+def test_projects_file_404_missing():
+    ctx = _ctx()
+    code, body = handle_request("GET", "/api/projects/file",
+                                {"project_id": "demo01", "name": "nope.md"}, None, ctx)
+    assert code == 404
