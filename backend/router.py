@@ -73,12 +73,19 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         proj_dir = root / pid
         if not proj_dir.is_dir():
             return 404, {"error": f"project not found: {pid}"}
-        if (not name) or ("/" in name) or ("\\" in name) or (".." in name):
+        if not name:
             return 400, {"error": "invalid name"}
-        fp = proj_dir / name
+        fp = (proj_dir / name).resolve()
+        # 경로 탈출 방지: resolve된 경로가 프로젝트 디렉토리 내부여야 함
+        if not fp.is_relative_to(proj_dir.resolve()):
+            return 400, {"error": "invalid name"}
         if not fp.is_file():
             return 404, {"error": f"file not found: {name}"}
-        return 200, {"name": name, "content": fp.read_text(encoding="utf-8")}
+        try:
+            content = fp.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return 415, {"error": "binary file not supported"}
+        return 200, {"name": name, "content": content}
 
     if method == "GET" and p.startswith("/api/jobs/"):
         jid = p.rsplit("/", 1)[-1]

@@ -112,9 +112,10 @@ function showManuscript() {
   $("manuscript").textContent = "불러오는 중...";
   fetch(BACKEND + "/api/projects/file?project_id=" + encodeURIComponent(SELECTED_PROJECT) +
         "&name=final_manuscript.md")
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
-      $("manuscript").textContent = j.content != null ? j.content : ("(원고 없음) " + JSON.stringify(j));
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      $("manuscript").textContent =
+        (res.ok && res.j.content != null) ? res.j.content : ("(원고 없음) " + JSON.stringify(res.j));
     })
     .catch(function (e) { $("manuscript").textContent = "오류: " + e; });
 }

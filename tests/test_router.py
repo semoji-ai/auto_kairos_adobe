@@ -93,3 +93,12 @@ def test_projects_file_404_missing():
     code, body = handle_request("GET", "/api/projects/file",
                                 {"project_id": "demo01", "name": "nope.md"}, None, ctx)
     assert code == 404
+
+
+def test_projects_file_rejects_absolute(tmp_path):
+    proj = tmp_path / "p1"; proj.mkdir()
+    (proj / "final_manuscript.md").write_text("원고", encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/projects/file",
+                                {"project_id": "p1", "name": "/etc/hosts"}, None, ctx)
+    assert code == 400
