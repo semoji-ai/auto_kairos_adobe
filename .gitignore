@@ -11,3 +11,7 @@ projects/*/scenes.json
 projects/*/logs/
 projects/*/image_results/
 projects/*/.codex_session
+projects/*/strategy/
+projects/*/research_reports/
+projects/*/research_targeted/
+projects/*/drafts/
