@@ -4,7 +4,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions
+from backend import projects, skills_cfg, sessions, pipeline
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -70,6 +70,23 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         else:
             jobs.set_status(jid, "failed", error=f"rc={result['returncode']}")
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"]}
+
+    if method == "POST" and p == "/api/pipeline/run":
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": f"project not found: {pid}"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("pipeline", pid)
+        res = pipeline.run_pipeline(SKILLS_DIR, proj_dir,
+                                    on_line=lambda ln: jobs.append_log(jid, ln))
+        if res["status"] == "completed":
+            jobs.set_status(jid, "completed", artifact_paths=[res["final"]])
+        else:
+            jobs.set_status(jid, "failed", error=f"{res.get('stage')}: {res.get('error')}")
+        return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
+                     "completed": res.get("completed", [])}
 
     if method == "GET" and p == "/api/projects/file":
         pid = query.get("project_id", "")
