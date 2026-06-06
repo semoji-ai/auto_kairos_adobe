@@ -133,3 +133,45 @@ def test_images_list(tmp_path):
                                 {"project_id": "p"}, None, ctx)
     assert code == 200
     assert "ref_1.png" in body["images"]
+
+
+def test_storyboard_generate_from_scenes(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"project_id":"p","total_scenes":2,"scenes":['
+        '{"sceneNumber":1,"title":"A","narration":"가","image_prompt":"장면1"},'
+        '{"sceneNumber":2,"title":"B","narration":"나","image_prompt":"장면2"}]}',
+        encoding="utf-8")
+
+    def fake_gen(proj_dir, rel_out, image_prompt, **kw):
+        assert kw.get("subdir") == "storyboard"
+        out = proj_dir / "storyboard" / rel_out
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(r.imagegen, "generate_one", fake_gen)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/storyboard/generate", {},
+                                {"project_id": "p"}, ctx)
+    assert code == 200
+    assert body["generated"] == 2
+
+
+def test_storyboard_generate_requires_scenes(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/storyboard/generate", {},
+                                {"project_id": "p"}, ctx)
+    assert code == 422
+
+
+def test_storyboard_list(tmp_path):
+    proj = tmp_path / "p"; (proj / "storyboard").mkdir(parents=True)
+    (proj / "storyboard" / "sb_1.png").write_bytes(b"\x89PNG")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/storyboard/list",
+                                {"project_id": "p"}, None, ctx)
+    assert code == 200
+    assert "sb_1.png" in body["images"]

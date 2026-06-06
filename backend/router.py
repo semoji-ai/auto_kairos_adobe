@@ -121,6 +121,41 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         names = sorted(f.name for f in images_dir.glob("*.png"))
         return 200, {"images": names, "dir": str(images_dir)}
 
+    if method == "POST" and p == "/api/storyboard/generate":
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        scenes_fp = proj_dir / "scenes.json"
+        if not scenes_fp.exists():
+            return 422, {"error": "scenes.json 없음 — 씬 분해(scene-decompose) 먼저 실행"}
+        import json as _json
+        scenes = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
+        jobs = ctx["jobs"]
+        jid = jobs.create("storyboard", pid)
+        done = 0
+        for sc in scenes:
+            n = sc.get("sceneNumber", done + 1)
+            prompt = sc.get("image_prompt") or sc.get("visual_summary") or sc.get("narration", "")
+            res = imagegen.generate_one(proj_dir, f"sb_{n}.png", prompt,
+                                        subdir="storyboard",
+                                        on_line=lambda ln: jobs.append_log(jid, ln))
+            if res["status"] == "completed":
+                done += 1
+            else:
+                jobs.append_log(jid, f"FAIL sb_{n}: {res.get('error')}")
+        jobs.set_status(jid, "completed" if done else "failed",
+                        artifact_paths=[str(proj_dir / "storyboard")])
+        return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
+                     "generated": done, "total": len(scenes)}
+
+    if method == "GET" and p == "/api/storyboard/list":
+        pid = query.get("project_id", "")
+        sb_dir = root / pid / "storyboard"
+        if not sb_dir.is_dir():
+            return 200, {"images": []}
+        names = sorted(f.name for f in sb_dir.glob("*.png"))
+        return 200, {"images": names, "dir": str(sb_dir)}
+
     if method == "GET" and p == "/api/projects/file":
         pid = query.get("project_id", "")
         name = query.get("name", "")
