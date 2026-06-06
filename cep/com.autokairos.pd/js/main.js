@@ -184,6 +184,32 @@ function showStoryboard() {
     });
 }
 
+function genLayers() {
+  if (!SELECTED_PROJECT) { $("layers").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("layers").textContent = "레이어 생성 중... (씬별 배경+인물, codex)";
+  fetch(BACKEND + "/api/layers/generate", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "completed") { $("layers").textContent = "실패/일부: " + JSON.stringify(j); }
+      return showLayers();
+    })
+    .catch(function (e) { $("layers").textContent = "오류: " + e; });
+}
+
+function showLayers() {
+  fetch(BACKEND + "/api/layers/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var dir = j.dir || "", imgs = j.images || [];
+      if (!imgs.length) { $("layers").textContent = "(레이어 없음)"; return; }
+      $("layers").innerHTML = imgs.map(function (n) {
+        return '<img src="file://' + dir + '/' + n + '" style="width:100px;height:auto;margin:3px;border:1px solid #444;border-radius:4px;background:#666;" title="' + n + '">';
+      }).join("");
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   $("btnHealth").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
@@ -194,4 +220,5 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnGenImages").addEventListener("click", genImages);
   $("btnRefreshGallery").addEventListener("click", showGallery);
   $("btnGenStoryboard").addEventListener("click", genStoryboard);
+  $("btnGenLayers").addEventListener("click", genLayers);
 });
