@@ -120,10 +120,50 @@ function showManuscript() {
     .catch(function (e) { $("manuscript").textContent = "오류: " + e; });
 }
 
+function makeReferences() {
+  if (!SELECTED_PROJECT) { $("gallery").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("gallery").textContent = "레퍼런스 목록 생성 중...";
+  fetch(BACKEND + "/api/skills/run", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, skill_name: "reference-list" }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) { $("gallery").textContent = "레퍼런스 목록: " + j.status + " — 이제 [이미지 생성]"; })
+    .catch(function (e) { $("gallery").textContent = "오류: " + e; });
+}
+
+function genImages() {
+  if (!SELECTED_PROJECT) { $("gallery").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("gallery").textContent = "이미지 생성 중... (codex, 수십 초)";
+  fetch(BACKEND + "/api/images/generate", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "completed") { $("gallery").textContent = "실패: " + JSON.stringify(j); return; }
+      return showGallery();
+    })
+    .catch(function (e) { $("gallery").textContent = "오류: " + e; });
+}
+
+function showGallery() {
+  fetch(BACKEND + "/api/images/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var dir = j.dir || "";
+      var imgs = j.images || [];
+      if (!imgs.length) { $("gallery").textContent = "(이미지 없음)"; return; }
+      $("gallery").innerHTML = imgs.map(function (n) {
+        return '<img src="file://' + dir + '/' + n + '" style="width:90px;height:auto;margin:3px;border-radius:4px;" title="' + n + '">';
+      }).join("");
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   $("btnHealth").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
   $("btnProjects").addEventListener("click", loadProjects);
   $("btnManuscript").addEventListener("click", showManuscript);
   $("btnDecompose").addEventListener("click", decompose);
+  $("btnRefList").addEventListener("click", makeReferences);
+  $("btnGenImages").addEventListener("click", genImages);
 });
