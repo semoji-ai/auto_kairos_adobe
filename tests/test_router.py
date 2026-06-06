@@ -175,3 +175,35 @@ def test_storyboard_list(tmp_path):
                                 {"project_id": "p"}, None, ctx)
     assert code == 200
     assert "sb_1.png" in body["images"]
+
+
+def test_layers_generate(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; (proj / "storyboard").mkdir(parents=True)
+    (proj / "storyboard" / "sb_1.png").write_bytes(b"\x89PNG")
+    (proj / "scenes.json").write_text(
+        '{"project_id":"p","total_scenes":1,"scenes":[{"sceneNumber":1,"title":"A","narration":"가"}]}',
+        encoding="utf-8")
+
+    def fake_layers(proj_dir, items, **kw):
+        out = {}
+        for n, img in items:
+            ld = proj_dir / "layers"; ld.mkdir(parents=True, exist_ok=True)
+            (ld / f"bg_{n}.png").write_bytes(b"\x89PNG")
+            (ld / f"char_{n}.png").write_bytes(b"\x89PNG")
+            out[n] = {"background": {"status": "completed"}, "character": {"status": "completed"}}
+        return out
+
+    monkeypatch.setattr(r.imagegen, "generate_scene_layers", fake_layers)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/layers/generate", {}, {"project_id": "p"}, ctx)
+    assert code == 200
+    assert body["scenes"] == 1
+
+
+def test_layers_generate_requires_storyboard(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[{"sceneNumber":1}]}', encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/layers/generate", {}, {"project_id": "p"}, ctx)
+    assert code == 422

@@ -125,6 +125,28 @@ def generate_layer(proj_dir, scene_image, rel_out: str, layer_kind: str,
     return {"status": "failed", "error": "rate_limit_or_no_file", "layer": layer_kind}
 
 
+def generate_scene_layers(proj_dir, scenes_with_images, *, concurrency=4, on_event=None):
+    """scenes_with_images=[(sceneNumber, scene_image_path)]. 씬당 background+character 레이어 병렬 생성.
+    반환: {sceneNumber: {background:res, character:res}}."""
+    tasks = []
+    for n, img in scenes_with_images:
+        tasks.append((n, "background", f"bg_{n}.png", img))
+        tasks.append((n, "character", f"char_{n}.png", img))
+
+    def _work(t):
+        n, kind, rel, img = t
+        res = generate_layer(proj_dir, img, rel, kind)
+        if on_event:
+            on_event(n, kind, res)
+        return (n, kind, res)
+
+    out = {}
+    with ThreadPoolExecutor(max_workers=max(1, int(concurrency))) as ex:
+        for n, kind, res in ex.map(_work, tasks):
+            out.setdefault(n, {})[kind] = res
+    return out
+
+
 def generate_many(proj_dir: Path, items: list, *, subdir: str = "images",
                   concurrency: int = 4, on_event=None) -> dict:
     """items=[(rel_out, image_prompt), ...] 를 동시에 생성. 각자 generate_one(백오프 내장).

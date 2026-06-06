@@ -152,6 +152,48 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         names = sorted(f.name for f in sb_dir.glob("*.png"))
         return 200, {"images": names, "dir": str(sb_dir)}
 
+    if method == "POST" and p == "/api/layers/generate":
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        scenes_fp = proj_dir / "scenes.json"
+        sb_dir = proj_dir / "storyboard"
+        if not scenes_fp.exists() or not sb_dir.is_dir():
+            return 422, {"error": "scenes.json + storyboard/ 필요 — 씬분해·스토리보드 먼저"}
+        import json as _json
+        scenes = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
+        items = []
+        for sc in scenes:
+            n = sc.get("sceneNumber")
+            sb = sb_dir / f"sb_{n}.png"
+            if sb.exists():
+                items.append((n, sb))
+        if not items:
+            return 422, {"error": "storyboard 프레임 없음(sb_N.png)"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("layers", pid)
+        conc = int(b.get("concurrency", 4))
+        results = imagegen.generate_scene_layers(
+            proj_dir, items, concurrency=conc,
+            on_event=lambda n, kind, res: jobs.append_log(jid, f"scene{n}/{kind}: {res['status']}"))
+        ok = sum(1 for v in results.values()
+                 if v.get("background", {}).get("status") == "completed"
+                 and v.get("character", {}).get("status") == "completed")
+        layers = {"project_id": pid, "scenes": [
+            {"sceneNumber": n, "background": f"layers/bg_{n}.png", "character": f"layers/char_{n}.png"}
+            for n, _ in items]}
+        (proj_dir / "layers.json").write_text(_json.dumps(layers, ensure_ascii=False, indent=2), encoding="utf-8")
+        jobs.set_status(jid, "completed" if ok else "failed", artifact_paths=[str(proj_dir / "layers.json")])
+        return 200, {"job_id": jid, "status": jobs.get(jid)["status"], "scenes": ok, "total": len(items)}
+
+    if method == "GET" and p == "/api/layers/list":
+        pid = query.get("project_id", "")
+        ld = root / pid / "layers"
+        if not ld.is_dir():
+            return 200, {"images": []}
+        names = sorted(f.name for f in ld.glob("*.png"))
+        return 200, {"images": names, "dir": str(ld)}
+
     if method == "GET" and p == "/api/projects/file":
         pid = query.get("project_id", "")
         name = query.get("name", "")
