@@ -5,6 +5,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
+
 from backend.codex_runner import run_skill
 
 STYLE_FILE = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "semoji.md"
@@ -63,6 +66,22 @@ def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
             continue
         break
     return {"status": "failed", "error": "rate_limit_or_no_file", "log_tail": last[-200:]}
+
+
+def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
+    """마젠타(#FF00FF) 근방을 투명으로. 가장자리 디스필(마젠타 성분 감쇠)."""
+    im = Image.open(src_png).convert("RGBA")
+    a = np.array(im).astype(int)
+    r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
+    mask = (r > 150) & (g < 110) & (b > 150)
+    a[mask, 3] = 0
+    keep = ~mask
+    over = keep & (g < np.minimum(r, b) - 40)
+    a[over, 0] = np.minimum(a[over, 0], a[over, 1] + 40)
+    a[over, 2] = np.minimum(a[over, 2], a[over, 1] + 40)
+    out = Image.fromarray(a.astype("uint8"), "RGBA")
+    out.save(out_png)
+    return {"transparent_ratio": float(mask.sum()) / mask.size}
 
 
 def generate_many(proj_dir: Path, items: list, *, subdir: str = "images",

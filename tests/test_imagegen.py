@@ -61,3 +61,20 @@ def test_generate_many_concurrency_min_one(tmp_path, monkeypatch):
                         lambda proj_dir, rel_out, p, **kw: {"status": "completed", "path": rel_out})
     results = ig.generate_many(tmp_path, [("a.png", "p")], concurrency=0)
     assert len(results) == 1
+
+
+def test_chroma_key_magenta(tmp_path):
+    from PIL import Image
+    from backend import imagegen
+    im = Image.new("RGBA", (4, 2), (255, 0, 255, 255))
+    for y in range(2):
+        im.putpixel((2, y), (30, 60, 200, 255))
+        im.putpixel((3, y), (30, 60, 200, 255))
+    src = tmp_path / "m.png"; im.save(src)
+    out = tmp_path / "t.png"
+    res = imagegen.chroma_key_magenta(src, out)
+    from PIL import Image as I
+    r = I.open(out).convert("RGBA")
+    assert r.getpixel((0, 0))[3] == 0
+    assert r.getpixel((3, 0))[3] == 255
+    assert res["transparent_ratio"] > 0.4
