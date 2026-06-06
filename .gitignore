@@ -18,3 +18,4 @@ projects/*/drafts/
 projects/*/.imagegen_last.txt
 projects/*/images/
 projects/*/references.json
+projects/*/storyboard/
