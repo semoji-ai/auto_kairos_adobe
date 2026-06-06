@@ -22,3 +22,14 @@ def test_build_resume_session():
 def test_no_json_when_disabled():
     cmd = build_codex_cmd(json_events=False)
     assert "--json" not in cmd
+
+
+def test_build_cmd_with_sandbox():
+    cmd = build_codex_cmd(sandbox="workspace-write")
+    assert "-s" in cmd
+    assert cmd[cmd.index("-s") + 1] == "workspace-write"
+
+
+def test_build_cmd_no_sandbox_by_default():
+    cmd = build_codex_cmd()
+    assert "-s" not in cmd
