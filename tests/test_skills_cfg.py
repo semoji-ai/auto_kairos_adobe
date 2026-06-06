@@ -29,6 +29,13 @@ def test_missing_inputs(tmp_path):
     assert "final_manuscript.md" in missing
 
 
+def test_reference_list_config():
+    c = skills_cfg.load_config(SKILLS, "reference-list")
+    assert c["output"] == "references.json"
+    assert c["schema"] == "references.schema.json"
+    assert c["inputs"] == ["final_manuscript.md"]
+
+
 PIPELINE = ["plan-explore", "deep-research", "draft-write",
             "target-research", "finalize-manuscript", "review-refine"]
 
