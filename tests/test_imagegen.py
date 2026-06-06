@@ -27,3 +27,10 @@ def test_build_image_prompt():
     assert "전기차 한 대" in pr
     assert "images/ref_1.png" in pr
     assert "image_gen" in pr
+
+
+def test_versioned_path_in_subdir_concept(tmp_path):
+    sb = tmp_path / "storyboard"; sb.mkdir()
+    p = imagegen.versioned_path(sb, "sb_1.png")
+    assert p.parent.name == "storyboard"
+    assert p.name == "sb_1.png"

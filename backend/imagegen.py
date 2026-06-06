@@ -39,11 +39,11 @@ def build_image_prompt(image_prompt: str, style_desc: str, rel_out: str) -> str:
 
 
 def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
-                 *, retries: int = 2, on_line=None) -> dict:
-    """레퍼런스 1장 생성. rate limit 시 백오프 재시도. 반환 {status, path|error}."""
-    images_dir = proj_dir / "images"
-    images_dir.mkdir(parents=True, exist_ok=True)
-    out = versioned_path(images_dir, Path(rel_out).name)
+                 *, subdir: str = "images", retries: int = 2, on_line=None) -> dict:
+    """레퍼런스/스토리보드 1장 생성. subdir로 출력 폴더 분리(images|storyboard). rate limit 백오프."""
+    out_base = proj_dir / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    out = versioned_path(out_base, Path(rel_out).name)
     rel = out.relative_to(proj_dir).as_posix()
     prompt = build_image_prompt(image_prompt, load_style(), rel)
     last = ""
