@@ -102,3 +102,34 @@ def test_projects_file_rejects_absolute(tmp_path):
     code, body = handle_request("GET", "/api/projects/file",
                                 {"project_id": "p1", "name": "/etc/hosts"}, None, ctx)
     assert code == 400
+
+
+def test_images_generate_from_references(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "references.json").write_text(
+        '{"project_id":"p","references":[{"id":"ref_1","subject":"차","image_prompt":"전기차"}]}',
+        encoding="utf-8")
+
+    def fake_gen(proj_dir, rel_out, image_prompt, **kw):
+        out = proj_dir / "images" / rel_out
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(r.imagegen, "generate_one", fake_gen)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/images/generate", {},
+                                {"project_id": "p"}, ctx)
+    assert code == 200
+    assert body["generated"] == 1
+
+
+def test_images_list(tmp_path):
+    proj = tmp_path / "p"; (proj / "images").mkdir(parents=True)
+    (proj / "images" / "ref_1.png").write_bytes(b"\x89PNG")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/images/list",
+                                {"project_id": "p"}, None, ctx)
+    assert code == 200
+    assert "ref_1.png" in body["images"]

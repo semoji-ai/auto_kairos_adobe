@@ -4,7 +4,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline
+from backend import projects, skills_cfg, sessions, pipeline, imagegen
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -87,6 +87,39 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             jobs.set_status(jid, "failed", error=f"{res.get('stage')}: {res.get('error')}")
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
                      "completed": res.get("completed", [])}
+
+    if method == "POST" and p == "/api/images/generate":
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        refs_fp = proj_dir / "references.json"
+        if not refs_fp.exists():
+            return 422, {"error": "references.json 없음 — reference-list 먼저 실행"}
+        import json as _json
+        refs = _json.loads(refs_fp.read_text(encoding="utf-8")).get("references", [])
+        jobs = ctx["jobs"]
+        jid = jobs.create("images", pid)
+        done = 0
+        for ref in refs:
+            rel = f"{ref['id']}.png"
+            res = imagegen.generate_one(proj_dir, rel, ref["image_prompt"],
+                                        on_line=lambda ln: jobs.append_log(jid, ln))
+            if res["status"] == "completed":
+                done += 1
+            else:
+                jobs.append_log(jid, f"FAIL {ref['id']}: {res.get('error')}")
+        jobs.set_status(jid, "completed" if done else "failed",
+                        artifact_paths=[str(proj_dir / "images")])
+        return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
+                     "generated": done, "total": len(refs)}
+
+    if method == "GET" and p == "/api/images/list":
+        pid = query.get("project_id", "")
+        images_dir = root / pid / "images"
+        if not images_dir.is_dir():
+            return 200, {"images": []}
+        names = sorted(f.name for f in images_dir.glob("*.png"))
+        return 200, {"images": names, "dir": str(images_dir)}
 
     if method == "GET" and p == "/api/projects/file":
         pid = query.get("project_id", "")
