@@ -158,6 +158,32 @@ function showGallery() {
     });
 }
 
+function genStoryboard() {
+  if (!SELECTED_PROJECT) { $("storyboard").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("storyboard").textContent = "스토리보드 생성 중... (씬별 codex, 수 분)";
+  fetch(BACKEND + "/api/storyboard/generate", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "completed") { $("storyboard").textContent = "실패/일부: " + JSON.stringify(j); }
+      return showStoryboard();
+    })
+    .catch(function (e) { $("storyboard").textContent = "오류: " + e; });
+}
+
+function showStoryboard() {
+  fetch(BACKEND + "/api/storyboard/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var dir = j.dir || "", imgs = j.images || [];
+      if (!imgs.length) { $("storyboard").textContent = "(스토리보드 없음)"; return; }
+      $("storyboard").innerHTML = imgs.map(function (n) {
+        return '<img src="file://' + dir + '/' + n + '" style="width:120px;height:auto;margin:3px;border-radius:4px;" title="' + n + '">';
+      }).join("");
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   $("btnHealth").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
@@ -166,4 +192,6 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnDecompose").addEventListener("click", decompose);
   $("btnRefList").addEventListener("click", makeReferences);
   $("btnGenImages").addEventListener("click", genImages);
+  $("btnRefreshGallery").addEventListener("click", showGallery);
+  $("btnGenStoryboard").addEventListener("click", genStoryboard);
 });
