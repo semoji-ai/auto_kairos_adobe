@@ -84,6 +84,47 @@ def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
     return {"transparent_ratio": float(mask.sum()) / mask.size}
 
 
+def build_layer_prompt(layer_kind: str, style_desc: str, rel_out: str) -> str:
+    head = f"{style_desc}\n\n## 레이어 분리 지시\n첨부한 scene 이미지를 레퍼런스로 사용한다."
+    if layer_kind == "character":
+        body = ("등장 인물(캐릭터)들만 동일한 포즈·외형·위치로 다시 그리고, "
+                "인물 외 모든 영역은 순수 마젠타 단색(#FF00FF)으로 채운다.")
+    else:  # background
+        body = ("인물(캐릭터)을 모두 제거하고, 배경·환경·공간만 자연스럽게 채워서 그린다. "
+                "인물이 있던 자리는 배경으로 메운다.")
+    return (f"{head} {body}\nimage_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. "
+            f"텍스트 없음. 저장되면 OK만 답해.")
+
+
+def generate_layer(proj_dir, scene_image, rel_out: str, layer_kind: str,
+                   *, subdir: str = "layers", retries: int = 2, on_line=None) -> dict:
+    """씬 레퍼런스(-i) + layer_kind로 레이어 재생성. character는 마젠타→투명 후처리."""
+    out_base = proj_dir / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    raw = versioned_path(out_base, Path(rel_out).name)
+    rel = raw.relative_to(proj_dir).as_posix()
+    prompt = build_layer_prompt(layer_kind, load_style(), rel)
+    last = ""
+    for attempt in range(retries + 1):
+        captured = []
+        res = run_skill(
+            prompt, proj_dir, sandbox="workspace-write",
+            images=[str(scene_image)],
+            output_last=str(proj_dir / ".imagegen_last.txt"),
+            on_line=lambda ln: (captured.append(ln), on_line and on_line(ln)),
+        )
+        last = "\n".join(captured)
+        if res["returncode"] == 0 and raw.exists():
+            if layer_kind == "character":
+                chroma_key_magenta(raw, raw)
+            return {"status": "completed", "path": str(raw), "layer": layer_kind}
+        if is_rate_limited(last) and attempt < retries:
+            time.sleep(20 * (attempt + 1))
+            continue
+        break
+    return {"status": "failed", "error": "rate_limit_or_no_file", "layer": layer_kind}
+
+
 def generate_many(proj_dir: Path, items: list, *, subdir: str = "images",
                   concurrency: int = 4, on_event=None) -> dict:
     """items=[(rel_out, image_prompt), ...] 를 동시에 생성. 각자 generate_one(백오프 내장).

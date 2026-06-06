@@ -36,6 +36,17 @@ def test_versioned_path_in_subdir_concept(tmp_path):
     assert p.name == "sb_1.png"
 
 
+def test_build_layer_prompt_character():
+    p = imagegen.build_layer_prompt("character", "STYLE", "char_1.png")
+    assert "인물" in p and "마젠타" in p and "char_1.png" in p and "STYLE" in p
+
+
+def test_build_layer_prompt_background():
+    p = imagegen.build_layer_prompt("background", "STYLE", "bg_1.png")
+    assert "배경" in p and "bg_1.png" in p
+    assert "마젠타" not in p
+
+
 def test_generate_many_runs_all(tmp_path, monkeypatch):
     from backend import imagegen as ig
     calls = []
