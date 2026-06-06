@@ -33,3 +33,14 @@ def test_build_cmd_with_sandbox():
 def test_build_cmd_no_sandbox_by_default():
     cmd = build_codex_cmd()
     assert "-s" not in cmd
+
+
+def test_build_cmd_with_images():
+    cmd = build_codex_cmd(images=["/a/scene.png"])
+    assert "-i" in cmd
+    assert cmd[cmd.index("-i") + 1] == "/a/scene.png"
+
+
+def test_build_cmd_multiple_images():
+    cmd = build_codex_cmd(images=["/a.png", "/b.png"])
+    assert cmd.count("-i") == 2

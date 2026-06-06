@@ -14,6 +14,7 @@ def build_codex_cmd(
     json_events: bool = True,
     skip_git: bool = True,
     sandbox: str | None = None,
+    images: list | None = None,
 ) -> list[str]:
     """codex exec 커맨드 리스트. 프롬프트는 stdin으로 넘기므로 positional은 '-'.
     session_id 있으면 resume."""
@@ -22,6 +23,9 @@ def build_codex_cmd(
         cmd += ["resume", session_id]
     if sandbox:
         cmd += ["-s", sandbox]
+    if images:
+        for img in images:
+            cmd += ["-i", img]
     if skip_git:
         cmd += ["--skip-git-repo-check"]
     if json_events:
@@ -54,13 +58,14 @@ def run_skill(
     output_schema: str | None = None,
     output_last: str | None = None,
     sandbox: str | None = None,
+    images: list | None = None,
     on_line=None,
 ) -> dict:
     """codex exec 실행. 프롬프트는 stdin으로 전달. 각 stdout 라인을 on_line(line)으로 흘림.
     반환: {returncode, session_id, output_last}."""
     cmd = build_codex_cmd(
         session_id=session_id, output_schema=output_schema,
-        output_last=output_last, sandbox=sandbox,
+        output_last=output_last, sandbox=sandbox, images=images,
     )
     proc = subprocess.Popen(
         cmd, cwd=str(cwd),
