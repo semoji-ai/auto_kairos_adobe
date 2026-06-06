@@ -15,3 +15,5 @@ projects/*/strategy/
 projects/*/research_reports/
 projects/*/research_targeted/
 projects/*/drafts/
+projects/*/.imagegen_last.txt
+projects/*/images/
