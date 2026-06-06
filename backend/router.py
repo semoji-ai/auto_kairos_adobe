@@ -99,15 +99,12 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         refs = _json.loads(refs_fp.read_text(encoding="utf-8")).get("references", [])
         jobs = ctx["jobs"]
         jid = jobs.create("images", pid)
-        done = 0
-        for ref in refs:
-            rel = f"{ref['id']}.png"
-            res = imagegen.generate_one(proj_dir, rel, ref["image_prompt"],
-                                        on_line=lambda ln: jobs.append_log(jid, ln))
-            if res["status"] == "completed":
-                done += 1
-            else:
-                jobs.append_log(jid, f"FAIL {ref['id']}: {res.get('error')}")
+        conc = int(b.get("concurrency", 4))
+        items = [(f"{ref['id']}.png", ref["image_prompt"]) for ref in refs]
+        results = imagegen.generate_many(
+            proj_dir, items, subdir="images", concurrency=conc,
+            on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
+        done = sum(1 for r in results.values() if r["status"] == "completed")
         jobs.set_status(jid, "completed" if done else "failed",
                         artifact_paths=[str(proj_dir / "images")])
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
@@ -132,17 +129,16 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         scenes = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
         jobs = ctx["jobs"]
         jid = jobs.create("storyboard", pid)
-        done = 0
+        conc = int(b.get("concurrency", 4))
+        items = []
         for sc in scenes:
-            n = sc.get("sceneNumber", done + 1)
+            n = sc.get("sceneNumber", len(items) + 1)
             prompt = sc.get("image_prompt") or sc.get("visual_summary") or sc.get("narration", "")
-            res = imagegen.generate_one(proj_dir, f"sb_{n}.png", prompt,
-                                        subdir="storyboard",
-                                        on_line=lambda ln: jobs.append_log(jid, ln))
-            if res["status"] == "completed":
-                done += 1
-            else:
-                jobs.append_log(jid, f"FAIL sb_{n}: {res.get('error')}")
+            items.append((f"sb_{n}.png", prompt))
+        results = imagegen.generate_many(
+            proj_dir, items, subdir="storyboard", concurrency=conc,
+            on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
+        done = sum(1 for r in results.values() if r["status"] == "completed")
         jobs.set_status(jid, "completed" if done else "failed",
                         artifact_paths=[str(proj_dir / "storyboard")])
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"],

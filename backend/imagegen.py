@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from backend.codex_runner import run_skill
@@ -62,3 +63,23 @@ def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
             continue
         break
     return {"status": "failed", "error": "rate_limit_or_no_file", "log_tail": last[-200:]}
+
+
+def generate_many(proj_dir: Path, items: list, *, subdir: str = "images",
+                  concurrency: int = 4, on_event=None) -> dict:
+    """items=[(rel_out, image_prompt), ...] 를 동시에 생성. 각자 generate_one(백오프 내장).
+    반환: {rel_out: result_dict}. concurrency는 최소 1."""
+    workers = max(1, int(concurrency))
+    results = {}
+
+    def _work(item):
+        rel, prompt = item
+        res = generate_one(proj_dir, rel, prompt, subdir=subdir)
+        if on_event:
+            on_event(rel, res)
+        return rel, res
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for rel, res in ex.map(_work, items):
+            results[rel] = res
+    return results
