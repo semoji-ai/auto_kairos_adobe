@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from pathlib import Path
 
 ARTIFACT_FILES = ["plan.md", "final_manuscript.md", "scenes.json", "pd_notebook.md"]
@@ -32,6 +33,8 @@ def _status(arts: dict) -> str:
         return "decomposed"
     if arts.get("final_manuscript.md"):
         return "manuscript"
+    if arts.get("plan.md"):
+        return "planned"
     return "empty"
 
 
@@ -58,6 +61,18 @@ def scan_projects(root: Path) -> list[dict]:
             "artifacts": arts,
         })
     return rows
+
+
+def create_project(root: Path, title: str, *, channel: str = "semoji",
+                   duration: str = "1분", tone: str = "흥미로운 다큐") -> dict:
+    """projects/{id}/plan.md 생성. id=uuid8."""
+    root.mkdir(parents=True, exist_ok=True)
+    pid = uuid.uuid4().hex[:8]
+    d = root / pid
+    d.mkdir(parents=True, exist_ok=False)
+    (d / "plan.md").write_text(
+        f"# {title}\n\n채널: {channel}\n분량: {duration}\n톤: {tone}\n", encoding="utf-8")
+    return {"project_id": pid, "title": title, "status": "planned"}
 
 
 def load_project(root: Path, project_id: str) -> dict:

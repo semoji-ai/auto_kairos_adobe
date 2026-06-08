@@ -40,3 +40,20 @@ def test_load_project_next_actions(tmp_path):
     info = projects.load_project(tmp_path, "p1")
     assert info["project_id"] == "p1"
     assert "scene-decompose" in info["next_actions"]
+
+
+def test_create_project(tmp_path):
+    info = projects.create_project(tmp_path, "테슬라 역사", channel="semoji", duration="1분")
+    pid = info["project_id"]
+    assert (tmp_path / pid / "plan.md").exists()
+    plan = (tmp_path / pid / "plan.md").read_text(encoding="utf-8")
+    assert "테슬라 역사" in plan and "semoji" in plan and "1분" in plan
+    row = next(r for r in projects.scan_projects(tmp_path) if r["project_id"] == pid)
+    assert row["status"] == "planned"
+
+
+def test_status_planned_when_plan_only(tmp_path):
+    d = tmp_path / "x"; d.mkdir()
+    (d / "plan.md").write_text("# T", encoding="utf-8")
+    row = next(r for r in projects.scan_projects(tmp_path) if r["project_id"] == "x")
+    assert row["status"] == "planned"
