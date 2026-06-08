@@ -252,6 +252,7 @@ function importToAE(dir, names, folderName, statusElId) {
       note.id = statusElId + "_note";
       note.style.cssText = "color:#7fd17f;font-size:11px;margin:4px 0;";
       var el = $(statusElId);
+      if (!el) { return; }
       el.parentNode.insertBefore(note, el);
     }
     note.textContent = "AE 가져오기: " + r;

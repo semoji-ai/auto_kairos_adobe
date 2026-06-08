@@ -33,5 +33,8 @@ function akImportToProject(pathsJson, folderName) {
         }
         app.endUndoGroup();
         return "OK: " + n + "개 import -> auto_kairos/" + folderName;
-    } catch (e) { return "ERROR: " + e.toString(); }
+    } catch (e) {
+        try { app.endUndoGroup(); } catch (_) {}
+        return "ERROR: " + e.toString();
+    }
 }
