@@ -36,6 +36,17 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         except FileNotFoundError as e:
             return 404, {"error": str(e)}
 
+    if method == "POST" and p == "/api/projects/create":
+        b = body or {}
+        title = (b.get("title") or "").strip()
+        if not title:
+            return 400, {"error": "title 필요"}
+        info = projects.create_project(
+            root, title,
+            channel=b.get("channel", "semoji"),
+            duration=b.get("duration", "1분"))
+        return 200, info
+
     if method == "POST" and p == "/api/skills/run":
         b = body or {}
         pid, skill = b.get("project_id", ""), b.get("skill_name", "")

@@ -207,3 +207,18 @@ def test_layers_generate_requires_storyboard(tmp_path):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/layers/generate", {}, {"project_id": "p"}, ctx)
     assert code == 422
+
+
+def test_projects_create(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/projects/create", {},
+                                {"title": "새 영상", "channel": "semoji", "duration": "1분"}, ctx)
+    assert code == 200
+    pid = body["project_id"]
+    assert (tmp_path / pid / "plan.md").exists()
+
+
+def test_projects_create_requires_title(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/projects/create", {}, {"title": ""}, ctx)
+    assert code == 400
