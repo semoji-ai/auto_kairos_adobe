@@ -183,6 +183,7 @@ function genStoryboard() {
 }
 
 function showStoryboard() {
+  if (!SELECTED_PROJECT) { $("storyboard").textContent = "프로젝트를 먼저 선택하세요."; return; }
   fetch(BACKEND + "/api/storyboard/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
     .then(function (r) { return r.json(); })
     .then(function (j) {
@@ -218,6 +219,7 @@ function genLayers() {
 }
 
 function showLayers() {
+  if (!SELECTED_PROJECT) { $("layers").textContent = "프로젝트를 먼저 선택하세요."; return; }
   fetch(BACKEND + "/api/layers/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
     .then(function (r) { return r.json(); })
     .then(function (j) {
@@ -306,7 +308,9 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnGenImages").addEventListener("click", genImages);
   $("btnRefreshGallery").addEventListener("click", showGallery);
   $("btnGenStoryboard").addEventListener("click", genStoryboard);
+  $("btnRefreshStoryboard").addEventListener("click", showStoryboard);
   $("btnGenLayers").addEventListener("click", genLayers);
+  $("btnRefreshLayers").addEventListener("click", showLayers);
   $("btnImportImages").addEventListener("click", importAllImages);
   $("btnImportStoryboard").addEventListener("click", importAllStoryboard);
   $("btnImportLayers").addEventListener("click", importAllLayers);
