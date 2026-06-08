@@ -69,6 +69,7 @@ function loadProjects() {
         links[i].addEventListener("click", function (e) {
           e.preventDefault();
           SELECTED_PROJECT = this.getAttribute("data-pid");
+          $("current").textContent = "현재 프로젝트: " + this.textContent;
           var all = $("projects").querySelectorAll("a");
           for (var k = 0; k < all.length; k++) { all[k].style.fontWeight = "normal"; }
           this.style.fontWeight = "bold";
@@ -277,7 +278,25 @@ function importAllLayers() {
              "layers", "layers");
 }
 
+function createProject() {
+  var title = ($("newTitle").value || "").trim();
+  if (!title) { $("current").textContent = "제목을 입력하세요."; return; }
+  fetch(BACKEND + "/api/projects/create", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: title, channel: $("newStyle").value, duration: $("newDuration").value }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.project_id) { $("current").textContent = "생성 실패: " + JSON.stringify(j); return; }
+      SELECTED_PROJECT = j.project_id;
+      $("current").textContent = "현재 프로젝트: " + j.title + " (" + j.project_id + ") [planned]";
+      $("newTitle").value = "";
+      loadProjects();
+    })
+    .catch(function (e) { $("current").textContent = "오류: " + e; });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+  $("btnCreate").addEventListener("click", createProject);
   $("btnHealth").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
   $("btnProjects").addEventListener("click", loadProjects);
