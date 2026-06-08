@@ -153,8 +153,17 @@ function showGallery() {
       var imgs = j.images || [];
       if (!imgs.length) { $("gallery").textContent = "(이미지 없음)"; return; }
       $("gallery").innerHTML = imgs.map(function (n) {
-        return '<img src="file://' + dir + '/' + n + '" style="width:90px;height:auto;margin:3px;border-radius:4px;" title="' + n + '">';
+        return '<img src="file://' + dir + '/' + n + '" style="width:90px;height:auto;margin:3px;border-radius:4px;cursor:pointer;" title="' + n + '">';
       }).join("");
+      $("gallery").setAttribute("data-dir", dir);
+      $("gallery").setAttribute("data-names", imgs.join(","));
+      var gi = $("gallery").querySelectorAll("img");
+      for (var x = 0; x < gi.length; x++) {
+        gi[x].addEventListener("click", function () {
+          importToAE($("gallery").getAttribute("data-dir"),
+                     [this.getAttribute("title")], "references", "gallery");
+        });
+      }
     });
 }
 
@@ -179,8 +188,17 @@ function showStoryboard() {
       var dir = j.dir || "", imgs = j.images || [];
       if (!imgs.length) { $("storyboard").textContent = "(스토리보드 없음)"; return; }
       $("storyboard").innerHTML = imgs.map(function (n) {
-        return '<img src="file://' + dir + '/' + n + '" style="width:120px;height:auto;margin:3px;border-radius:4px;" title="' + n + '">';
+        return '<img src="file://' + dir + '/' + n + '" style="width:120px;height:auto;margin:3px;border-radius:4px;cursor:pointer;" title="' + n + '">';
       }).join("");
+      $("storyboard").setAttribute("data-dir", dir);
+      $("storyboard").setAttribute("data-names", imgs.join(","));
+      var si = $("storyboard").querySelectorAll("img");
+      for (var x = 0; x < si.length; x++) {
+        si[x].addEventListener("click", function () {
+          importToAE($("storyboard").getAttribute("data-dir"),
+                     [this.getAttribute("title")], "storyboard", "storyboard");
+        });
+      }
     });
 }
 
@@ -205,9 +223,57 @@ function showLayers() {
       var dir = j.dir || "", imgs = j.images || [];
       if (!imgs.length) { $("layers").textContent = "(레이어 없음)"; return; }
       $("layers").innerHTML = imgs.map(function (n) {
-        return '<img src="file://' + dir + '/' + n + '" style="width:100px;height:auto;margin:3px;border:1px solid #444;border-radius:4px;background:#666;" title="' + n + '">';
+        return '<img src="file://' + dir + '/' + n + '" style="width:100px;height:auto;margin:3px;border:1px solid #444;border-radius:4px;background:#666;cursor:pointer;" title="' + n + '">';
       }).join("");
+      $("layers").setAttribute("data-dir", dir);
+      $("layers").setAttribute("data-names", imgs.join(","));
+      var li = $("layers").querySelectorAll("img");
+      for (var x = 0; x < li.length; x++) {
+        li[x].addEventListener("click", function () {
+          importToAE($("layers").getAttribute("data-dir"),
+                     [this.getAttribute("title")], "layers", "layers");
+        });
+      }
     });
+}
+
+function importToAE(dir, names, folderName, statusElId) {
+  if (!names || !names.length) { return; }
+  var paths = names.map(function (n) { return dir + "/" + n; });
+  var jsx;
+  try { jsx = readLocal("./jsx/import_to_ae.jsx"); }
+  catch (e) { $(statusElId).textContent = "jsx 로드 실패: " + e; return; }
+  var call = "\nakImportToProject(" + JSON.stringify(JSON.stringify(paths)) + ", " +
+             JSON.stringify(folderName) + ");";
+  evalScript(jsx + call).then(function (r) {
+    var note = document.getElementById(statusElId + "_note");
+    if (!note) {
+      note = document.createElement("div");
+      note.id = statusElId + "_note";
+      note.style.cssText = "color:#7fd17f;font-size:11px;margin:4px 0;";
+      var el = $(statusElId);
+      el.parentNode.insertBefore(note, el);
+    }
+    note.textContent = "AE 가져오기: " + r;
+  });
+}
+
+function importAllImages() {
+  importToAE($("gallery").getAttribute("data-dir") || "",
+             ($("gallery").getAttribute("data-names") || "").split(",").filter(Boolean),
+             "references", "gallery");
+}
+
+function importAllStoryboard() {
+  importToAE($("storyboard").getAttribute("data-dir") || "",
+             ($("storyboard").getAttribute("data-names") || "").split(",").filter(Boolean),
+             "storyboard", "storyboard");
+}
+
+function importAllLayers() {
+  importToAE($("layers").getAttribute("data-dir") || "",
+             ($("layers").getAttribute("data-names") || "").split(",").filter(Boolean),
+             "layers", "layers");
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -221,4 +287,7 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnRefreshGallery").addEventListener("click", showGallery);
   $("btnGenStoryboard").addEventListener("click", genStoryboard);
   $("btnGenLayers").addEventListener("click", genLayers);
+  $("btnImportImages").addEventListener("click", importAllImages);
+  $("btnImportStoryboard").addEventListener("click", importAllStoryboard);
+  $("btnImportLayers").addEventListener("click", importAllLayers);
 });
