@@ -111,11 +111,9 @@ function loadProjects() {
       for (var i = 0; i < links.length; i++) {
         links[i].addEventListener("click", function (e) {
           e.preventDefault();
-          SELECTED_PROJECT = this.getAttribute("data-pid");
+          var pid = this.getAttribute("data-pid");
           $("current").textContent = "현재 프로젝트: " + this.textContent;
-          var all = $("projects").querySelectorAll("a");
-          for (var k = 0; k < all.length; k++) { all[k].style.fontWeight = "normal"; }
-          this.style.fontWeight = "bold";
+          enterProject(pid, this.textContent);   // nav.js — 상세 뷰로 입장
         });
       }
     })
@@ -334,6 +332,7 @@ function createProject() {
     .then(function (j) {
       if (!j.project_id) { $("current").textContent = "생성 실패: " + JSON.stringify(j); return; }
       SELECTED_PROJECT = j.project_id;
+      enterProject(j.project_id, j.title + " (" + j.project_id + ") [planned]");
       $("current").textContent = "현재 프로젝트: " + j.title + " (" + j.project_id + ") [planned]";
       $("newTitle").value = "";
       loadProjects();
