@@ -165,7 +165,7 @@ def test_storyboard_passes_character_ref(tmp_path, monkeypatch):
     import backend.router as r
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text(
-        '{"scenes":[{"sceneNumber":1,"image_prompt":"장면1"}]}', encoding="utf-8")
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sidAA001","image_prompt":"장면1"}]}', encoding="utf-8")
     (proj / "characters").mkdir()
     (proj / "characters" / "char_지오.png").write_bytes(b"\x89PNG")
     seen = {}
@@ -197,8 +197,8 @@ def test_storyboard_generate_from_scenes(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text(
         '{"project_id":"p","total_scenes":2,"scenes":['
-        '{"sceneNumber":1,"title":"A","narration":"가","image_prompt":"장면1"},'
-        '{"sceneNumber":2,"title":"B","narration":"나","image_prompt":"장면2"}]}',
+        '{"sceneNumber":1,"sceneId":"sidB0001","title":"A","narration":"가","image_prompt":"장면1"},'
+        '{"sceneNumber":2,"sceneId":"sidB0002","title":"B","narration":"나","image_prompt":"장면2"}]}',
         encoding="utf-8")
 
     def fake_gen(proj_dir, rel_out, image_prompt, **kw):
@@ -237,18 +237,18 @@ def test_storyboard_list(tmp_path):
 def test_layers_generate(tmp_path, monkeypatch):
     import backend.router as r
     proj = tmp_path / "p"; (proj / "storyboard").mkdir(parents=True)
-    (proj / "storyboard" / "sb_1.png").write_bytes(b"\x89PNG")
+    (proj / "storyboard" / "sb_sidL001.png").write_bytes(b"\x89PNG")
     (proj / "scenes.json").write_text(
-        '{"project_id":"p","total_scenes":1,"scenes":[{"sceneNumber":1,"title":"A","narration":"가"}]}',
+        '{"project_id":"p","total_scenes":1,"scenes":[{"sceneNumber":1,"sceneId":"sidL001","title":"A","narration":"가"}]}',
         encoding="utf-8")
 
     def fake_layers(proj_dir, items, **kw):
         out = {}
-        for n, img in items:
+        for sid, img in items:
             ld = proj_dir / "layers"; ld.mkdir(parents=True, exist_ok=True)
-            (ld / f"bg_{n}.png").write_bytes(b"\x89PNG")
-            (ld / f"char_{n}.png").write_bytes(b"\x89PNG")
-            out[n] = {"background": {"status": "completed"}, "character": {"status": "completed"}}
+            (ld / f"bg_{sid}.png").write_bytes(b"\x89PNG")
+            (ld / f"char_{sid}.png").write_bytes(b"\x89PNG")
+            out[sid] = {"background": {"status": "completed"}, "character": {"status": "completed"}}
         return out
 
     monkeypatch.setattr(r.imagegen, "generate_scene_layers", fake_layers)

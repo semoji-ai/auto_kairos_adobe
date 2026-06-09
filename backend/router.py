@@ -237,8 +237,8 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         scenes_fp = proj_dir / "scenes.json"
         if not scenes_fp.exists():
             return 422, {"error": "scenes.json 없음 — 씬 분해(scene-decompose) 먼저 실행"}
-        import json as _json
-        scene_list = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
+        data = scenes.load_scenes(proj_dir)   # sceneId 보장 + enrich
+        scene_list = data["scenes"]
         jobs = ctx["jobs"]
         jid = jobs.create("storyboard", pid)
         conc = int(b.get("concurrency", 4))
@@ -250,9 +250,9 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
                 character_ref = str(cref)
         items = []
         for sc in scene_list:
-            n = sc.get("sceneNumber", len(items) + 1)
+            sid = sc.get("sceneId")
             prompt = sc.get("image_prompt") or sc.get("visual_summary") or sc.get("narration", "")
-            items.append((f"sb_{n}.png", prompt))
+            items.append((f"sb_{sid}.png", prompt))
         results = imagegen.generate_many(
             proj_dir, items, subdir="storyboard", concurrency=conc, character_ref=character_ref,
             on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
@@ -279,27 +279,28 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         if not scenes_fp.exists() or not sb_dir.is_dir():
             return 422, {"error": "scenes.json + storyboard/ 필요 — 씬분해·스토리보드 먼저"}
         import json as _json
-        scene_list = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
-        items = []
-        for sc in scene_list:
-            n = sc.get("sceneNumber")
-            sb = sb_dir / f"sb_{n}.png"
-            if sb.exists():
-                items.append((n, sb))
+        data = scenes.load_scenes(proj_dir)
+        items = []        # (sid, sb_path)
+        sid_to_n = {}
+        for sc in data["scenes"]:
+            sid, n = sc.get("sceneId"), sc.get("sceneNumber")
+            if sc.get("_image"):
+                items.append((sid, proj_dir / sc["_image"]))
+                sid_to_n[sid] = n
         if not items:
-            return 422, {"error": "storyboard 프레임 없음(sb_N.png)"}
+            return 422, {"error": "씬 이미지 없음(sb_{sid}.png)"}
         jobs = ctx["jobs"]
         jid = jobs.create("layers", pid)
         conc = int(b.get("concurrency", 4))
         results = imagegen.generate_scene_layers(
             proj_dir, items, concurrency=conc,
-            on_event=lambda n, kind, res: jobs.append_log(jid, f"scene{n}/{kind}: {res['status']}"))
+            on_event=lambda key, kind, res: jobs.append_log(jid, f"{key}/{kind}: {res['status']}"))
         ok = sum(1 for v in results.values()
                  if v.get("background", {}).get("status") == "completed"
                  and v.get("character", {}).get("status") == "completed")
         layers = {"project_id": pid, "scenes": [
-            {"sceneNumber": n, "background": f"layers/bg_{n}.png", "character": f"layers/char_{n}.png"}
-            for n, _ in items]}
+            {"sceneNumber": sid_to_n[sid], "background": f"layers/bg_{sid}.png",
+             "character": f"layers/char_{sid}.png"} for sid in sid_to_n]}
         (proj_dir / "layers.json").write_text(_json.dumps(layers, ensure_ascii=False, indent=2), encoding="utf-8")
         jobs.set_status(jid, "completed" if ok else "failed", artifact_paths=[str(proj_dir / "layers.json")])
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"], "scenes": ok, "total": len(items)}
