@@ -299,3 +299,58 @@ def test_projects_files_missing_project(tmp_path):
                                 {"project_id": "nope"}, None, ctx)
     assert code == 200
     assert body["groups"] == []
+
+
+def test_scenes_get(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"project_id":"p","scenes":[{"sceneNumber":1,"title":"A","narration":"가","image_prompt":"장면1"}]}',
+        encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/scenes", {"project_id": "p"}, None, ctx)
+    assert code == 200
+    assert body["scenes"][0]["sceneNumber"] == 1
+    assert body["dir"] == str(proj)
+
+
+def test_scenes_update_narration(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"narration":"옛","image_prompt":"x"}]}', encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/narration", {},
+                                {"project_id": "p", "sceneNumber": 1, "narration": "새"}, ctx)
+    assert code == 200 and body["ok"] is True
+    import json as _j
+    assert _j.loads((proj / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]["narration"] == "새"
+
+
+def test_scenes_image_single(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":3,"image_prompt":"전기차 공장"}]}', encoding="utf-8")
+    seen = {}
+
+    def fake_one(proj_dir, rel_out, image_prompt, *, subdir="images", character_ref=None, **kw):
+        seen.update(rel_out=rel_out, subdir=subdir, prompt=image_prompt, character_ref=character_ref)
+        return {"status": "completed", "path": str(proj_dir / subdir / rel_out)}
+
+    monkeypatch.setattr(r.imagegen, "generate_one", fake_one)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/image", {},
+                                {"project_id": "p", "sceneNumber": 3, "character": "지오"}, ctx)
+    assert code == 200 and body["result"]["status"] == "completed"
+    assert seen["rel_out"] == "sb_3.png" and seen["subdir"] == "storyboard"
+    assert seen["prompt"] == "전기차 공장"
+    # 캐릭터 시트가 없으면 character_ref=None (파일 미존재)
+    assert seen["character_ref"] is None
+
+
+def test_scenes_image_unknown_scene(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/image", {},
+                                {"project_id": "p", "sceneNumber": 9}, ctx)
+    assert code == 404

@@ -4,7 +4,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -127,6 +127,48 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         names = sorted(f.name for f in cd.glob("*.png"))
         return 200, {"images": names, "dir": str(cd)}
 
+    if method == "GET" and p == "/api/scenes":
+        pid = query.get("project_id", "")
+        return 200, scenes.load_scenes(root / pid)
+
+    if method == "POST" and p == "/api/scenes/narration":
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        sn = b.get("sceneNumber")
+        res = scenes.update_narration(proj_dir, sn, b.get("narration", ""))
+        return (200, res) if res.get("ok") else (404, res)
+
+    if method == "POST" and p == "/api/scenes/image":
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        sn = b.get("sceneNumber")
+        data = scenes.load_scenes(proj_dir)
+        scene = next((s for s in data["scenes"] if s.get("sceneNumber") == sn), None)
+        if not scene:
+            return 404, {"error": f"scene {sn} 없음"}
+        char = (b.get("character") or "").strip()
+        character_ref = None
+        if char:
+            cref = proj_dir / "characters" / f"char_{char}.png"
+            if cref.exists():
+                character_ref = str(cref)
+        jobs = ctx["jobs"]
+        jid = jobs.create("scene-image", pid)
+        res = imagegen.generate_one(
+            proj_dir, f"sb_{sn}.png", scene.get("image_prompt", "") or scene.get("visual_summary", ""),
+            subdir="storyboard", character_ref=character_ref,
+            on_line=lambda ln: jobs.append_log(jid, ln))
+        ok = res.get("status") == "completed"
+        jobs.set_status(jid, "completed" if ok else "failed",
+                        artifact_paths=[str(proj_dir / "storyboard")])
+        return 200, {"job_id": jid, "result": res}
+
     if method == "POST" and p == "/api/images/generate":
         b = body or {}
         pid = b.get("project_id", "")
@@ -165,7 +207,7 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         if not scenes_fp.exists():
             return 422, {"error": "scenes.json 없음 — 씬 분해(scene-decompose) 먼저 실행"}
         import json as _json
-        scenes = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
+        scene_list = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
         jobs = ctx["jobs"]
         jid = jobs.create("storyboard", pid)
         conc = int(b.get("concurrency", 4))
@@ -176,7 +218,7 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             if cref.exists():
                 character_ref = str(cref)
         items = []
-        for sc in scenes:
+        for sc in scene_list:
             n = sc.get("sceneNumber", len(items) + 1)
             prompt = sc.get("image_prompt") or sc.get("visual_summary") or sc.get("narration", "")
             items.append((f"sb_{n}.png", prompt))
@@ -187,7 +229,7 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         jobs.set_status(jid, "completed" if done else "failed",
                         artifact_paths=[str(proj_dir / "storyboard")])
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
-                     "generated": done, "total": len(scenes)}
+                     "generated": done, "total": len(scene_list)}
 
     if method == "GET" and p == "/api/storyboard/list":
         pid = query.get("project_id", "")
@@ -206,9 +248,9 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         if not scenes_fp.exists() or not sb_dir.is_dir():
             return 422, {"error": "scenes.json + storyboard/ 필요 — 씬분해·스토리보드 먼저"}
         import json as _json
-        scenes = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
+        scene_list = _json.loads(scenes_fp.read_text(encoding="utf-8")).get("scenes", [])
         items = []
-        for sc in scenes:
+        for sc in scene_list:
             n = sc.get("sceneNumber")
             sb = sb_dir / f"sb_{n}.png"
             if sb.exists():
