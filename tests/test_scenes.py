@@ -34,6 +34,16 @@ def test_load_scenes_picks_latest_image_version(tmp_path):
     assert s["_image"] == "storyboard/sb_2_v2.png"   # 최신 버전
 
 
+def test_load_scenes_latest_version_numeric_sort(tmp_path):
+    # v10은 v2/v3보다 뒤(숫자 정렬). 사전식이면 v10이 v2 앞에 와서 v3을 최신으로 잘못 고름.
+    d = _proj(tmp_path, [{"sceneNumber": 5, "image_prompt": "x"}])
+    sb = d / "storyboard"; sb.mkdir()
+    for nm in ("sb_5.png", "sb_5_v2.png", "sb_5_v3.png", "sb_5_v10.png"):
+        (sb / nm).write_bytes(b"\x89PNG")
+    s = scenes.load_scenes(d)["scenes"][0]
+    assert s["_image"] == "storyboard/sb_5_v10.png"
+
+
 def test_load_scenes_no_media(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "image_prompt": "x"}])
     s = scenes.load_scenes(d)["scenes"][0]

@@ -10,12 +10,22 @@ def _path(proj_dir: Path) -> Path:
 
 
 def _latest_image(sb_dir: Path, n) -> str | None:
-    """storyboard/sb_{n}.png 및 버전(sb_{n}_v2.png …) 중 최신(이름 정렬 마지막)."""
+    """storyboard/sb_{n}.png 및 버전(sb_{n}_v2.png …) 중 최신.
+    버전 번호로 숫자 정렬(사전식이면 v10이 v2보다 앞서는 버그)."""
     if not sb_dir.is_dir():
         return None
-    cands = sorted(p.name for p in sb_dir.glob(f"sb_{n}.png"))
-    cands += sorted(p.name for p in sb_dir.glob(f"sb_{n}_v*.png"))
-    return f"storyboard/{cands[-1]}" if cands else None
+    files: list[tuple[str, int]] = []
+    if (sb_dir / f"sb_{n}.png").exists():
+        files.append((f"sb_{n}.png", 0))
+    for p in sb_dir.glob(f"sb_{n}_v*.png"):
+        try:
+            files.append((p.name, int(p.name.split("_v")[1].split(".")[0])))
+        except (IndexError, ValueError):
+            pass
+    if not files:
+        return None
+    files.sort(key=lambda x: x[1])
+    return f"storyboard/{files[-1][0]}"
 
 
 def load_scenes(proj_dir: Path) -> dict:
