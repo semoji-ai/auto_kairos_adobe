@@ -4,7 +4,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -168,6 +168,36 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         jobs.set_status(jid, "completed" if ok else "failed",
                         artifact_paths=[str(proj_dir / "storyboard")])
         return 200, {"job_id": jid, "result": res}
+
+    if method == "GET" and p == "/api/media":
+        pid = query.get("project_id", "")
+        return 200, {"items": media.list_media(root / pid)}
+
+    if method == "GET" and p == "/api/search-images":
+        pid = query.get("project_id", "")
+        q = (query.get("q") or "").strip()
+        if not (root / pid).is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        if not q:
+            return 400, {"error": "검색어 필요"}
+        return 200, search.search_images(q, engine=query.get("engine", "serper"))
+
+    if method == "POST" and p == "/api/search-images/save":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        url, name = b.get("url", ""), b.get("name", "")
+        if not url or not name:
+            return 400, {"error": "url, name 필요"}
+        return 200, {"result": search.save_image(proj_dir, url, name)}
+
+    if method == "POST" and p == "/api/scenes/set-image":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        return 200, {"result": media.set_scene_image(proj_dir, b.get("sceneNumber"), b.get("src", ""))}
 
     if method == "POST" and p == "/api/images/generate":
         b = body or {}

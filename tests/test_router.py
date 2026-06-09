@@ -354,3 +354,53 @@ def test_scenes_image_unknown_scene(tmp_path):
     code, body = handle_request("POST", "/api/scenes/image", {},
                                 {"project_id": "p", "sceneNumber": 9}, ctx)
     assert code == 404
+
+
+def test_media_list(tmp_path):
+    proj = tmp_path / "p"; (proj / "images").mkdir(parents=True)
+    (proj / "images" / "a.png").write_bytes(b"\x89PNG")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/media", {"project_id": "p"}, None, ctx)
+    assert code == 200
+    assert body["items"][0]["rel"] == "images/a.png"
+
+
+def test_search_images_endpoint(tmp_path, monkeypatch):
+    import backend.router as r
+    monkeypatch.setattr(r.search, "search_images",
+                        lambda q, engine="serper", count=12: {"images": [{"url": "u", "thumb": "t", "title": "x", "source": engine}]})
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/search-images",
+                                {"project_id": "p", "q": "전기차", "engine": "serper"}, None, ctx)
+    assert code == 200 and body["images"][0]["url"] == "u"
+
+
+def test_search_images_requires_query(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/search-images",
+                                {"project_id": "p", "q": ""}, None, ctx)
+    assert code == 400
+
+
+def test_search_save_endpoint(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    monkeypatch.setattr(r.search, "save_image",
+                        lambda proj_dir, url, name, **kw: {"status": "completed", "rel": "images/search/x.jpg"})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/search-images/save", {},
+                                {"project_id": "p", "url": "http://x/a.jpg", "name": "x.jpg"}, ctx)
+    assert code == 200 and body["result"]["status"] == "completed"
+
+
+def test_scene_set_image_endpoint(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    monkeypatch.setattr(r.media, "set_scene_image",
+                        lambda proj_dir, n, src: {"status": "completed", "rel": f"storyboard/sb_{n}.png"})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/set-image", {},
+                                {"project_id": "p", "sceneNumber": 2, "src": "images/a.png"}, ctx)
+    assert code == 200 and body["result"]["rel"] == "storyboard/sb_2.png"
