@@ -23,17 +23,17 @@ function readLocal(relPath) {
 }
 
 function checkBackend() {
-  $("status").textContent = "확인 중...";
+  $("health").textContent = "확인 중...";
   fetch(BACKEND + "/health")
     .then(function (r) { return r.json(); })
     .then(function (j) {
-      $("status").textContent =
+      $("health").textContent =
         "backend: " + j.backend_status +
         "\ncodex: " + j.codex_status +
         "\nversion: " + j.version;
     })
     .catch(function (e) {
-      $("status").textContent = "연결 실패 — 백엔드(app.py)가 실행 중인지 확인: " + e;
+      $("health").textContent = "연결 실패 — 백엔드(app.py)가 실행 중인지 확인: " + e;
     });
 }
 

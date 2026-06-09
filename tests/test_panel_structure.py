@@ -58,3 +58,11 @@ def test_nav_defines_functions():
 
 def test_main_calls_enterProject():
     assert "enterProject(" in MAIN.read_text(encoding="utf-8")
+
+
+def test_existing_result_boxes_wired():
+    # checkBackend/buildComp가 쓰는 박스가 실제 존재 + main.js 참조 일치(레거시 #status 잔존 금지)
+    html = HTML.read_text(encoding="utf-8")
+    main = MAIN.read_text(encoding="utf-8")
+    assert 'id="health"' in html and 'id="aeresult"' in html
+    assert '$("status")' not in main   # #status → #health 로 교체됨
