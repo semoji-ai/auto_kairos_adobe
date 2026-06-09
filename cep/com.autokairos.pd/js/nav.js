@@ -14,6 +14,7 @@ function enterProject(pid, label) {
   _$("view-list").hidden = true;
   _$("view-detail").hidden = false;
   switchTab("planning");
+  if (typeof loadPlanningFiles === "function") loadPlanningFiles();
 }
 
 function exitProject() {
