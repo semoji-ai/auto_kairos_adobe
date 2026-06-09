@@ -1,0 +1,60 @@
+from pathlib import Path
+
+PANEL = Path(__file__).resolve().parents[1] / "cep" / "com.autokairos.pd"
+HTML = PANEL / "index.html"
+NAV = PANEL / "js" / "nav.js"
+MAIN = PANEL / "js" / "main.js"
+
+
+def test_index_has_two_views():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="view-list"' in html
+    assert 'id="view-detail"' in html
+    # 상세 뷰는 초기 숨김
+    assert 'id="view-detail" hidden' in html or 'id="view-detail"  hidden' in html
+
+
+def test_index_has_detail_header_and_back():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="detailTitle"' in html
+    assert 'id="btnBackToList"' in html
+
+
+def test_index_has_tabs():
+    html = HTML.read_text(encoding="utf-8")
+    for el in ['id="btnTabPlanning"', 'id="btnTabStoryboard"',
+               'id="tab-planning"', 'id="tab-storyboard"']:
+        assert el in html, el
+
+
+def test_index_has_chat_dock():
+    html = HTML.read_text(encoding="utf-8")
+    for el in ['id="chat-dock"', 'id="chatInput"', 'id="btnChatSend"']:
+        assert el in html, el
+
+
+def test_index_has_taskbar():
+    assert 'id="task-bar"' in HTML.read_text(encoding="utf-8")
+
+
+def test_index_has_responsive_media_query():
+    assert "@media" in HTML.read_text(encoding="utf-8")
+
+
+def test_existing_controls_present_in_detail():
+    # 기존 버튼 ID 보존(바인딩 깨짐 방지)
+    html = HTML.read_text(encoding="utf-8")
+    for bid in ['id="btnManuscript"', 'id="btnDecompose"', 'id="btnGenCharacter"',
+                'id="btnRefList"', 'id="btnGenStoryboard"', 'id="btnGenLayers"',
+                'id="btnBuild"', 'id="btnCreate"', 'id="btnProjects"']:
+        assert bid in html, bid
+
+
+def test_nav_defines_functions():
+    nav = NAV.read_text(encoding="utf-8")
+    for fn in ["function enterProject", "function exitProject", "function switchTab"]:
+        assert fn in nav, fn
+
+
+def test_main_calls_enterProject():
+    assert "enterProject(" in MAIN.read_text(encoding="utf-8")
