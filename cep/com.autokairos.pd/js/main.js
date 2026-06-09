@@ -53,6 +53,49 @@ function buildComp() {
 }
 
 var SELECTED_PROJECT = null;
+var SELECTED_CHARACTER = null;  // char_<name>.png 의 <name> — 스토리보드 생성 시 character_ref로 사용
+
+function genCharacter() {
+  if (!SELECTED_PROJECT) { $("characters").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  var name = ($("charName").value || "").trim();
+  var looks = ($("charLooks").value || "").trim();
+  if (!name || !looks) { $("characters").textContent = "이름과 헤어·의상을 입력하세요."; return; }
+  $("characters").textContent = "캐릭터 생성 중... (베이스 리스타일, codex)";
+  fetch(BACKEND + "/api/characters/generate", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, name: name, looks: looks }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.character || j.character.status !== "completed") {
+        $("characters").textContent = "실패: " + JSON.stringify(j); return;
+      }
+      SELECTED_CHARACTER = name;
+      return showCharacters();
+    })
+    .catch(function (e) { $("characters").textContent = "오류: " + e; });
+}
+
+function showCharacters() {
+  if (!SELECTED_PROJECT) { $("characters").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  fetch(BACKEND + "/api/characters/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var dir = j.dir || "", imgs = j.images || [];
+      if (!imgs.length) { $("characters").textContent = "(캐릭터 없음)"; return; }
+      $("characters").innerHTML = imgs.map(function (n) {
+        var nm = n.replace(/^char_/, "").replace(/\.png$/, "");
+        var sel = (nm === SELECTED_CHARACTER) ? "border:2px solid #4A90D9;" : "border:2px solid transparent;";
+        return '<img src="file://' + dir + '/' + n + '" data-name="' + nm + '" style="width:90px;height:auto;margin:3px;border-radius:4px;cursor:pointer;' + sel + '" title="' + nm + ' — 클릭하면 씬 생성 기준 캐릭터로 선택">';
+      }).join("");
+      var ci = $("characters").querySelectorAll("img");
+      for (var x = 0; x < ci.length; x++) {
+        ci[x].addEventListener("click", function () {
+          SELECTED_CHARACTER = this.getAttribute("data-name");
+          showCharacters();  // 선택 테두리 갱신
+        });
+      }
+    });
+}
 
 function loadProjects() {
   $("projects").textContent = "불러오는 중...";
@@ -170,10 +213,11 @@ function showGallery() {
 
 function genStoryboard() {
   if (!SELECTED_PROJECT) { $("storyboard").textContent = "프로젝트를 먼저 선택하세요."; return; }
-  $("storyboard").textContent = "스토리보드 생성 중... (씬별 codex, 수 분)";
+  var charNote = SELECTED_CHARACTER ? " (기준 캐릭터: " + SELECTED_CHARACTER + ")" : " (무캐릭터)";
+  $("storyboard").textContent = "스토리보드 생성 중... (씬별 codex, 수 분)" + charNote;
   fetch(BACKEND + "/api/storyboard/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, character: SELECTED_CHARACTER || "" }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j.status !== "completed") { $("storyboard").textContent = "실패/일부: " + JSON.stringify(j); }
@@ -304,6 +348,8 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnProjects").addEventListener("click", loadProjects);
   $("btnManuscript").addEventListener("click", showManuscript);
   $("btnDecompose").addEventListener("click", decompose);
+  $("btnGenCharacter").addEventListener("click", genCharacter);
+  $("btnRefreshCharacters").addEventListener("click", showCharacters);
   $("btnRefList").addEventListener("click", makeReferences);
   $("btnGenImages").addEventListener("click", genImages);
   $("btnRefreshGallery").addEventListener("click", showGallery);

@@ -125,6 +125,63 @@ def test_images_generate_from_references(tmp_path, monkeypatch):
     assert body["generated"] == 1
 
 
+def test_characters_generate(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+
+    def fake_char(proj_dir, name, looks, **kw):
+        out = proj_dir / "characters" / f"char_{name}.png"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(r.imagegen, "generate_character", fake_char)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/characters/generate", {},
+                                {"project_id": "p", "name": "지오", "looks": "갈색 머리"}, ctx)
+    assert code == 200
+    assert body["character"]["status"] == "completed"
+    assert (proj / "characters" / "char_지오.png").exists()
+
+
+def test_characters_generate_requires_fields(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/characters/generate", {},
+                                {"project_id": "p", "name": "지오"}, ctx)
+    assert code == 400
+
+
+def test_characters_list(tmp_path):
+    proj = tmp_path / "p"; (proj / "characters").mkdir(parents=True)
+    (proj / "characters" / "char_지오.png").write_bytes(b"\x89PNG")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/characters/list",
+                                {"project_id": "p"}, None, ctx)
+    assert code == 200
+    assert "char_지오.png" in body["images"]
+
+
+def test_storyboard_passes_character_ref(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"image_prompt":"장면1"}]}', encoding="utf-8")
+    (proj / "characters").mkdir()
+    (proj / "characters" / "char_지오.png").write_bytes(b"\x89PNG")
+    seen = {}
+
+    def fake_many(proj_dir, items, *, subdir="images", concurrency=4, on_event=None, character_ref=None):
+        seen["character_ref"] = character_ref
+        return {rel: {"status": "completed"} for rel, _ in items}
+
+    monkeypatch.setattr(r.imagegen, "generate_many", fake_many)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/storyboard/generate", {},
+                                {"project_id": "p", "character": "지오"}, ctx)
+    assert code == 200
+    assert seen["character_ref"] == str(proj / "characters" / "char_지오.png")
+
+
 def test_images_list(tmp_path):
     proj = tmp_path / "p"; (proj / "images").mkdir(parents=True)
     (proj / "images" / "ref_1.png").write_bytes(b"\x89PNG")

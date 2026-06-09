@@ -218,15 +218,16 @@ def generate_scene_layers(proj_dir, scenes_with_images, *, concurrency=4, on_eve
 
 
 def generate_many(proj_dir: Path, items: list, *, subdir: str = "images",
-                  concurrency: int = 4, on_event=None) -> dict:
+                  concurrency: int = 4, on_event=None, character_ref=None) -> dict:
     """items=[(rel_out, image_prompt), ...] 를 동시에 생성. 각자 generate_one(백오프 내장).
+    character_ref를 주면 모든 항목을 캐릭터 분기로(시트+베이스) 생성.
     반환: {rel_out: result_dict}. concurrency는 최소 1."""
     workers = max(1, int(concurrency))
     results = {}
 
     def _work(item):
         rel, prompt = item
-        res = generate_one(proj_dir, rel, prompt, subdir=subdir)
+        res = generate_one(proj_dir, rel, prompt, subdir=subdir, character_ref=character_ref)
         if on_event:
             on_event(rel, res)
         return rel, res

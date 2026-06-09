@@ -99,6 +99,34 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
                      "completed": res.get("completed", [])}
 
+    if method == "POST" and p == "/api/characters/generate":
+        b = body or {}
+        pid = b.get("project_id", "")
+        name = (b.get("name") or "").strip()
+        looks = (b.get("looks") or "").strip()
+        if not pid or not name or not looks:
+            return 400, {"error": "project_id, name, looks 필요"}
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("character", pid)
+        res = imagegen.generate_character(
+            proj_dir, name, looks,
+            on_line=lambda ln: jobs.append_log(jid, ln))
+        ok = res.get("status") == "completed"
+        jobs.set_status(jid, "completed" if ok else "failed",
+                        artifact_paths=[str(proj_dir / "characters")])
+        return 200, {"job_id": jid, "status": jobs.get(jid)["status"], "character": res}
+
+    if method == "GET" and p == "/api/characters/list":
+        pid = query.get("project_id", "")
+        cd = root / pid / "characters"
+        if not cd.is_dir():
+            return 200, {"images": []}
+        names = sorted(f.name for f in cd.glob("*.png"))
+        return 200, {"images": names, "dir": str(cd)}
+
     if method == "POST" and p == "/api/images/generate":
         b = body or {}
         pid = b.get("project_id", "")
@@ -141,13 +169,19 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         jobs = ctx["jobs"]
         jid = jobs.create("storyboard", pid)
         conc = int(b.get("concurrency", 4))
+        char = (b.get("character") or "").strip()
+        character_ref = None
+        if char:
+            cref = proj_dir / "characters" / f"char_{char}.png"
+            if cref.exists():
+                character_ref = str(cref)
         items = []
         for sc in scenes:
             n = sc.get("sceneNumber", len(items) + 1)
             prompt = sc.get("image_prompt") or sc.get("visual_summary") or sc.get("narration", "")
             items.append((f"sb_{n}.png", prompt))
         results = imagegen.generate_many(
-            proj_dir, items, subdir="storyboard", concurrency=conc,
+            proj_dir, items, subdir="storyboard", concurrency=conc, character_ref=character_ref,
             on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
         done = sum(1 for r in results.values() if r["status"] == "completed")
         jobs.set_status(jid, "completed" if done else "failed",
