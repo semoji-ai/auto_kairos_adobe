@@ -18,12 +18,14 @@ def test_list_media(tmp_path):
 
 def test_set_scene_image_copies_versioned(tmp_path):
     p = tmp_path / "p"; p.mkdir()
+    (p / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":2,"sceneId":"sid22222","image_prompt":"x"}]}', encoding="utf-8")
     (p / "images").mkdir(); src = p / "images" / "pick.png"; src.write_bytes(b"\x89PNG")
-    (p / "storyboard").mkdir(); (p / "storyboard" / "sb_2.png").write_bytes(b"old")  # 기존
+    (p / "storyboard").mkdir(); (p / "storyboard" / "sb_sid22222.png").write_bytes(b"old")  # 기존
     res = media.set_scene_image(p, 2, "images/pick.png")
     assert res["status"] == "completed"
-    assert res["rel"] == "storyboard/sb_2_v2.png"   # 무삭제
-    assert (p / "storyboard" / "sb_2_v2.png").read_bytes() == b"\x89PNG"
+    assert res["rel"] == "storyboard/sb_sid22222_v2.png"   # sceneId 키 + 무삭제
+    assert (p / "storyboard" / "sb_sid22222_v2.png").read_bytes() == b"\x89PNG"
 
 
 def test_set_scene_image_rejects_traversal(tmp_path):

@@ -152,6 +152,7 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         scene = next((s for s in data["scenes"] if s.get("sceneNumber") == sn), None)
         if not scene:
             return 404, {"error": f"scene {sn} 없음"}
+        sid = scene.get("sceneId")
         char = (b.get("character") or "").strip()
         character_ref = None
         if char:
@@ -161,7 +162,7 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         jobs = ctx["jobs"]
         jid = jobs.create("scene-image", pid)
         res = imagegen.generate_one(
-            proj_dir, f"sb_{sn}.png", scene.get("image_prompt", "") or scene.get("visual_summary", ""),
+            proj_dir, f"sb_{sid}.png", scene.get("image_prompt", "") or scene.get("visual_summary", ""),
             subdir="storyboard", character_ref=character_ref,
             on_line=lambda ln: jobs.append_log(jid, ln))
         ok = res.get("status") == "completed"

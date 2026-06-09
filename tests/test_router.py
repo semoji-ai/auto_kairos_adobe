@@ -329,7 +329,7 @@ def test_scenes_image_single(tmp_path, monkeypatch):
     import backend.router as r
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text(
-        '{"scenes":[{"sceneNumber":3,"image_prompt":"전기차 공장"}]}', encoding="utf-8")
+        '{"scenes":[{"sceneNumber":3,"sceneId":"sid33333","image_prompt":"전기차 공장"}]}', encoding="utf-8")
     seen = {}
 
     def fake_one(proj_dir, rel_out, image_prompt, *, subdir="images", character_ref=None, **kw):
@@ -341,7 +341,7 @@ def test_scenes_image_single(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/scenes/image", {},
                                 {"project_id": "p", "sceneNumber": 3, "character": "지오"}, ctx)
     assert code == 200 and body["result"]["status"] == "completed"
-    assert seen["rel_out"] == "sb_3.png" and seen["subdir"] == "storyboard"
+    assert seen["rel_out"] == "sb_sid33333.png" and seen["subdir"] == "storyboard"
     assert seen["prompt"] == "전기차 공장"
     # 캐릭터 시트가 없으면 character_ref=None (파일 미존재)
     assert seen["character_ref"] is None

@@ -31,7 +31,11 @@ def list_media(proj_dir: Path) -> list[dict]:
 
 
 def set_scene_image(proj_dir: Path, scene_number, src_rel: str) -> dict:
-    """proj/src_rel 이미지를 storyboard/sb_{n}.png 로 복사(무삭제 버전). 트래버설 방지."""
+    """proj/src_rel 이미지를 storyboard/sb_{sceneId}.png 로 복사(무삭제 버전). 트래버설 방지."""
+    from backend import scenes  # 지연 임포트(순환 방지)
+    sid = scenes.scene_id_for(proj_dir, scene_number)
+    if not sid:
+        return {"status": "failed", "error": f"scene {scene_number} 없음"}
     src = (proj_dir / src_rel).resolve()
     if not src.is_relative_to(proj_dir.resolve()):
         return {"status": "failed", "error": "잘못된 경로"}
@@ -39,7 +43,7 @@ def set_scene_image(proj_dir: Path, scene_number, src_rel: str) -> dict:
         return {"status": "failed", "error": f"소스 없음: {src_rel}"}
     sb = proj_dir / "storyboard"
     sb.mkdir(parents=True, exist_ok=True)
-    dest = versioned_path(sb, f"sb_{scene_number}.png")
+    dest = versioned_path(sb, f"sb_{sid}.png")
     shutil.copy(src, dest)
     return {"status": "completed", "path": str(dest),
             "rel": dest.relative_to(proj_dir).as_posix()}
