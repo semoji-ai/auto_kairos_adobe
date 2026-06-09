@@ -28,7 +28,7 @@ function renderRow(s, dir) {
   }).join("");
   var chars = (s.characters || []).join(", ");
   return ''
-    + '<div class="box" style="display:block" data-scene="' + n + '">'
+    + '<div class="box scene-row" style="display:block" data-scene="' + n + '" ondragover="event.preventDefault()" ondrop="dropOnScene(event,' + n + ')">'
     + '  <div style="color:#9aa0a6;font-size:11px">#' + n + " · " + _esc(s.title || "") + (chars ? " · 👤 " + _esc(chars) : "") + '</div>'
     + '  <div style="margin:4px 0">' + media + '</div>'
     + (layers ? '<div style="margin:2px 0">' + layers + '</div>' : '')
@@ -79,6 +79,22 @@ function genSceneImage(n) {
     .then(function (j) {
       _rowStatus(n, (j.result && j.result.status === "completed") ? "생성 완료 ✓" : ("실패: " + JSON.stringify(j)));
       if (j.result && j.result.status === "completed") loadSheet();   // 썸네일 갱신
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+function dropOnScene(ev, n) {
+  ev.preventDefault();
+  var src = ev.dataTransfer.getData("text/plain");
+  if (!src) return;
+  _rowStatus(n, "적용 중... (" + src + ")");
+  fetch(BACKEND + "/api/scenes/set-image", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: n, src: src }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      _rowStatus(n, (j.result && j.result.status === "completed") ? "적용됨 ✓" : ("실패: " + JSON.stringify(j)));
+      if (j.result && j.result.status === "completed") loadSheet();
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }

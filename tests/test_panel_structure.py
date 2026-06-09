@@ -90,3 +90,15 @@ def test_storyboard_tab_has_sheet():
 def test_storyboard_js_defines_loadSheet():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "function loadSheet" in js
+
+
+def test_gallery_panel_present():
+    html = HTML.read_text(encoding="utf-8")
+    for el in ['id="gallery-panel"', 'id="galSearch"', 'id="galEngine"',
+               'id="btnGalSearch"', 'id="btnGalRefresh"', 'src="js/gallery.js"']:
+        assert el in html, el
+
+
+def test_storyboard_js_has_drop_handler():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function dropOnScene" in js and "set-image" in js

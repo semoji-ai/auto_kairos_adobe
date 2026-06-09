@@ -100,6 +100,18 @@
         <button id="btnLoadSheet">시트 불러오기</button>
         <div id="sheet">—</div>
 
+        <div class="label">갤러리 / 소스</div>
+        <div style="display:flex;gap:6px">
+          <input id="galSearch" type="text" placeholder="이미지 검색어" style="flex:1;box-sizing:border-box;padding:7px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
+          <select id="galEngine" style="padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
+            <option value="serper">구글(serper)</option>
+            <option value="pixabay">pixabay</option>
+          </select>
+          <button id="btnGalSearch" style="width:auto;padding:7px 12px;margin:0">검색</button>
+        </div>
+        <button id="btnGalRefresh">소스 새로고침</button>
+        <div class="box" id="gallery-panel" style="min-height:40px">—</div>
+
         <div class="label">기준 캐릭터 (베이스 리스타일)</div>
         <input id="charName" type="text" placeholder="캐릭터 이름 (예: 지오)" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
         <input id="charLooks" type="text" placeholder="헤어·의상" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
@@ -146,5 +158,6 @@
   <script src="js/nav.js"></script>
   <script src="js/planning.js"></script>
   <script src="js/storyboard.js"></script>
+  <script src="js/gallery.js"></script>
 </body>
 </html>
