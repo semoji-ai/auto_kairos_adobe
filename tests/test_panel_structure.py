@@ -44,7 +44,7 @@ def test_index_has_responsive_media_query():
 def test_existing_controls_present_in_detail():
     # 기존 버튼 ID 보존(바인딩 깨짐 방지)
     html = HTML.read_text(encoding="utf-8")
-    for bid in ['id="btnManuscript"', 'id="btnDecompose"', 'id="btnGenCharacter"',
+    for bid in ['id="btnDecompose"', 'id="btnGenCharacter"',
                 'id="btnRefList"', 'id="btnGenStoryboard"', 'id="btnGenLayers"',
                 'id="btnBuild"', 'id="btnCreate"', 'id="btnProjects"']:
         assert bid in html, bid
@@ -66,3 +66,16 @@ def test_existing_result_boxes_wired():
     main = MAIN.read_text(encoding="utf-8")
     assert 'id="health"' in html and 'id="aeresult"' in html
     assert '$("status")' not in main   # #status → #health 로 교체됨
+
+
+def test_planning_tab_has_file_viewer():
+    html = HTML.read_text(encoding="utf-8")
+    for el in ['id="btnReloadFiles"', 'id="planFiles"', 'id="planViewer"']:
+        assert el in html, el
+    # 임시 원고보기 버튼/박스는 제거됨
+    assert 'id="btnManuscript"' not in html
+    assert 'id="manuscript"' not in html
+
+
+def test_index_loads_planning_js():
+    assert 'src="js/planning.js"' in HTML.read_text(encoding="utf-8")
