@@ -7,6 +7,40 @@ from pathlib import Path
 
 ARTIFACT_FILES = ["plan.md", "final_manuscript.md", "scenes.json", "pd_notebook.md"]
 
+_VIEW_EXT = {".md", ".json", ".txt"}
+_EXCLUDE_FILES = {
+    "scenes.json", "layers.json", "references.json", "image_assets.json",
+    ".imagegen_last.txt",
+}
+_FILE_GROUPS = [
+    ("기획", ("plan", "strategy", "brief")),
+    ("리서치", ("research", "facts", "claims", "deep", "targeted", "skeleton", "outline")),
+    ("원고", ("draft", "manuscript", "final_manuscript", "questions", "script")),
+]
+
+
+def list_files(proj_dir: Path) -> list[dict]:
+    """프로젝트 최상위 문서 파일(.md/.json/.txt)을 카테고리로 그룹핑.
+    스토리보드/에셋/시스템 파일은 제외. 빈 그룹은 결과에서 생략."""
+    if not proj_dir.is_dir():
+        return []
+    names = sorted(
+        f.name for f in proj_dir.iterdir()
+        if f.is_file() and f.suffix.lower() in _VIEW_EXT and f.name not in _EXCLUDE_FILES
+    )
+    buckets: dict[str, list[str]] = {label: [] for label, _ in _FILE_GROUPS}
+    buckets["기타"] = []
+    for n in names:
+        low = n.lower()
+        for label, keys in _FILE_GROUPS:
+            if any(k in low for k in keys):
+                buckets[label].append(n)
+                break
+        else:
+            buckets["기타"].append(n)
+    order = [label for label, _ in _FILE_GROUPS] + ["기타"]
+    return [{"label": label, "files": buckets[label]} for label in order if buckets[label]]
+
 
 def projects_root() -> Path:
     env = os.environ.get("AK_PROJECTS_ROOT")

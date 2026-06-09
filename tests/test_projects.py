@@ -57,3 +57,26 @@ def test_status_planned_when_plan_only(tmp_path):
     (d / "plan.md").write_text("# T", encoding="utf-8")
     row = next(r for r in projects.scan_projects(tmp_path) if r["project_id"] == "x")
     assert row["status"] == "planned"
+
+
+def test_list_files_groups(tmp_path):
+    d = tmp_path / "p"; d.mkdir()
+    (d / "plan.md").write_text("기획", encoding="utf-8")
+    (d / "research_report.json").write_text("{}", encoding="utf-8")
+    (d / "draft.md").write_text("초고", encoding="utf-8")
+    (d / "final_manuscript.md").write_text("원고", encoding="utf-8")
+    (d / "scenes.json").write_text("{}", encoding="utf-8")          # 제외(스토리보드)
+    (d / "notes.txt").write_text("메모", encoding="utf-8")           # 기타
+    groups = projects.list_files(d)
+    by = {g["label"]: g["files"] for g in groups}
+    assert by["기획"] == ["plan.md"]
+    assert by["리서치"] == ["research_report.json"]
+    assert sorted(by["원고"]) == ["draft.md", "final_manuscript.md"]
+    assert "scenes.json" not in by.get("기타", [])
+    assert by["기타"] == ["notes.txt"]
+    # 빈 그룹은 결과에 없음
+    assert all(g["files"] for g in groups)
+
+
+def test_list_files_missing_dir(tmp_path):
+    assert projects.list_files(tmp_path / "nope") == []
