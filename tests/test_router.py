@@ -279,3 +279,23 @@ def test_projects_create_requires_title(tmp_path):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/projects/create", {}, {"title": ""}, ctx)
     assert code == 400
+
+
+def test_projects_files_list(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "plan.md").write_text("기획", encoding="utf-8")
+    (proj / "final_manuscript.md").write_text("원고", encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/projects/files",
+                                {"project_id": "p"}, None, ctx)
+    assert code == 200
+    labels = [g["label"] for g in body["groups"]]
+    assert "기획" in labels and "원고" in labels
+
+
+def test_projects_files_missing_project(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/projects/files",
+                                {"project_id": "nope"}, None, ctx)
+    assert code == 200
+    assert body["groups"] == []

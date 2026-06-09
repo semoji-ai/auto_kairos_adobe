@@ -239,6 +239,10 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         names = sorted(f.name for f in ld.glob("*.png"))
         return 200, {"images": names, "dir": str(ld)}
 
+    if method == "GET" and p == "/api/projects/files":
+        pid = query.get("project_id", "")
+        return 200, {"groups": projects.list_files(root / pid)}
+
     if method == "GET" and p == "/api/projects/file":
         pid = query.get("project_id", "")
         name = query.get("name", "")
