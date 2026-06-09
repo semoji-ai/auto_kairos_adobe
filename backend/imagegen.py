@@ -11,10 +11,16 @@ from PIL import Image
 from backend.codex_runner import run_skill
 
 STYLE_FILE = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "semoji.md"
+BASE_IMG = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "semoji_base.jpg"
 
 
 def load_style() -> str:
     return STYLE_FILE.read_text(encoding="utf-8") if STYLE_FILE.exists() else ""
+
+
+def base_img() -> Path | None:
+    """세모지 베이스 이미지 경로(있으면). scene-image/character-sheet 규칙의 스타일·비율 앵커."""
+    return BASE_IMG if BASE_IMG.exists() else None
 
 
 def versioned_path(images_dir: Path, name: str) -> Path:
@@ -33,39 +39,103 @@ def is_rate_limited(text: str) -> bool:
     return "rate limit" in (text or "").lower()
 
 
-def build_image_prompt(image_prompt: str, style_desc: str, rel_out: str) -> str:
+def build_image_prompt(image_prompt: str, style_desc: str, rel_out: str,
+                       *, has_character_ref: bool = False) -> str:
+    """씬 이미지 프롬프트. 세모지 베이스가 항상 첨부된다는 전제(scene-image 규칙).
+    has_character_ref=True → 캐릭터 시트(1번)+베이스(2번) / False → 베이스만(인물 사용 금지)."""
+    if has_character_ref:
+        explainer = (
+            "[첨부 이미지]\n"
+            "- 1번 캐릭터 시트: 이 인물을 그대로 사용 — 신체 비율·체형·얼굴·헤어·의상을 "
+            "100% 동일하게 유지하고, 비율을 바꾸거나 새로 디자인하지 말 것.\n"
+            "- 2번(마지막) 세모지 베이스: 이미지 전체의 그림체·색감 기준(베이스 인물 정체성 복사 금지)."
+        )
+    else:
+        explainer = (
+            "[첨부 이미지]\n"
+            "- 첨부 이미지(세모지 베이스)는 그림체·색감 참고용이다 — "
+            "베이스의 인물(사람)은 사용하거나 포함하지 말 것."
+        )
     return (
-        f"{style_desc}\n\n## 생성 지시\n"
-        f"image_gen 도구로 위 아트스타일을 적용한 이미지 1장을 생성해 "
-        f"현재 폴더의 {rel_out} 로 저장해줘.\n내용: {image_prompt}\n"
+        f"{style_desc}\n\n## 장면\n{image_prompt}\n\n{explainer}\n\n## 생성 지시\n"
+        f"image_gen 도구로 위 아트스타일을 적용한 이미지 1장을 생성해 현재 폴더의 {rel_out} 로 저장.\n"
+        f"비율을 텍스트로 새로 지정하지 말 것(비율은 첨부 이미지가 정함). "
         f"텍스트 없음. 저장되면 'OK'만 답해."
     )
 
 
-def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
-                 *, subdir: str = "images", retries: int = 2, on_line=None) -> dict:
-    """레퍼런스/스토리보드 1장 생성. subdir로 출력 폴더 분리(images|storyboard). rate limit 백오프."""
-    out_base = proj_dir / subdir
-    out_base.mkdir(parents=True, exist_ok=True)
-    out = versioned_path(out_base, Path(rel_out).name)
-    rel = out.relative_to(proj_dir).as_posix()
-    prompt = build_image_prompt(image_prompt, load_style(), rel)
+def build_character_prompt(name: str, looks: str, rel_out: str) -> str:
+    """기준 캐릭터 시트 — 세모지 베이스(1번 첨부)를 리스타일(character-sheet 규칙).
+    비율·체형·얼굴 구조는 베이스가 정함 — 텍스트로 비율을 지시하지 않는다."""
+    return (
+        f"첨부된 1번 이미지의 캐릭터를 '{name}'(이)라는 캐릭터로 변경해서 새로 그려줘.\n"
+        f"- 신체 비율·체형·얼굴 구조·그림체·포즈·배경은 1번 이미지 그대로 유지.\n"
+        f"- 헤어와 의상만 변경: {looks}\n"
+        f"비율을 텍스트로 새로 지정하지 말 것. 글자·로고 없음. "
+        f"image_gen으로 생성 후 현재 폴더의 {rel_out} 로 저장. 저장되면 'OK'만 답해."
+    )
+
+
+def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
+                     images=None, retries: int = 2, on_line=None, post=None) -> dict:
+    """codex image_gen 실행 + rate limit 백오프. out 생성 확인 후 post(out) 후처리(선택)."""
     last = ""
     for attempt in range(retries + 1):
         captured = []
         res = run_skill(
             prompt, proj_dir, sandbox="workspace-write",
+            images=images or None,
             output_last=str(proj_dir / ".imagegen_last.txt"),
             on_line=lambda ln: (captured.append(ln), on_line and on_line(ln)),
         )
         last = "\n".join(captured)
         if res["returncode"] == 0 and out.exists():
+            if post:
+                post(out)
             return {"status": "completed", "path": str(out)}
         if is_rate_limited(last) and attempt < retries:
             time.sleep(20 * (attempt + 1))
             continue
         break
     return {"status": "failed", "error": "rate_limit_or_no_file", "log_tail": last[-200:]}
+
+
+def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
+                 *, subdir: str = "images", retries: int = 2, on_line=None,
+                 character_ref=None) -> dict:
+    """씬/레퍼런스 1장 생성. 세모지 베이스를 항상 첨부(있으면).
+    character_ref를 주면 캐릭터 분기(시트+베이스), 없으면 무캐릭터 분기(베이스만, 인물 금지)."""
+    out_base = proj_dir / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    out = versioned_path(out_base, Path(rel_out).name)
+    rel = out.relative_to(proj_dir).as_posix()
+    images = []
+    if character_ref:
+        images.append(str(character_ref))
+    base = base_img()
+    if base:
+        images.append(str(base))
+    prompt = build_image_prompt(image_prompt, load_style(), rel,
+                                has_character_ref=bool(character_ref))
+    return _run_codex_image(proj_dir, out, prompt, images=images,
+                            retries=retries, on_line=on_line)
+
+
+def generate_character(proj_dir: Path, name: str, looks: str,
+                       *, rel_out: str | None = None, subdir: str = "characters",
+                       retries: int = 2, on_line=None) -> dict:
+    """기준 캐릭터 시트 생성 — 세모지 베이스를 1번으로 첨부해 리스타일(character-sheet 규칙).
+    looks = '갈색 헝클 머리, 크림 오버셔츠+청록 티, 베이지 바지, 흰 운동화, 살짝 미소' 형태."""
+    base = base_img()
+    if not base:
+        return {"status": "failed", "error": "semoji_base.jpg 없음 — 캐릭터 리스타일 불가"}
+    out_base = proj_dir / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    out = versioned_path(out_base, Path(rel_out or f"char_{name}.png").name)
+    rel = out.relative_to(proj_dir).as_posix()
+    prompt = build_character_prompt(name, looks, rel)
+    return _run_codex_image(proj_dir, out, prompt, images=[str(base)],
+                            retries=retries, on_line=on_line)
 
 
 def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
