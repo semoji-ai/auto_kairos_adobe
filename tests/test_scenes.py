@@ -42,3 +42,17 @@ def test_load_scenes_no_media(tmp_path):
 
 def test_load_scenes_missing_file(tmp_path):
     assert scenes.load_scenes(tmp_path / "nope") == {"scenes": [], "dir": ""}
+
+
+def test_update_narration_sets_dirty(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "narration": "옛", "image_prompt": "x"}])
+    res = scenes.update_narration(d, 1, "새 나레이션")
+    assert res == {"ok": True, "sceneNumber": 1}
+    saved = json.loads((d / "scenes.json").read_text(encoding="utf-8"))
+    assert saved["scenes"][0]["narration"] == "새 나레이션"
+    assert saved["scenes"][0]["narration_dirty"] is True
+
+
+def test_update_narration_unknown_scene(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "image_prompt": "x"}])
+    assert "error" in scenes.update_narration(d, 99, "x")
