@@ -28,6 +28,7 @@ function switchTab(name) {
   _$("btnTabPlanning").classList.toggle("active", planning);
   _$("btnTabStoryboard").classList.toggle("active", !planning);
   if (!planning && typeof loadSheet === "function") loadSheet();
+  if (!planning && typeof loadGallery === "function") loadGallery();
 }
 
 document.addEventListener("DOMContentLoaded", function () {
