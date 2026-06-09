@@ -5,79 +5,138 @@
   <title>auto_kairos PD</title>
   <style>
     body { font-family: -apple-system, sans-serif; background:#23262b; color:#e6e6e6;
-           margin:0; padding:16px; font-size:13px; }
+           margin:0; padding:0; font-size:13px; }
     h1 { font-size:15px; margin:0 0 12px; }
     button { width:100%; padding:10px; margin:6px 0; border:0; border-radius:6px;
              background:#3a6df0; color:#fff; font-size:13px; cursor:pointer; }
     button.alt { background:#444; }
+    button.tab { background:#2c2f36; color:#c5c8cc; border-radius:0; margin:0; }
+    button.tab.active { background:#3a6df0; color:#fff; }
     .box { background:#1b1d21; border:1px solid #33363c; border-radius:6px;
            padding:10px; margin:8px 0; white-space:pre-wrap; word-break:break-all;
            min-height:18px; font-family: ui-monospace, monospace; font-size:12px; }
     .label { color:#9aa0a6; margin-top:10px; }
+    [hidden] { display:none !important; }
+
+    /* 셸 레이아웃 */
+    #view-list { padding:16px; }
+    #view-detail { display:flex; flex-direction:column; height:100vh; }
+    #detail-header { display:flex; align-items:center; gap:8px; padding:10px 14px;
+                     background:#1b1d21; border-bottom:1px solid #33363c; }
+    #detailTitle { flex:1; font-size:14px; font-weight:600; }
+    #btnBackToList { width:auto; padding:6px 12px; margin:0; background:#444; }
+    #task-bar { padding:8px 14px; font-size:11px; color:#9aa0a6;
+                border-bottom:1px solid #2c2f36; }
+    #tabs { display:flex; border-bottom:1px solid #33363c; }
+    #tabs .tab { flex:1; }
+    #tab-content { flex:1; overflow-y:auto; padding:14px; }
+    #chat-dock { border-top:1px solid #33363c; background:#1b1d21; padding:10px 14px; }
+    #chat-dock .row { display:flex; gap:6px; }
+    #chatInput { flex:1; box-sizing:border-box; padding:8px; background:#23262b;
+                 color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
+    #btnChatSend { width:auto; padding:8px 14px; margin:0; }
+
+    /* 반응형: 넓은 창이면 탭 콘텐츠 2열 여지 + 본문 최대폭 */
+    @media (min-width: 760px) {
+      #tab-content { max-width:1200px; margin:0 auto; width:100%; }
+      #view-list { max-width:520px; margin:0 auto; }
+    }
   </style>
 </head>
 <body>
-  <h1>auto_kairos PD — PoC</h1>
+  <!-- ===== 목록 뷰 ===== -->
+  <div id="view-list">
+    <h1>auto_kairos PD</h1>
 
-  <div class="label">1) 백엔드 연결 (#3 검증)</div>
-  <button id="btnHealth">백엔드 확인</button>
-  <div class="box" id="status">아직 확인 안 함</div>
+    <div class="label">1) 백엔드 연결</div>
+    <button id="btnHealth">백엔드 확인</button>
+    <div class="box" id="health">—</div>
 
-  <div class="label">새 프로젝트</div>
-  <input id="newTitle" type="text" placeholder="영상 제목/주제" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-  <select id="newStyle" style="width:49%;padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-    <option value="semoji">semoji</option>
-    <option value="iromism">iromism</option>
-  </select>
-  <select id="newDuration" style="width:49%;padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-    <option value="1분">1분</option><option value="3분">3분</option><option value="5분">5분</option>
-  </select>
-  <button id="btnCreate">프로젝트 만들기</button>
-  <div class="box" id="current">현재 프로젝트: (없음)</div>
+    <div class="label">새 프로젝트</div>
+    <input id="newTitle" type="text" placeholder="영상 제목/주제" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
+    <select id="newStyle" style="width:49%;padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
+      <option value="semoji">semoji</option>
+      <option value="iromism">iromism</option>
+    </select>
+    <select id="newDuration" style="width:49%;padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
+      <option value="1분">1분</option><option value="3분">3분</option><option value="5분">5분</option>
+    </select>
+    <button id="btnCreate">프로젝트 만들기</button>
+    <div class="box" id="current">현재 프로젝트: (없음)</div>
 
-  <div class="label">프로젝트</div>
-  <button id="btnProjects">프로젝트 목록 새로고침</button>
-  <div class="box" id="projects">—</div>
+    <div class="label">프로젝트</div>
+    <button id="btnProjects">프로젝트 목록 새로고침</button>
+    <div class="box" id="projects">—</div>
+  </div>
 
-  <div class="label">원고</div>
-  <button id="btnManuscript">원고 보기</button>
-  <div class="box" id="manuscript">—</div>
+  <!-- ===== 상세 뷰 ===== -->
+  <div id="view-detail" hidden>
+    <div id="detail-header">
+      <span id="detailTitle">프로젝트</span>
+      <button id="btnBackToList">← 목록</button>
+    </div>
+    <div id="task-bar">태스크: (P5에서 활성)</div>
+    <div id="tabs">
+      <button id="btnTabPlanning" class="tab active">기획</button>
+      <button id="btnTabStoryboard" class="tab">스토리보드</button>
+    </div>
+    <div id="tab-content">
+      <!-- 기획 탭 -->
+      <div id="tab-planning">
+        <div class="label">원고</div>
+        <button id="btnManuscript">원고 보기</button>
+        <div class="box" id="manuscript">—</div>
+        <div class="label" style="color:#666">(P2: 기획/리서치/원고 파일 뷰어)</div>
+      </div>
 
-  <div class="label">씬 분해 (PD)</div>
-  <button id="btnDecompose">선택 프로젝트 씬 분해</button>
-  <div class="box" id="scenes">—</div>
+      <!-- 스토리보드 탭 -->
+      <div id="tab-storyboard" hidden>
+        <div class="label">씬 분해 (PD)</div>
+        <button id="btnDecompose">선택 프로젝트 씬 분해</button>
+        <div class="box" id="scenes">—</div>
 
-  <div class="label">기준 캐릭터 (베이스 리스타일)</div>
-  <input id="charName" type="text" placeholder="캐릭터 이름 (예: 지오)" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-  <input id="charLooks" type="text" placeholder="헤어·의상 (예: 갈색 머리, 크림 셔츠+청록 티, 베이지 바지, 흰 운동화)" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-  <button id="btnGenCharacter">캐릭터 생성</button>
-  <div class="box" id="characters">—</div>
-  <button id="btnRefreshCharacters">캐릭터 새로고침</button>
+        <div class="label">기준 캐릭터 (베이스 리스타일)</div>
+        <input id="charName" type="text" placeholder="캐릭터 이름 (예: 지오)" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
+        <input id="charLooks" type="text" placeholder="헤어·의상" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
+        <button id="btnGenCharacter">캐릭터 생성</button>
+        <div class="box" id="characters">—</div>
+        <button id="btnRefreshCharacters">캐릭터 새로고침</button>
 
-  <div class="label">레퍼런스 이미지</div>
-  <button id="btnRefList">레퍼런스 목록 생성</button>
-  <button id="btnGenImages" class="alt">이미지 생성</button>
-  <div class="box" id="gallery">—</div>
-  <button id="btnImportImages" class="alt">레퍼런스 → AE 가져오기</button>
+        <div class="label">레퍼런스 이미지</div>
+        <button id="btnRefList">레퍼런스 목록 생성</button>
+        <button id="btnGenImages" class="alt">이미지 생성</button>
+        <div class="box" id="gallery">—</div>
+        <button id="btnImportImages" class="alt">레퍼런스 → AE 가져오기</button>
+        <button id="btnRefreshGallery">갤러리 새로고침</button>
 
-  <button id="btnRefreshGallery">갤러리 새로고침</button>
+        <div class="label">스토리보드(씬 이미지)</div>
+        <button id="btnGenStoryboard">씬 이미지 생성</button>
+        <div class="box" id="storyboard">—</div>
+        <button id="btnRefreshStoryboard">새로고침</button>
+        <button id="btnImportStoryboard" class="alt">→ AE 가져오기</button>
 
-  <div class="label">스토리보드</div>
-  <button id="btnGenStoryboard">스토리보드 생성 (씬별)</button>
-  <div class="box" id="storyboard">—</div>
-  <button id="btnRefreshStoryboard">스토리보드 새로고침</button>
-  <button id="btnImportStoryboard" class="alt">스토리보드 → AE 가져오기</button>
+        <div class="label">씬 레이어</div>
+        <button id="btnGenLayers">레이어 생성</button>
+        <div class="box" id="layers">—</div>
+        <button id="btnRefreshLayers">레이어 새로고침</button>
+        <button id="btnImportLayers" class="alt">레이어 → AE 가져오기</button>
 
-  <div class="label">씬 레이어 (배경/인물 분리)</div>
-  <button id="btnGenLayers">레이어 생성</button>
-  <div class="box" id="layers">—</div>
-  <button id="btnRefreshLayers">레이어 새로고침</button>
-  <button id="btnImportLayers" class="alt">레이어 → AE 가져오기</button>
+        <div class="label">AE 컴프</div>
+        <button id="btnBuild" class="alt">샘플 manifest → AE 컴프 생성</button>
+      </div>
+    </div>
 
-  <div class="label">2) AE 컴프 생성 (#4 검증)</div>
-  <button id="btnBuild" class="alt">샘플 manifest → AE 컴프 생성</button>
-  <div class="box" id="aeresult">대기 중</div>
+    <!-- 하단 채팅(자리, P7 활성) -->
+    <div id="chat-dock">
+      <div class="label" style="margin:0 0 4px">💬 제작 비서 (P7에서 활성)</div>
+      <div class="row">
+        <input id="chatInput" type="text" placeholder="메시지… (아직 비활성)" disabled>
+        <button id="btnChatSend" disabled>전송</button>
+      </div>
+    </div>
+  </div>
 
-  <script src="./js/main.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/nav.js"></script>
 </body>
 </html>
