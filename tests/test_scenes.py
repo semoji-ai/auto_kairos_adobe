@@ -66,3 +66,40 @@ def test_update_narration_sets_dirty(tmp_path):
 def test_update_narration_unknown_scene(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "image_prompt": "x"}])
     assert "error" in scenes.update_narration(d, 99, "x")
+
+
+def test_ensure_scene_ids_assigns_and_persists(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "image_prompt": "x"},
+                         {"sceneNumber": 2, "image_prompt": "y"}])
+    scenes.ensure_scene_ids(d)
+    saved = json.loads((d / "scenes.json").read_text(encoding="utf-8"))["scenes"]
+    sids = [s["sceneId"] for s in saved]
+    assert all(sids) and len(set(sids)) == 2          # 발급 + 고유
+    # 멱등: 재호출해도 sceneId 불변
+    scenes.ensure_scene_ids(d)
+    saved2 = json.loads((d / "scenes.json").read_text(encoding="utf-8"))["scenes"]
+    assert [s["sceneId"] for s in saved2] == sids
+
+
+def test_ensure_scene_ids_migrates_number_assets(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "image_prompt": "x"}])
+    sb = d / "storyboard"; sb.mkdir()
+    (sb / "sb_1.png").write_bytes(b"IMG")
+    (sb / "sb_1_v2.png").write_bytes(b"IMG2")
+    lay = d / "layers"; lay.mkdir()
+    (lay / "bg_1.png").write_bytes(b"BG"); (lay / "char_1.png").write_bytes(b"CH")
+    scenes.ensure_scene_ids(d)
+    sid = json.loads((d / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]["sceneId"]
+    # 번호 에셋이 sid 기반으로 복사됨(무삭제 — 원본도 남음)
+    assert (sb / f"sb_{sid}.png").read_bytes() == b"IMG"
+    assert (sb / f"sb_{sid}_v2.png").read_bytes() == b"IMG2"
+    assert (lay / f"bg_{sid}.png").read_bytes() == b"BG"
+    assert (lay / f"char_{sid}.png").read_bytes() == b"CH"
+    assert (sb / "sb_1.png").exists()   # 원본 보존(무삭제)
+
+
+def test_scene_id_for(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 5, "image_prompt": "x"}])
+    scenes.ensure_scene_ids(d)
+    sid = scenes.scene_id_for(d, 5)
+    assert sid and scenes.scene_id_for(d, 99) is None
