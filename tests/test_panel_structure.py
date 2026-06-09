@@ -79,3 +79,14 @@ def test_planning_tab_has_file_viewer():
 
 def test_index_loads_planning_js():
     assert 'src="js/planning.js"' in HTML.read_text(encoding="utf-8")
+
+
+def test_storyboard_tab_has_sheet():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="sheet"' in html and 'id="btnLoadSheet"' in html
+    assert 'src="js/storyboard.js"' in html
+
+
+def test_storyboard_js_defines_loadSheet():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function loadSheet" in js
