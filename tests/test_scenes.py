@@ -167,3 +167,74 @@ def test_scene_id_for(tmp_path):
     scenes.ensure_scene_ids(d)
     sid = scenes.scene_id_for(d, 5)
     assert sid and scenes.scene_id_for(d, 99) is None
+
+
+def test_add_scene_appends_with_new_sid(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa", "narration": "첫째"}])
+    data = scenes.add_scene(d, after_number=1, narration="둘째", title="새 씬")
+    ss = data["scenes"]
+    assert [s["sceneNumber"] for s in ss] == [1, 2]
+    assert ss[0]["sceneId"] == "aaa"                 # 기존 유지
+    assert ss[1]["sceneId"] and ss[1]["sceneId"] != "aaa"   # 신규 발급
+    assert ss[1]["narration"] == "둘째" and ss[1]["title"] == "새 씬"
+    assert ss[1]["imageRef"] == ""
+
+
+def test_add_scene_at_end_when_no_after(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa"}])
+    data = scenes.add_scene(d)
+    assert [s["sceneNumber"] for s in data["scenes"]] == [1, 2]
+
+
+def test_remove_scene_renumbers_keeps_files(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa"},
+                         {"sceneNumber": 2, "sceneId": "bbb"},
+                         {"sceneNumber": 3, "sceneId": "ccc"}])
+    (d / "storyboard").mkdir(); (d / "storyboard" / "sb_bbb.png").write_bytes(b"\x89PNG")
+    data = scenes.remove_scene(d, 2)
+    assert [s["sceneId"] for s in data["scenes"]] == ["aaa", "ccc"]
+    assert [s["sceneNumber"] for s in data["scenes"]] == [1, 2]
+    assert (d / "storyboard" / "sb_bbb.png").exists()       # 무삭제
+
+
+def test_split_scene_keeps_sid_first_new_sid_second(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa",
+                          "narration": "첫 문장이다. 둘째 문장이다.", "imageRef": "x.png"}])
+    data = scenes.split_scene(d, 1)
+    ss = data["scenes"]
+    assert len(ss) == 2 and ss[0]["sceneId"] == "aaa"
+    assert ss[1]["sceneId"] != "aaa" and ss[1]["imageRef"] == ""
+    assert ss[0]["narration"] and ss[1]["narration"]        # 양쪽 비어있지 않음
+    assert ss[0]["imageRef"] == "x.png"                     # 원본 이미지는 첫 씬에 유지
+
+
+def test_split_scene_explicit_parts(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa", "narration": "원본"}])
+    data = scenes.split_scene(d, 1, first="앞", second="뒤")
+    assert data["scenes"][0]["narration"] == "앞" and data["scenes"][1]["narration"] == "뒤"
+
+
+def test_merge_scenes_concat_keeps_first_sid(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa", "narration": "앞", "imageRef": "a.png"},
+                         {"sceneNumber": 2, "sceneId": "bbb", "narration": "뒤", "imageRef": "b.png"}])
+    data = scenes.merge_scenes(d, 1)
+    ss = data["scenes"]
+    assert len(ss) == 1 and ss[0]["sceneId"] == "aaa"
+    assert "앞" in ss[0]["narration"] and "뒤" in ss[0]["narration"]
+    assert ss[0]["imageRef"] == "a.png"
+
+
+def test_merge_last_scene_noop(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa"}])
+    data = scenes.merge_scenes(d, 1)            # 다음 씬 없음
+    assert len(data["scenes"]) == 1
+
+
+def test_load_scenes_status_flags(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa",
+                          "narration": "내용", "imageRef": "storyboard/sb_aaa.png"}])
+    (d / "storyboard").mkdir(); (d / "storyboard" / "sb_aaa.png").write_bytes(b"\x89PNG")
+    (d / "layers").mkdir(); (d / "layers" / "aaa__0_x.png").write_bytes(b"\x89PNG")
+    st = scenes.load_scenes(d)["scenes"][0]["_status"]
+    assert st["narration"] is True and st["image"] is True and st["layers"] is True
+    assert st["tts"] is False

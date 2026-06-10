@@ -93,6 +93,13 @@ def load_scenes(proj_dir: Path) -> dict:
         s["_image"] = ref if (ref and (proj_dir / ref).is_file()) else None
         s["_layers"] = (sorted(f"layers/{p.name}" for p in lay_dir.glob(f"*{sid}*.png"))
                         if sid and lay_dir.is_dir() else [])
+        aud = proj_dir / "audio"
+        s["_status"] = {
+            "narration": bool((s.get("narration") or "").strip()),
+            "image": s["_image"] is not None,
+            "layers": len(s["_layers"]) > 0,
+            "tts": bool(sid and aud.is_dir() and any(aud.glob(f"*{sid}*"))),
+        }
     data["dir"] = str(proj_dir)
     return data
 
@@ -136,3 +143,93 @@ def set_image_ref(proj_dir: Path, scene_number, image_rel) -> dict:
             fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             return {"ok": True, "sceneNumber": scene_number, "imageRef": rel}
     return {"error": f"scene {scene_number} 없음"}
+
+
+def _save(proj_dir: Path, data: dict) -> dict:
+    _path(proj_dir).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return data
+
+
+def _renumber(data: dict) -> dict:
+    for i, s in enumerate(data.get("scenes", []), start=1):
+        s["sceneNumber"] = i
+    return data
+
+
+def _split_text(text: str) -> tuple[str, str]:
+    """문장 단위로 가운데 분할. 문장 경계 없으면 (전체, '')."""
+    import re
+    t = (text or "").strip()
+    if not t:
+        return "", ""
+    parts = re.split(r"(?<=[.!?。])\s+", t)
+    if len(parts) < 2:
+        return t, ""
+    mid = (len(parts) + 1) // 2
+    return " ".join(parts[:mid]).strip(), " ".join(parts[mid:]).strip()
+
+
+def _blank_scene(sid: str, narration: str = "", title: str = "") -> dict:
+    return {"sceneNumber": 0, "sceneId": sid, "title": title, "narration": narration,
+            "visual_summary": "", "image_prompt": "", "characters": [], "imageRef": ""}
+
+
+def add_scene(proj_dir: Path, after_number: int | None = None,
+              narration: str = "", title: str = "") -> dict:
+    """after_number 다음에 새 씬 삽입(없으면 끝). 새 sceneId 발급. 재번호 후 저장. 반환=load_scenes."""
+    data = ensure_scene_ids(proj_dir)
+    ss = data.setdefault("scenes", [])
+    new = _blank_scene(_new_sid(), narration, title)
+    idx = len(ss)
+    if after_number is not None:
+        for i, s in enumerate(ss):
+            if s.get("sceneNumber") == after_number:
+                idx = i + 1
+                break
+    ss.insert(idx, new)
+    _save(proj_dir, _renumber(data))
+    return load_scenes(proj_dir)
+
+
+def remove_scene(proj_dir: Path, scene_number: int) -> dict:
+    """배열에서 씬 제거(파일 무삭제). 재번호 후 저장. 반환=load_scenes."""
+    data = ensure_scene_ids(proj_dir)
+    ss = data.get("scenes", [])
+    data["scenes"] = [s for s in ss if s.get("sceneNumber") != scene_number]
+    _save(proj_dir, _renumber(data))
+    return load_scenes(proj_dir)
+
+
+def split_scene(proj_dir: Path, scene_number: int,
+                first: str | None = None, second: str | None = None) -> dict:
+    """씬을 둘로 분할. 첫 씬=기존 sceneId+imageRef 유지, 둘째=새 sceneId+빈 imageRef.
+    first/second 미지정 시 나레이션 문장 단위 분할. 반환=load_scenes."""
+    data = ensure_scene_ids(proj_dir)
+    ss = data.get("scenes", [])
+    for i, s in enumerate(ss):
+        if s.get("sceneNumber") == scene_number:
+            if first is None and second is None:
+                first, second = _split_text(s.get("narration", ""))
+            s["narration"] = first or ""
+            nxt = _blank_scene(_new_sid(), second or "", s.get("title", ""))
+            nxt["visual_summary"] = s.get("visual_summary", "")
+            ss.insert(i + 1, nxt)
+            break
+    _save(proj_dir, _renumber(data))
+    return load_scenes(proj_dir)
+
+
+def merge_scenes(proj_dir: Path, scene_number: int) -> dict:
+    """scene_number 와 그 다음 씬을 병합. 첫 씬 sceneId+imageRef 유지, 나레이션 연결.
+    둘째 씬 에셋은 디스크에 남김(무삭제). 다음 씬 없으면 no-op. 반환=load_scenes."""
+    data = ensure_scene_ids(proj_dir)
+    ss = data.get("scenes", [])
+    for i, s in enumerate(ss):
+        if s.get("sceneNumber") == scene_number and i + 1 < len(ss):
+            nxt = ss[i + 1]
+            a, b = (s.get("narration") or "").strip(), (nxt.get("narration") or "").strip()
+            s["narration"] = (a + "\n" + b).strip()
+            del ss[i + 1]
+            break
+    _save(proj_dir, _renumber(data))
+    return load_scenes(proj_dir)
