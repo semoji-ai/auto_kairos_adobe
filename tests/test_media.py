@@ -16,25 +16,26 @@ def test_list_media(tmp_path):
     assert all(i["dir"] == str(p) for i in items)
 
 
-def test_set_scene_image_copies_versioned(tmp_path):
+def test_set_scene_image_links_no_copy(tmp_path):
+    import json as _j
     p = tmp_path / "p"; p.mkdir()
     (p / "scenes.json").write_text(
-        '{"scenes":[{"sceneNumber":2,"sceneId":"sid22222","image_prompt":"x"}]}', encoding="utf-8")
-    (p / "images").mkdir(); src = p / "images" / "pick.png"; src.write_bytes(b"\x89PNG")
-    (p / "storyboard").mkdir(); (p / "storyboard" / "sb_sid22222.png").write_bytes(b"old")  # 기존
+        '{"scenes":[{"sceneNumber":2,"sceneId":"s2","image_prompt":"x"}]}', encoding="utf-8")
+    (p / "images").mkdir(); (p / "images" / "pick.png").write_bytes(b"\x89PNG")
     res = media.set_scene_image(p, 2, "images/pick.png")
-    assert res["status"] == "completed"
-    assert res["rel"] == "storyboard/sb_sid22222_v2.png"   # sceneId 키 + 무삭제
-    assert (p / "storyboard" / "sb_sid22222_v2.png").read_bytes() == b"\x89PNG"
+    assert res["ok"] is True
+    sc = _j.loads((p / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["imageRef"] == "images/pick.png"        # 링크만
+    assert not (p / "storyboard").exists()            # 복사 안 함
 
 
 def test_set_scene_image_rejects_traversal(tmp_path):
     p = tmp_path / "p"; p.mkdir()
-    res = media.set_scene_image(p, 1, "../../etc/hosts")
-    assert res["status"] == "failed"
+    (p / "scenes.json").write_text('{"scenes":[{"sceneNumber":1,"sceneId":"s1"}]}', encoding="utf-8")
+    assert "error" in media.set_scene_image(p, 1, "../../etc/hosts")
 
 
 def test_set_scene_image_missing_src(tmp_path):
     p = tmp_path / "p"; p.mkdir()
-    res = media.set_scene_image(p, 1, "images/nope.png")
-    assert res["status"] == "failed"
+    (p / "scenes.json").write_text('{"scenes":[{"sceneNumber":1,"sceneId":"s1"}]}', encoding="utf-8")
+    assert "error" in media.set_scene_image(p, 1, "images/nope.png")
