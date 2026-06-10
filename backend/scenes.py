@@ -45,6 +45,10 @@ def ensure_scene_ids(proj_dir: Path) -> dict:
             s["sceneId"] = sid
             _migrate_assets(proj_dir, s.get("sceneNumber"), sid)
             changed = True
+        if "imageRef" not in s:                       # 최초 1회 백필
+            latest = _latest_image(proj_dir / "storyboard", s.get("sceneId"))
+            s["imageRef"] = latest or ""
+            changed = True
     if changed:
         fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return data
@@ -82,10 +86,11 @@ def load_scenes(proj_dir: Path) -> dict:
     if not fp.is_file():
         return {"scenes": [], "dir": ""}
     data = ensure_scene_ids(proj_dir)
-    sb_dir, lay_dir = proj_dir / "storyboard", proj_dir / "layers"
+    lay_dir = proj_dir / "layers"
     for s in data.get("scenes", []):
         sid = s.get("sceneId")
-        s["_image"] = _latest_image(sb_dir, sid)
+        ref = s.get("imageRef") or ""
+        s["_image"] = ref if (ref and (proj_dir / ref).is_file()) else None
         s["_layers"] = [f"layers/{nm}" for nm in (f"bg_{sid}.png", f"char_{sid}.png")
                         if (lay_dir / nm).exists()]
     data["dir"] = str(proj_dir)
@@ -104,4 +109,30 @@ def update_narration(proj_dir: Path, scene_number: int, narration: str) -> dict:
             s["narration_dirty"] = True
             fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             return {"ok": True, "sceneNumber": scene_number}
+    return {"error": f"scene {scene_number} 없음"}
+
+
+def new_scene_image_name(sid: str) -> str:
+    """생성 씬 이미지의 고유 파일명(여러 번 생성해도 충돌·덮어쓰기 없음)."""
+    return f"scene_{sid}_{uuid.uuid4().hex[:6]}.png"
+
+
+def set_image_ref(proj_dir: Path, scene_number, image_rel) -> dict:
+    """씬의 imageRef 설정(링크) 또는 빈 문자열로 해제. 경로는 프로젝트 내부 + 존재 검증."""
+    fp = _path(proj_dir)
+    if not fp.is_file():
+        return {"error": "scenes.json 없음"}
+    rel = (image_rel or "").strip()
+    if rel:
+        target = (proj_dir / rel).resolve()
+        if not target.is_relative_to(proj_dir.resolve()):
+            return {"error": "잘못된 경로"}
+        if not target.is_file():
+            return {"error": f"파일 없음: {rel}"}
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    for s in data.get("scenes", []):
+        if s.get("sceneNumber") == scene_number:
+            s["imageRef"] = rel
+            fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            return {"ok": True, "sceneNumber": scene_number, "imageRef": rel}
     return {"error": f"scene {scene_number} 없음"}

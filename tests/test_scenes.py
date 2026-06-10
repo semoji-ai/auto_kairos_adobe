@@ -11,6 +11,57 @@ def _proj(tmp_path, scene_list):
     return d
 
 
+def _scene(d, n):
+    import json as _j
+    data = _j.loads((d / "scenes.json").read_text(encoding="utf-8"))
+    return next(s for s in data["scenes"] if s["sceneNumber"] == n)
+
+
+def test_load_scenes_image_from_imageref(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "lnk00001",
+                          "imageRef": "images/pick.png", "image_prompt": "x"}])
+    (d / "images").mkdir(); (d / "images" / "pick.png").write_bytes(b"\x89PNG")
+    s = scenes.load_scenes(d)["scenes"][0]
+    assert s["_image"] == "images/pick.png"      # 링크가 가리키는 파일
+
+
+def test_load_scenes_imageref_missing_file(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "lnk00002",
+                          "imageRef": "images/gone.png"}])
+    s = scenes.load_scenes(d)["scenes"][0]
+    assert s["_image"] is None                    # 파일 없으면 끊김
+
+
+def test_load_scenes_backfills_imageref_from_sb(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "bf000001", "image_prompt": "x"}])
+    sb = d / "storyboard"; sb.mkdir(); (sb / "sb_bf000001.png").write_bytes(b"\x89PNG")
+    s = scenes.load_scenes(d)["scenes"][0]
+    assert s["imageRef"] == "storyboard/sb_bf000001.png"   # 백필
+    assert s["_image"] == "storyboard/sb_bf000001.png"
+
+
+def test_set_image_ref_link_and_unlink(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 2, "sceneId": "s2", "image_prompt": "x"}])
+    (d / "images").mkdir(); (d / "images" / "a.png").write_bytes(b"\x89PNG")
+    assert scenes.set_image_ref(d, 2, "images/a.png")["ok"] is True
+    assert _scene(d, 2)["imageRef"] == "images/a.png"
+    # 해제
+    assert scenes.set_image_ref(d, 2, "")["ok"] is True
+    assert _scene(d, 2)["imageRef"] == ""
+
+
+def test_set_image_ref_rejects_traversal_and_missing(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "s1"}])
+    assert "error" in scenes.set_image_ref(d, 1, "../../etc/hosts")
+    assert "error" in scenes.set_image_ref(d, 1, "images/nope.png")
+
+
+def test_new_scene_image_name_unique(tmp_path):
+    a = scenes.new_scene_image_name("abc")
+    b = scenes.new_scene_image_name("abc")
+    assert a.startswith("scene_abc_") and a.endswith(".png") and a != b
+
+
 def test_load_scenes_enriches_media_and_layers(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa11111", "title": "A",
                           "narration": "가", "image_prompt": "장면1"}])
