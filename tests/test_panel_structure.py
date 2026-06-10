@@ -145,3 +145,13 @@ def test_storyboard_js_has_scene_ops():
 def test_build_scene_jsx_handles_layers():
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
     assert "s.layers" in jsx and "addFilledLayer" in jsx
+
+
+def test_storyboard_js_has_tts():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function genTts" in js and "/api/scenes/tts" in js
+
+
+def test_main_js_assembly_uses_manifest():
+    js = (PANEL / "js" / "main.js").read_text(encoding="utf-8")
+    assert "/api/assembly/manifest" in js and "akBuildScene" in js

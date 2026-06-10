@@ -135,8 +135,12 @@ function renderRow(s, dir) {
     + '    <button class="gen-img alt" data-scene="' + n + '">씬 이미지 생성</button>'
     + '    <div style="font-size:10px;color:#666;margin-top:2px">소스 드래그로 교체</div>'
     + '  </div>'
-    // TTS(자리 — P6)
-    + '  <div class="col-tts" style="font-size:11px;color:#666">(P6)</div>'
+    // TTS(씬별 생성 + 재생)
+    + '  <div class="col-tts">'
+    +      '<button class="gen-tts alt" data-scene="' + n + '">TTS 생성</button>'
+    +      (s._audio ? '<audio controls preload="none" src="file://' + dir + '/' + s._audio + '"></audio>' : '')
+    +      '<div class="row-status" data-scene="' + n + '"></div>'
+    + '  </div>'
     + '</div>';
 }
 
@@ -175,6 +179,10 @@ function bindRows() {
   var ly = $("sheet").querySelectorAll("button.layer-img");
   for (var L = 0; L < ly.length; L++) {
     ly[L].addEventListener("click", function () { analyzeLayers(this.getAttribute("data-scene")); });
+  }
+  var gt = $("sheet").querySelectorAll("button.gen-tts");
+  for (var g = 0; g < gt.length; g++) {
+    gt[g].addEventListener("click", function () { genTts(this.getAttribute("data-scene")); });
   }
   _bindOp("op-add", function (n) { sceneOp("add", { after: parseInt(n, 10) }); });
   _bindOp("op-split", function (n) { sceneOp("split", { sceneNumber: parseInt(n, 10) }); });
@@ -300,4 +308,18 @@ function sceneOp(op, extra) {
       loadSheet();      // 갱신
     })
     .catch(function (e) { alert("오류: " + e); });
+}
+
+function genTts(n) {
+  _rowStatus(n, "TTS 생성 중... (say)");
+  fetch(BACKEND + "/api/scenes/tts", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      var ok = j.result && j.result.status === "completed";
+      _rowStatus(n, ok ? ("TTS 완료 (" + (j.result.duration || 0).toFixed(1) + "s)") : ("실패: " + JSON.stringify(j)));
+      if (ok) loadSheet();      // 오디오 플레이어 표시
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }

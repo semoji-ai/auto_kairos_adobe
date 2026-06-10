@@ -38,18 +38,24 @@ function checkBackend() {
 }
 
 function buildComp() {
-  $("aeresult").textContent = "AE 실행 중...";
-  var jsx;
-  try {
-    jsx = readLocal("./jsx/build_scene.jsx");
-  } catch (e) {
-    $("aeresult").textContent = "jsx 로드 실패: " + e;
-    return;
-  }
-  var call = "\nakBuildScene(" + JSON.stringify(MANIFEST) + ");";
-  evalScript(jsx + call).then(function (r) {
-    $("aeresult").textContent = r || "(빈 응답 — AE 콘솔 확인)";
-  });
+  if (!SELECTED_PROJECT) { $("aeresult").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("aeresult").textContent = "매니페스트 빌드 중...";
+  fetch(BACKEND + "/api/assembly/manifest", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.error || !j.path) { $("aeresult").textContent = "매니페스트 실패: " + JSON.stringify(j); return; }
+      var jsx;
+      try { jsx = readLocal("./jsx/build_scene.jsx"); }
+      catch (e) { $("aeresult").textContent = "jsx 로드 실패: " + e; return; }
+      $("aeresult").textContent = "AE 조립 중... (씬 " + j.scenes + ")";
+      var call = "\nakBuildScene(" + JSON.stringify(j.path) + ");";
+      evalScript(jsx + call).then(function (r) {
+        $("aeresult").textContent = r || "(빈 응답 — AE 콘솔 확인)";
+      });
+    })
+    .catch(function (e) { $("aeresult").textContent = "오류: " + e; });
 }
 
 var SELECTED_PROJECT = null;
