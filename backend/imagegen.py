@@ -175,12 +175,21 @@ def generate_asset(proj_dir: Path, rel_out: str, image_prompt: str,
 _LAYER_SCHEMA = Path(__file__).resolve().parent / "schemas" / "layer_elements.schema.json"
 
 
-def analyze_scene_layers(proj_dir: Path, scene_image: str, *, on_line=None) -> dict:
-    """codex 멀티모달로 씬 이미지를 분석해 분할 요소 목록 반환. {elements:[{name,location}]}|{error}."""
+def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
+                         narration: str = "", context: str = "", on_line=None) -> dict:
+    """codex 멀티모달로 씬 이미지+내레이션을 분석해 '움직임이 필요한' 레이어만 선별.
+    캐릭터는 항상 분리, 사물은 내레이션상 움직일 때만. {elements:[{name,location,kind,reason}]}|{error}."""
     prompt = (
-        "첨부한 씬 이미지를 애니메이션용 레이어로 분리하려 한다. "
-        "서로 겹치지 않는 주요 시각 요소(피사체)들을 구분해라. "
-        "각 요소의 짧은 한국어 이름과 화면 내 위치를 알려줘. 배경은 목록에 포함하지 말 것."
+        "첨부한 씬 이미지를 모션그래픽 레이어로 분리하려 한다. "
+        "아래 내레이션과 연출 맥락을 읽고, 실제로 움직임/애니메이션이 필요한 주요 요소만 골라라.\n\n"
+        f"## 내레이션\n{narration or '(없음)'}\n\n## 맥락\n{context or '(없음)'}\n\n"
+        "## 원칙\n"
+        "1) 등장하는 캐릭터(사람·인물·생명체)는 항상 각각 개별 레이어로 분리한다.\n"
+        "2) 캐릭터가 아닌 사물·오브젝트는 내레이션상 움직이거나 강조·등장하는 경우에만 분리한다.\n"
+        "3) 움직임이 없는 장식·소품·고정 배경 요소는 분리하지 말고 배경에 남긴다(목록에서 제외).\n"
+        "4) 불필요하게 모든 요소를 쪼개지 말 것 — 보통 2~6개가 적당하다.\n\n"
+        "각 요소: name(짧은 한국어 이름), location(화면 내 위치), "
+        "kind('character' 또는 'object'), reason(왜 이 레이어를 분리·애니메이션하는지 한 줄)."
     )
     out_json = proj_dir / ".layer_analysis.json"
     res = run_skill(prompt, proj_dir, output_schema=str(_LAYER_SCHEMA),

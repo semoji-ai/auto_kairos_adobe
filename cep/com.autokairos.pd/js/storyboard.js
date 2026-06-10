@@ -214,8 +214,11 @@ function analyzeLayers(n) {
     .then(function (j) {
       var els = j.elements || [];
       if (!els.length) { _rowStatus(n, "분석 실패: " + (j.error || JSON.stringify(j))); return; }
-      var list = els.map(function (e) { return "· " + e.name + " (" + e.location + ")"; }).join("\n");
-      if (confirm("이 씬을 다음 요소로 분리합니다:\n\n" + list + "\n\n진행할까요?")) {
+      var list = els.map(function (e) {
+        var tag = e.kind === "character" ? "[인물]" : "[사물]";
+        return "· " + tag + " " + e.name + " (" + e.location + ")" + (e.reason ? " — " + e.reason : "");
+      }).join("\n");
+      if (confirm("내레이션 기반으로 다음 레이어를 분리합니다(움직임 필요한 것만):\n\n" + list + "\n\n진행할까요?")) {
         splitLayers(n, els);
       } else {
         _rowStatus(n, "분리 취소됨");

@@ -8,10 +8,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "location"],
+        "required": ["name", "location", "kind", "reason"],
         "properties": {
           "name": { "type": "string" },
-          "location": { "type": "string" }
+          "location": { "type": "string" },
+          "kind": { "type": "string", "enum": ["character", "object"] },
+          "reason": { "type": "string" }
         }
       }
     }

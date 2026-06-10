@@ -180,6 +180,25 @@ def test_analyze_scene_layers_parses(tmp_path, monkeypatch):
     assert [e["name"] for e in res["elements"]] == ["전기차", "인물"]
 
 
+def test_analyze_scene_layers_prompt_uses_narration(tmp_path, monkeypatch):
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir(); img = proj / "storyboard" / "s.png"; img.write_bytes(b"\x89PNG")
+    cap = {}
+
+    def fake_run(prompt, cwd, *, output_schema=None, output_last=None, images=None, on_line=None, **kw):
+        cap["prompt"] = prompt
+        from pathlib import Path as _P
+        _P(output_last).write_text('{"elements":[]}', encoding="utf-8")
+        return {"returncode": 0, "output_last": output_last}
+
+    monkeypatch.setattr(ig, "run_skill", fake_run)
+    ig.analyze_scene_layers(proj, str(img), narration="아이가 전기차를 향해 달려간다", context="제목: 의미")
+    assert "아이가 전기차를 향해 달려간다" in cap["prompt"]   # 내레이션 주입
+    assert "캐릭터" in cap["prompt"]                          # 캐릭터 항상 분리 원칙
+    assert "움직" in cap["prompt"]                            # 움직임 기반 선별
+
+
 def test_split_scene_to_elements(tmp_path, monkeypatch):
     from backend import imagegen as ig
     proj = tmp_path / "p"; proj.mkdir()

@@ -224,8 +224,10 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             return 422, {"error": "씬 이미지 먼저 생성/링크 필요"}
         jobs = ctx["jobs"]
         jid = jobs.create("analyze-layers", b.get("project_id", ""))
+        ctx_str = f"제목: {sc.get('title', '')} / 요약: {sc.get('visual_summary', '')}"
         res = imagegen.analyze_scene_layers(
             proj_dir, str(proj_dir / sc["_image"]),
+            narration=sc.get("narration", "") or "", context=ctx_str,
             on_line=lambda ln: jobs.append_log(jid, ln))
         jobs.set_status(jid, "completed" if res.get("elements") else "failed")
         return 200, {"job_id": jid, "elements": res.get("elements", []), "error": res.get("error")}
