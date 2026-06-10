@@ -5,7 +5,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -157,6 +157,42 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             return 200, scenes.split_scene(proj_dir, b.get("sceneNumber"),
                                            first=b.get("first"), second=b.get("second"))
         return 200, scenes.merge_scenes(proj_dir, b.get("sceneNumber"))
+
+    if method == "POST" and p in ("/api/scenes/tts", "/api/tts/all"):
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        data = scenes.load_scenes(proj_dir)
+        jobs = ctx["jobs"]
+        voice = b.get("voice")
+        if p == "/api/tts/all":
+            jid = jobs.create("tts-all", b.get("project_id", ""))
+            results = []
+            for s in data["scenes"]:
+                res = tts.generate_scene_tts(proj_dir, s.get("sceneId"), s.get("narration", ""), voice=voice)
+                results.append({"sceneNumber": s.get("sceneNumber"), **res})
+                jobs.append_log(jid, f"S{s.get('sceneNumber')}: {res.get('status')}")
+            ok = any(x.get("status") == "completed" for x in results)
+            jobs.set_status(jid, "completed" if ok else "failed", artifact_paths=[str(proj_dir / "audio")])
+            return 200, {"job_id": jid, "results": results}
+        sn = b.get("sceneNumber")
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == sn), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        if not (sc.get("narration") or "").strip():
+            return 422, {"error": "내레이션 비어있음"}
+        jid = jobs.create("tts", b.get("project_id", ""))
+        res = tts.generate_scene_tts(proj_dir, sc.get("sceneId"), sc.get("narration", ""), voice=voice)
+        jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
+                        artifact_paths=[str(proj_dir / "audio")])
+        return 200, {"job_id": jid, "result": res}
+
+    if method == "POST" and p == "/api/assembly/manifest":
+        proj_dir = root / (body or {}).get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        return 200, manifest.build_manifest(proj_dir)
 
     if method == "POST" and p == "/api/scenes/image":
         b = body or {}

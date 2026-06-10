@@ -583,3 +583,37 @@ def test_scenes_add_missing_project_404(tmp_path):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, _ = handle_request("POST", "/api/scenes/add", {}, {"project_id": "none"}, ctx)
     assert code == 404
+
+
+def test_scenes_tts(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sa","narration":"안녕"}]}', encoding="utf-8")
+    monkeypatch.setattr(r.tts, "generate_scene_tts",
+                        lambda proj_dir, sid, text, voice=None: {"status": "completed", "rel": f"audio/tts_{sid}.aiff", "duration": 1.0})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/tts", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and body["result"]["rel"] == "audio/tts_sa.aiff"
+
+
+def test_scenes_tts_no_narration_422(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sa","narration":""}]}', encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/scenes/tts", {},
+                             {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 422
+
+
+def test_assembly_manifest(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
+    monkeypatch.setattr(r.manifest, "build_manifest",
+                        lambda proj_dir: {"path": str(proj_dir / "manifest.json"), "scenes": 0})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assembly/manifest", {}, {"project_id": "p"}, ctx)
+    assert code == 200 and body["path"].endswith("manifest.json")
