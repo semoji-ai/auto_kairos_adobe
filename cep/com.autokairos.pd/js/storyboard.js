@@ -7,6 +7,9 @@ function _esc(s) {
 /* 컬럼 너비(px) — 인덱스 2(스크립트)는 flex(1fr). 드래그로 갱신. */
 var COLW = [30, 220, null, 120, 60];
 
+/* 씬별 원본 나레이션 — blur 시 변경 감지용 */
+var NAR_ORIG = {};
+
 function _colsCss() {
   return COLW.map(function (w, i) { return i === 2 ? "minmax(150px,1fr)" : w + "px"; }).join(" ");
 }
@@ -45,6 +48,8 @@ function loadSheet() {
     .then(function (j) {
       var dir = j.dir || "", list = j.scenes || [];
       if (!list.length) { $("sheet").textContent = "(씬 없음 — 씬 분해 먼저)"; return; }
+      NAR_ORIG = {};
+      list.forEach(function (s) { NAR_ORIG[s.sceneNumber] = s.narration || ""; });
       var head = '<div class="sheet-head">'
         + '<div>#</div>'
         + '<div>이미지<span class="col-resize" data-col="1"></span></div>'
@@ -79,7 +84,6 @@ function renderRow(s, dir) {
     + '  <div class="col-script">'
     + '    <div class="row-title">' + _esc(s.title || "") + '</div>'
     + '    <textarea class="nar" data-scene="' + n + '" rows="3">' + _esc(s.narration || "") + '</textarea>'
-    + '    <button class="sv-nar mini" data-scene="' + n + '" title="나레이션 저장">💾</button>'
     + '    <div class="row-status" data-scene="' + n + '"></div>'
     + '  </div>'
     // 에셋(캐릭터 + 씬 이미지 생성)
@@ -94,9 +98,20 @@ function renderRow(s, dir) {
 }
 
 function bindRows() {
-  var save = $("sheet").querySelectorAll("button.sv-nar");
-  for (var i = 0; i < save.length; i++) {
-    save[i].addEventListener("click", function () { saveNarration(this.getAttribute("data-scene")); });
+  // 나레이션: 저장 버튼 없이 blur 시 변경되었으면 확인 후 저장(아니오=되돌림)
+  var tas = $("sheet").querySelectorAll("textarea.nar");
+  for (var t = 0; t < tas.length; t++) {
+    tas[t].addEventListener("blur", function () {
+      var n = this.getAttribute("data-scene");
+      var orig = NAR_ORIG[n] || "";
+      if (this.value === orig) return;
+      if (confirm("씬 " + n + " 나레이션 변경사항을 저장하시겠습니까?")) {
+        saveNarration(n);
+        NAR_ORIG[n] = this.value;
+      } else {
+        this.value = orig;   // 되돌림
+      }
+    });
   }
   var gen = $("sheet").querySelectorAll("button.gen-img");
   for (var k = 0; k < gen.length; k++) {
