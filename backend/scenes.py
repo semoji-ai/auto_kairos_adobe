@@ -91,8 +91,8 @@ def load_scenes(proj_dir: Path) -> dict:
         sid = s.get("sceneId")
         ref = s.get("imageRef") or ""
         s["_image"] = ref if (ref and (proj_dir / ref).is_file()) else None
-        s["_layers"] = [f"layers/{nm}" for nm in (f"bg_{sid}.png", f"char_{sid}.png")
-                        if (lay_dir / nm).exists()]
+        s["_layers"] = (sorted(f"layers/{p.name}" for p in lay_dir.glob(f"*{sid}*.png"))
+                        if sid and lay_dir.is_dir() else [])
     data["dir"] = str(proj_dir)
     return data
 

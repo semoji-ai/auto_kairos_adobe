@@ -76,6 +76,20 @@ def test_load_scenes_enriches_media_and_layers(tmp_path):
     assert data["dir"] == str(d)
 
 
+def test_load_scenes_layers_glob_by_sid(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "lyr00001",
+                          "imageRef": "storyboard/sb_lyr00001.png"}])
+    (d / "storyboard").mkdir(); (d / "storyboard" / "sb_lyr00001.png").write_bytes(b"\x89PNG")
+    lay = d / "layers"; lay.mkdir()
+    (lay / "lyr00001__0_car.png").write_bytes(b"\x89PNG")
+    (lay / "lyr00001__bg.png").write_bytes(b"\x89PNG")
+    (lay / "other__x.png").write_bytes(b"\x89PNG")          # 다른 씬 — 제외
+    s = scenes.load_scenes(d)["scenes"][0]
+    assert "layers/lyr00001__0_car.png" in s["_layers"]
+    assert "layers/lyr00001__bg.png" in s["_layers"]
+    assert "layers/other__x.png" not in s["_layers"]
+
+
 def test_load_scenes_picks_latest_image_version(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 2, "sceneId": "bbb22222", "image_prompt": "x"}])
     sb = d / "storyboard"; sb.mkdir()

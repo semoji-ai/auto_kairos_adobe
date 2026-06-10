@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["elements"],
+  "properties": {
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "location"],
+        "properties": {
+          "name": { "type": "string" },
+          "location": { "type": "string" }
+        }
+      }
+    }
+  }
+}
