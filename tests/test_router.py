@@ -617,3 +617,32 @@ def test_assembly_manifest(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assembly/manifest", {}, {"project_id": "p"}, ctx)
     assert code == 200 and body["path"].endswith("manifest.json")
+
+
+def test_assistant_endpoint(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
+    monkeypatch.setattr(r.assistant, "run_assistant",
+                        lambda proj_dir, instr, on_event=None: {
+                            "plan": [{"action": "assemble", "reason": "x"}],
+                            "results": [{"action": "assemble", "reason": "x", "result": {"scenes": 0}}]})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assistant", {},
+                                {"project_id": "p", "instruction": "합쳐줘"}, ctx)
+    assert code == 200 and body["plan"][0]["action"] == "assemble"
+    assert body["results"][0]["result"]["scenes"] == 0
+
+
+def test_assistant_requires_instruction(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/assistant", {}, {"project_id": "p"}, ctx)
+    assert code == 400
+
+
+def test_assistant_missing_project_404(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/assistant", {},
+                             {"project_id": "none", "instruction": "x"}, ctx)
+    assert code == 404

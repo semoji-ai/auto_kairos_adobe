@@ -5,7 +5,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -193,6 +193,21 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         if not proj_dir.is_dir():
             return 404, {"error": "프로젝트 없음"}
         return 200, manifest.build_manifest(proj_dir)
+
+    if method == "POST" and p == "/api/assistant":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        instruction = (b.get("instruction") or "").strip()
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        if not instruction:
+            return 400, {"error": "instruction 필요"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("assistant", b.get("project_id", ""))
+        out = assistant.run_assistant(proj_dir, instruction,
+                                      on_event=lambda ln: jobs.append_log(jid, ln))
+        jobs.set_status(jid, "completed")
+        return 200, {"job_id": jid, **out}
 
     if method == "POST" and p == "/api/scenes/image":
         b = body or {}
