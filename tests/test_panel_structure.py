@@ -134,3 +134,9 @@ def test_genmodal_present():
     for el in ['id="genModal"', 'id="genCategory"', 'id="genPrompt"', 'id="genSubmit"',
                'id="genScene"', 'src="js/genmodal.js"']:
         assert el in html, el
+
+
+def test_storyboard_js_has_scene_ops():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function sceneOp" in js and "op-split" in js and "op-merge" in js
+    assert "scene-badges" in js

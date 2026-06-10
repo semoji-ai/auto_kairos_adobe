@@ -4,6 +4,10 @@ function _esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function _badge(label, on) {
+  return '<span class="badge ' + (on ? "on" : "off") + '">' + label + '</span>';
+}
+
 /* 컬럼 너비(px) — 5컬럼(씬#·이미지·스크립트·에셋·TTS) 전부 드래그 조절 + localStorage 저장 */
 var COL_KEY = "ak_sheet_cols";
 var COLW = _loadCols();
@@ -99,7 +103,20 @@ function renderRow(s, dir) {
   return ''
     + '<div class="sheet-row" data-scene="' + n + '" ondragover="event.preventDefault()" ondrop="dropOnScene(event,' + n + ')">'
     // 씬#
-    + '  <div class="col-num">' + n + '</div>'
+    + '  <div class="col-num">' + n
+    +      '<div class="scene-badges">'
+    +        _badge("나", s._status && s._status.narration)
+    +        _badge("이", s._status && s._status.image)
+    +        _badge("레", s._status && s._status.layers)
+    +        _badge("음", s._status && s._status.tts)
+    +      '</div>'
+    +      '<div class="scene-ops">'
+    +        '<button class="op-add" data-scene="' + n + '" title="아래에 씬 추가">＋</button>'
+    +        '<button class="op-split" data-scene="' + n + '" title="이 씬 분할">✂</button>'
+    +        '<button class="op-merge" data-scene="' + n + '" title="다음 씬과 병합">⤵</button>'
+    +        '<button class="op-del" data-scene="' + n + '" title="이 씬 삭제">🗑</button>'
+    +      '</div>'
+    + '  </div>'
     // 이미지 미리보기 + 레이어 썸네일
     + '  <div class="col-img">'
     +      (s._image ? '<button class="unlink-img" data-scene="' + n + '" title="씬 이미지 링크 해제">✕</button>' : '')
@@ -159,6 +176,13 @@ function bindRows() {
   for (var L = 0; L < ly.length; L++) {
     ly[L].addEventListener("click", function () { analyzeLayers(this.getAttribute("data-scene")); });
   }
+  _bindOp("op-add", function (n) { sceneOp("add", { after: parseInt(n, 10) }); });
+  _bindOp("op-split", function (n) { sceneOp("split", { sceneNumber: parseInt(n, 10) }); });
+  _bindOp("op-merge", function (n) { sceneOp("merge", { sceneNumber: parseInt(n, 10) }); });
+  _bindOp("op-del", function (n) {
+    if (confirm("씬 " + n + " 을 삭제할까요? (이미지/레이어 파일은 보존됩니다)"))
+      sceneOp("delete", { sceneNumber: parseInt(n, 10) });
+  });
 }
 
 function _rowStatus(n, msg) {
@@ -256,4 +280,24 @@ function dropOnScene(ev, n) {
       if (ok) loadSheet();
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+function _bindOp(cls, fn) {
+  var els = $("sheet").querySelectorAll("button." + cls);
+  for (var i = 0; i < els.length; i++) {
+    els[i].addEventListener("click", function () { fn(this.getAttribute("data-scene")); });
+  }
+}
+
+function sceneOp(op, extra) {
+  var b = { project_id: SELECTED_PROJECT };
+  for (var k in extra) b[k] = extra[k];
+  fetch(BACKEND + "/api/scenes/" + op, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.error) { alert("실패: " + j.error); return; }
+      loadSheet();      // 갱신
+    })
+    .catch(function (e) { alert("오류: " + e); });
 }

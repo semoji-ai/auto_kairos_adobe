@@ -62,6 +62,14 @@
       overflow:hidden; resize:none; min-height:42px; }
     .sheet-row .row-status { font-size:11px; color:#9aa0a6; }
     .sheet-row button { margin:4px 0; padding:6px; font-size:12px; }
+    .scene-badges { display:flex; gap:2px; margin-top:4px; }
+    .scene-badges .badge { font-size:9px; padding:1px 3px; border-radius:3px; }
+    .scene-badges .badge.on { background:#2d7d46; color:#fff; }
+    .scene-badges .badge.off { background:#333; color:#777; }
+    .scene-ops { display:flex; flex-wrap:wrap; gap:2px; margin-top:4px; }
+    .scene-ops button { font-size:11px; padding:1px 4px; width:auto; margin:0;
+      background:rgba(255,255,255,0.08); border:none; color:#bbb; cursor:pointer; border-radius:3px; }
+    .scene-ops button:hover { background:rgba(255,255,255,0.2); color:#fff; }
     .sheet-head > div { position:relative; }
     .col-resize { position:absolute; right:-4px; top:0; width:8px; height:100%;
       cursor:col-resize; }
