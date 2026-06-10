@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["actions"],
+  "properties": {
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action", "reason"],
+        "properties": {
+          "action": { "type": "string",
+            "enum": ["generate_missing_images", "split_layers", "tts_all", "assemble"] },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}
