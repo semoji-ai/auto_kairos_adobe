@@ -41,8 +41,8 @@
     /* 스토리보드 프로덕션 시트 — 가로 행 테이블(씬#|이미지|스크립트|에셋|TTS) */
     #sheet { overflow-x:auto; }
     .sheet-head, .sheet-row { display:grid;
-      grid-template-columns: var(--cols, 30px 220px minmax(150px,1fr) 120px 60px);
-      gap:8px; align-items:start; min-width:520px; }
+      grid-template-columns: var(--cols, 30px 200px 280px 120px 70px);
+      gap:8px; align-items:start; width:max-content; min-width:100%; }
     .sheet-head { color:#9aa0a6; font-size:11px; padding:6px 0;
       border-bottom:1px solid #33363c; position:sticky; top:0; background:#23262b; z-index:1; }
     .sheet-row { padding:8px 0; border-bottom:1px solid #2c2f36; }

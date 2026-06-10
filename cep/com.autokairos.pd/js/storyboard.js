@@ -4,19 +4,37 @@ function _esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/* 컬럼 너비(px) — 인덱스 2(스크립트)는 flex(1fr). 드래그로 갱신. */
-var COLW = [30, 220, null, 120, 60];
+/* 컬럼 너비(px) — 5컬럼(씬#·이미지·스크립트·에셋·TTS) 전부 드래그 조절 + localStorage 저장 */
+var COL_KEY = "ak_sheet_cols";
+var COLW = _loadCols();
+
+function _loadCols() {
+  try {
+    var s = window.localStorage.getItem(COL_KEY);
+    if (s) { var a = JSON.parse(s); if (a && a.length === 5) return a; }
+  } catch (e) {}
+  return [30, 200, 280, 120, 70];
+}
+
+function _persistCols() {
+  try { window.localStorage.setItem(COL_KEY, JSON.stringify(COLW)); } catch (e) {}
+}
 
 /* 씬별 원본 나레이션 — blur 시 변경 감지용 */
 var NAR_ORIG = {};
 
 function _colsCss() {
-  return COLW.map(function (w, i) { return i === 2 ? "minmax(150px,1fr)" : w + "px"; }).join(" ");
+  return COLW.map(function (w) { return w + "px"; }).join(" ");
 }
 
 function _applyCols() {
   var el = $("sheet");
   if (el) el.style.setProperty("--cols", _colsCss());
+}
+
+function _autosizeAll() {
+  var tas = $("sheet").querySelectorAll("textarea.nar");
+  for (var i = 0; i < tas.length; i++) _autosize(tas[i]);
 }
 
 function _bindColResize() {
@@ -27,12 +45,14 @@ function _bindColResize() {
       var idx = parseInt(this.getAttribute("data-col"), 10);
       var startX = e.clientX, startW = COLW[idx] || 100;
       function move(ev) {
-        COLW[idx] = Math.max(30, startW + (ev.clientX - startX));
+        COLW[idx] = Math.max(24, startW + (ev.clientX - startX));
         _applyCols();
+        _autosizeAll();          // 폭 변하면 줄바꿈 → 세로 높이 재계산
       }
       function up() {
         document.removeEventListener("mousemove", move);
         document.removeEventListener("mouseup", up);
+        _persistCols();          // 설정값 저장(다음에도 유지)
       }
       document.addEventListener("mousemove", move);
       document.addEventListener("mouseup", up);
@@ -51,9 +71,9 @@ function loadSheet() {
       NAR_ORIG = {};
       list.forEach(function (s) { NAR_ORIG[s.sceneNumber] = s.narration || ""; });
       var head = '<div class="sheet-head">'
-        + '<div>#</div>'
+        + '<div>#<span class="col-resize" data-col="0"></span></div>'
         + '<div>이미지<span class="col-resize" data-col="1"></span></div>'
-        + '<div>스크립트</div>'
+        + '<div>스크립트<span class="col-resize" data-col="2"></span></div>'
         + '<div>에셋<span class="col-resize" data-col="3"></span></div>'
         + '<div>TTS<span class="col-resize" data-col="4"></span></div>'
         + '</div>';
@@ -61,6 +81,8 @@ function loadSheet() {
       _applyCols();
       _bindColResize();
       bindRows();
+      // 레이아웃 후 나레이션 높이 재계산(탭 표시 직후 scrollHeight=0 방지)
+      if (window.requestAnimationFrame) requestAnimationFrame(_autosizeAll); else _autosizeAll();
     })
     .catch(function (e) { $("sheet").textContent = "오류: " + e; });
 }
