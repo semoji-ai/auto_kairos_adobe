@@ -478,6 +478,47 @@ def test_assets_generate_bad_category(tmp_path):
     assert code == 400        # background/prop만 허용(scene/character는 전용 엔드포인트)
 
 
+def test_scenes_analyze_layers(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sa","imageRef":"storyboard/sb_sa.png"}]}', encoding="utf-8")
+    (proj / "storyboard").mkdir(); (proj / "storyboard" / "sb_sa.png").write_bytes(b"\x89PNG")
+    monkeypatch.setattr(r.imagegen, "analyze_scene_layers",
+                        lambda proj_dir, img, **kw: {"elements": [{"name": "차", "location": "왼쪽"}]})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/analyze-layers", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and body["elements"][0]["name"] == "차"
+
+
+def test_scenes_analyze_layers_no_image(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sa","imageRef":""}]}', encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/analyze-layers", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 422       # 씬 이미지 없음
+
+
+def test_scenes_split_layers(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sb1","imageRef":"storyboard/sb_sb1.png"}]}', encoding="utf-8")
+    (proj / "storyboard").mkdir(); (proj / "storyboard" / "sb_sb1.png").write_bytes(b"\x89PNG")
+    seen = {}
+    monkeypatch.setattr(r.imagegen, "split_scene_to_elements",
+                        lambda proj_dir, img, sid, elements, **kw: seen.update(sid=sid, n=len(elements)) or {"layers": [{"rel": "layers/sb1__0_x.png", "status": "completed"}]})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/split-layers", {},
+                                {"project_id": "p", "sceneNumber": 1,
+                                 "elements": [{"name": "차", "location": "왼쪽"}]}, ctx)
+    assert code == 200 and seen["sid"] == "sb1" and seen["n"] == 1
+    assert body["result"]["layers"][0]["rel"].startswith("layers/sb1__")
+
+
 def test_scenes_image_prompt_override(tmp_path, monkeypatch):
     import backend.router as r
     proj = tmp_path / "p"; proj.mkdir()

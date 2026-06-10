@@ -211,6 +211,49 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         res = scenes.set_image_ref(proj_dir, b.get("sceneNumber"), "")
         return (200, res) if res.get("ok") else (404, res)
 
+    if method == "POST" and p == "/api/scenes/analyze-layers":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        data = scenes.load_scenes(proj_dir)
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        if not sc.get("_image"):
+            return 422, {"error": "씬 이미지 먼저 생성/링크 필요"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("analyze-layers", b.get("project_id", ""))
+        res = imagegen.analyze_scene_layers(
+            proj_dir, str(proj_dir / sc["_image"]),
+            on_line=lambda ln: jobs.append_log(jid, ln))
+        jobs.set_status(jid, "completed" if res.get("elements") else "failed")
+        return 200, {"job_id": jid, "elements": res.get("elements", []), "error": res.get("error")}
+
+    if method == "POST" and p == "/api/scenes/split-layers":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        data = scenes.load_scenes(proj_dir)
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        if not sc.get("_image"):
+            return 422, {"error": "씬 이미지 없음"}
+        elements = b.get("elements") or []
+        if not elements:
+            return 400, {"error": "elements 필요"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("split-layers", b.get("project_id", ""))
+        conc = int(b.get("concurrency", 4))
+        res = imagegen.split_scene_to_elements(
+            proj_dir, str(proj_dir / sc["_image"]), sc.get("sceneId"), elements,
+            concurrency=conc, on_event=lambda r: jobs.append_log(jid, f"{r['name']}: {r['status']}"))
+        ok = any(l.get("status") == "completed" for l in res.get("layers", []))
+        jobs.set_status(jid, "completed" if ok else "failed", artifact_paths=[str(proj_dir / "layers")])
+        return 200, {"job_id": jid, "result": res}
+
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")
         return 200, {"items": media.list_media(root / pid)}
