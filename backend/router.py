@@ -161,14 +161,26 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
                 character_ref = str(cref)
         jobs = ctx["jobs"]
         jid = jobs.create("scene-image", pid)
+        name = scenes.new_scene_image_name(sid)
         res = imagegen.generate_one(
-            proj_dir, f"sb_{sid}.png", scene.get("image_prompt", "") or scene.get("visual_summary", ""),
+            proj_dir, name, scene.get("image_prompt", "") or scene.get("visual_summary", ""),
             subdir="storyboard", character_ref=character_ref,
             on_line=lambda ln: jobs.append_log(jid, ln))
-        ok = res.get("status") == "completed"
-        jobs.set_status(jid, "completed" if ok else "failed",
+        if res.get("status") == "completed":
+            from pathlib import Path as _P
+            rel = _P(res["path"]).relative_to(proj_dir).as_posix()
+            scenes.set_image_ref(proj_dir, sn, rel)
+        jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
                         artifact_paths=[str(proj_dir / "storyboard")])
         return 200, {"job_id": jid, "result": res}
+
+    if method == "POST" and p == "/api/scenes/unlink-image":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        res = scenes.set_image_ref(proj_dir, b.get("sceneNumber"), "")
+        return (200, res) if res.get("ok") else (404, res)
 
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")

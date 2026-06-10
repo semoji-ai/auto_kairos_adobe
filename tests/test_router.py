@@ -325,26 +325,42 @@ def test_scenes_update_narration(tmp_path):
     assert _j.loads((proj / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]["narration"] == "새"
 
 
-def test_scenes_image_single(tmp_path, monkeypatch):
+def test_scenes_image_sets_imageref(tmp_path, monkeypatch):
+    import json as _j
     import backend.router as r
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text(
-        '{"scenes":[{"sceneNumber":3,"sceneId":"sid33333","image_prompt":"전기차 공장"}]}', encoding="utf-8")
+        '{"scenes":[{"sceneNumber":3,"sceneId":"sid333","image_prompt":"전기차 공장"}]}', encoding="utf-8")
     seen = {}
 
     def fake_one(proj_dir, rel_out, image_prompt, *, subdir="images", character_ref=None, **kw):
-        seen.update(rel_out=rel_out, subdir=subdir, prompt=image_prompt, character_ref=character_ref)
-        return {"status": "completed", "path": str(proj_dir / subdir / rel_out)}
+        seen.update(rel_out=rel_out, subdir=subdir, prompt=image_prompt)
+        out = proj_dir / subdir / rel_out
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(r.imagegen, "generate_one", fake_one)
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/scenes/image", {},
-                                {"project_id": "p", "sceneNumber": 3, "character": "지오"}, ctx)
+                                {"project_id": "p", "sceneNumber": 3}, ctx)
     assert code == 200 and body["result"]["status"] == "completed"
-    assert seen["rel_out"] == "sb_sid33333.png" and seen["subdir"] == "storyboard"
-    assert seen["prompt"] == "전기차 공장"
-    # 캐릭터 시트가 없으면 character_ref=None (파일 미존재)
-    assert seen["character_ref"] is None
+    assert seen["rel_out"].startswith("scene_sid333_") and seen["subdir"] == "storyboard"
+    sc = _j.loads((proj / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["imageRef"] == "storyboard/" + seen["rel_out"]   # 생성 후 링크됨
+
+
+def test_scenes_unlink_image(tmp_path):
+    import json as _j
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"s1","imageRef":"images/a.png"}]}', encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/unlink-image", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and body["ok"] is True
+    sc = _j.loads((proj / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["imageRef"] == ""
 
 
 def test_scenes_image_unknown_scene(tmp_path):
