@@ -122,3 +122,10 @@ def test_storyboard_preserves_legacy_ids():
                 'id="btnRefreshCharacters"', 'id="btnGalRefresh"', 'id="btnGalSearch"',
                 'id="sheet"', 'id="gallery-panel"', 'id="scenes"', 'id="aeresult"']:
         assert bid in html, bid
+
+
+def test_genmodal_present():
+    html = HTML.read_text(encoding="utf-8")
+    for el in ['id="genModal"', 'id="genCategory"', 'id="genPrompt"', 'id="genSubmit"',
+               'id="genScene"', 'src="js/genmodal.js"']:
+        assert el in html, el

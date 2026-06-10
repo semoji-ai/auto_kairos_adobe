@@ -93,6 +93,19 @@
     @media (min-width: 760px) {
       #view-list { max-width:520px; margin:0 auto; }
     }
+
+    /* 이미지 생성 모달 */
+    #genModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
+      display:flex; align-items:center; justify-content:center; }
+    #genModal[hidden] { display:none; }
+    #genModal .gen-box { width:min(420px,92vw); max-height:88vh; overflow-y:auto;
+      background:#23262b; border:1px solid #33363c; border-radius:10px; padding:16px; }
+    #genModal .gen-head { display:flex; justify-content:space-between; align-items:center;
+      font-size:14px; font-weight:600; margin-bottom:8px; }
+    #genModal select, #genModal input, #genModal textarea { width:100%; box-sizing:border-box;
+      padding:7px; margin:3px 0; background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
+    #genModal .gen-actions { display:flex; gap:8px; margin-top:10px; }
+    #genModal .gen-actions button { flex:1; }
   </style>
 </head>
 <body>
@@ -220,10 +233,46 @@
     </div>
   </div>
 
+  <!-- 이미지 생성 모달 -->
+  <div id="genModal" hidden>
+    <div class="gen-box">
+      <div class="gen-head">이미지 생성 <button id="genClose" class="mini">✕</button></div>
+      <div class="label">카테고리</div>
+      <select id="genCategory">
+        <option value="character">캐릭터</option>
+        <option value="background">배경</option>
+        <option value="prop">소품</option>
+        <option value="scene">씬</option>
+      </select>
+
+      <div id="genFieldName" class="gen-field">
+        <div class="label">이름</div>
+        <input id="genName" type="text" placeholder="예: 지오 / 작업실 배경 / 렌치">
+      </div>
+
+      <div id="genFieldScene" class="gen-field" hidden>
+        <div class="label">씬 선택</div>
+        <select id="genScene"></select>
+        <div class="label">기준 캐릭터(선택)</div>
+        <select id="genSceneChar"><option value="">(없음)</option></select>
+      </div>
+
+      <div class="label" id="genPromptLabel">설명 / 프롬프트</div>
+      <textarea id="genPrompt" rows="3" placeholder="헤어·의상(캐릭터) / 장면 설명(배경·소품) / 씬은 비우면 원고 기반"></textarea>
+
+      <div class="gen-actions">
+        <button id="genSubmit">생성</button>
+        <button id="genCancel" class="alt">취소</button>
+      </div>
+      <div class="box" id="genStatus" style="min-height:16px">—</div>
+    </div>
+  </div>
+
   <script src="js/main.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/planning.js"></script>
   <script src="js/storyboard.js"></script>
   <script src="js/gallery.js"></script>
+  <script src="js/genmodal.js"></script>
 </body>
 </html>
