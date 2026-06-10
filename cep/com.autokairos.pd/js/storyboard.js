@@ -101,7 +101,10 @@ function renderRow(s, dir) {
     // 씬#
     + '  <div class="col-num">' + n + '</div>'
     // 이미지 미리보기 + 레이어 썸네일
-    + '  <div class="col-img">' + media + (layers ? '<div>' + layers + '</div>' : '') + '</div>'
+    + '  <div class="col-img">'
+    +      (s._image ? '<button class="unlink-img" data-scene="' + n + '" title="씬 이미지 링크 해제">✕</button>' : '')
+    +      media + (layers ? '<div>' + layers + '</div>' : '')
+    + '  </div>'
     // 스크립트(나레이션)
     + '  <div class="col-script">'
     + '    <div class="row-title">' + _esc(s.title || "") + '</div>'
@@ -147,6 +150,10 @@ function bindRows() {
   for (var k = 0; k < gen.length; k++) {
     gen[k].addEventListener("click", function () { genSceneImage(this.getAttribute("data-scene")); });
   }
+  var un = $("sheet").querySelectorAll("button.unlink-img");
+  for (var u = 0; u < un.length; u++) {
+    un[u].addEventListener("click", function () { unlinkScene(this.getAttribute("data-scene")); });
+  }
 }
 
 function _rowStatus(n, msg) {
@@ -176,6 +183,19 @@ function genSceneImage(n) {
     .then(function (j) {
       _rowStatus(n, (j.result && j.result.status === "completed") ? "생성 완료 ✓" : ("실패: " + JSON.stringify(j)));
       if (j.result && j.result.status === "completed") loadSheet();   // 썸네일 갱신
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+function unlinkScene(n) {
+  _rowStatus(n, "링크 해제 중...");
+  fetch(BACKEND + "/api/scenes/unlink-image", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      _rowStatus(n, j.ok ? "링크 해제됨(파일은 갤러리에 보존)" : ("실패: " + JSON.stringify(j)));
+      if (j.ok) loadSheet();
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }

@@ -104,6 +104,11 @@ def test_storyboard_js_has_drop_handler():
     assert "function dropOnScene" in js and "set-image" in js
 
 
+def test_storyboard_js_has_unlink():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function unlinkScene" in js and "unlink-image" in js
+
+
 def test_storyboard_2pane():
     html = HTML.read_text(encoding="utf-8")
     for el in ['id="sb-2pane"', 'id="sb-left"', 'id="sb-right"', 'id="sb-toolbar"', 'id="btnOpenGenModal"']:

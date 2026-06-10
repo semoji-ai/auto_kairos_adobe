@@ -47,8 +47,12 @@
       border-bottom:1px solid #33363c; position:sticky; top:0; background:#23262b; z-index:1; }
     .sheet-row { padding:8px 0; border-bottom:1px solid #2c2f36; }
     .sheet-row .col-num { color:#9aa0a6; font-size:12px; padding-top:2px; }
+    .sheet-row .col-img { position:relative; }
     .sheet-row .col-img img.main { width:100%; border-radius:4px; display:block; }
     .sheet-row .col-img .lyr { width:32px; height:auto; margin:3px 3px 0 0; border-radius:3px; }
+    .sheet-row .unlink-img { display:none; position:absolute; top:2px; right:2px;
+      width:auto; margin:0; padding:2px 6px; font-size:11px; background:rgba(0,0,0,0.6); }
+    .sheet-row .col-img:hover .unlink-img { display:block; }
     .sheet-row .row-title { font-size:11px; color:#c5c8cc; margin-bottom:3px; }
     .sheet-row textarea.nar { width:100%; box-sizing:border-box; background:#23262b;
       color:#e6e6e6; border:1px solid #33363c; border-radius:5px; padding:6px; font-size:12px;
