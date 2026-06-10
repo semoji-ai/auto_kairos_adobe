@@ -106,11 +106,8 @@ def create_project(root: Path, title: str, *, channel: str = "semoji",
     d.mkdir(parents=True, exist_ok=False)
     (d / "plan.md").write_text(
         f"# {title}\n\n채널: {channel}\n분량: {duration}\n톤: {tone}\n", encoding="utf-8")
-    try:
-        from backend import asset_links     # 무거운 에셋 폴더를 NAS로 심링크(불가 시 로컬 유지)
-        asset_links.link_project_assets(d, pid)
-    except Exception:
-        pass
+    # 주: 에셋 폴더 NAS 심링크는 codex -s workspace-write 샌드박스가 NAS 쓰기를 막아
+    # 이미지 생성이 실패하므로 비활성화(로컬 유지). 디스크는 codex 캐시 정리로 관리.
     return {"project_id": pid, "title": title, "status": "planned"}
 
 
