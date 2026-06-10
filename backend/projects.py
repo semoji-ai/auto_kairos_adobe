@@ -106,6 +106,11 @@ def create_project(root: Path, title: str, *, channel: str = "semoji",
     d.mkdir(parents=True, exist_ok=False)
     (d / "plan.md").write_text(
         f"# {title}\n\n채널: {channel}\n분량: {duration}\n톤: {tone}\n", encoding="utf-8")
+    try:
+        from backend import asset_links     # 무거운 에셋 폴더를 NAS로 심링크(불가 시 로컬 유지)
+        asset_links.link_project_assets(d, pid)
+    except Exception:
+        pass
     return {"project_id": pid, "title": title, "status": "planned"}
 
 

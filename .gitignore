@@ -21,3 +21,10 @@ projects/*/references.json
 projects/*/storyboard/
 projects/*/layers/
 projects/*/layers.json
+# 에셋 서브폴더 — NAS 심링크(슬래시 없는 패턴이라야 심링크도 제외됨)
+projects/*/images
+projects/*/storyboard
+projects/*/layers
+projects/*/characters
+projects/*/audio
+projects/*/video_sources
