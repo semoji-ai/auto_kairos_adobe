@@ -140,3 +140,8 @@ def test_storyboard_js_has_scene_ops():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "function sceneOp" in js and "op-split" in js and "op-merge" in js
     assert "scene-badges" in js
+
+
+def test_build_scene_jsx_handles_layers():
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "s.layers" in jsx and "addFilledLayer" in jsx

@@ -3,6 +3,17 @@
 // ExtendScript에는 native JSON이 없을 수 있어 eval로 파싱(로컬 신뢰 파일 전제, PoC).
 
 function akBuildScene(manifestPath) {
+    // 레이어/이미지를 화면 채움 스케일로 추가(필요 시 페이드인). 없으면 null.
+    function addFilledLayer(proj, comp, absPath, W, H, fade) {
+        var f = new File(absPath);
+        if (!f.exists) return null;
+        var foot = proj.importFile(new ImportOptions(f));
+        var il = comp.layers.add(foot);
+        var sc = Math.max(W / il.source.width, H / il.source.height) * 100;
+        il.property("Scale").setValue([sc, sc]);
+        if (fade) { var op = il.property("Opacity"); op.setValueAtTime(0, 0); op.setValueAtTime(0.5, 100); }
+        return il;
+    }
     try {
         var mf = new File(manifestPath);
         if (!mf.exists) { return "ERROR: manifest 없음: " + manifestPath; }
@@ -23,17 +34,14 @@ function akBuildScene(manifestPath) {
             var name = s.ae_comp_name || ("Scene_" + (i + 1));
             var comp = proj.items.addComp(name, W, H, 1.0, dur, FPS);
 
-            // 이미지 레이어 (있으면) — 화면 채움 + 페이드인
-            if (s.image) {
-                var imgF = new File(s.image);
-                if (imgF.exists) {
-                    var foot = proj.importFile(new ImportOptions(imgF));
-                    var il = comp.layers.add(foot);
-                    var sc = Math.max(W / il.source.width, H / il.source.height) * 100;
-                    il.property("Scale").setValue([sc, sc]);
-                    var op = il.property("Opacity");
-                    op.setValueAtTime(0, 0); op.setValueAtTime(0.5, 100);
-                } else { log.push(name + ": image 누락"); }
+            // 레이어 스택(있으면) — 배열 앞이 먼저 추가되어 최하단(배경). 없으면 단일 이미지.
+            if (s.layers && s.layers.length) {
+                for (var li = 0; li < s.layers.length; li++) {
+                    var ok = addFilledLayer(proj, comp, s.layers[li].path, W, H, li === 0);
+                    if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);
+                }
+            } else if (s.image) {
+                if (!addFilledLayer(proj, comp, s.image, W, H, true)) log.push(name + ": image 누락");
             }
 
             // 자막 텍스트 레이어 (있으면)
