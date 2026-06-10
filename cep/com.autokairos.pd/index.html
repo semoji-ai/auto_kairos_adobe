@@ -29,7 +29,9 @@
                 border-bottom:1px solid #2c2f36; }
     #tabs { display:flex; border-bottom:1px solid #33363c; }
     #tabs .tab { flex:1; }
-    #tab-content { flex:1; overflow-y:auto; padding:14px; }
+    #tab-content { flex:1; min-height:0; overflow:hidden; }
+    #tab-planning { height:100%; overflow-y:auto; padding:14px; box-sizing:border-box; }
+    #tab-storyboard { height:100%; box-sizing:border-box; }
     #chat-dock { border-top:1px solid #33363c; background:#1b1d21; padding:10px 14px; }
     #chat-dock .row { display:flex; gap:6px; }
     #chatInput { flex:1; box-sizing:border-box; padding:8px; background:#23262b;
@@ -58,10 +60,11 @@
       cursor:col-resize; }
     .col-resize:hover { background:#3a6df0; opacity:0.4; }
 
-    /* 스토리보드 2-pane */
-    #sb-2pane { display:flex; gap:12px; align-items:flex-start; }
-    #sb-left { flex:1; min-width:0; }
-    #sb-right { width:300px; flex:0 0 300px; }
+    /* 스토리보드 2-pane — 각 패널 독립 세로 스크롤 */
+    #sb-2pane { display:flex; gap:12px; align-items:stretch; height:100%;
+      padding:14px; box-sizing:border-box; }
+    #sb-left { flex:1; min-width:0; overflow-y:auto; }
+    #sb-right { width:320px; flex:0 0 320px; overflow-y:auto; }
     #sb-toolbar { display:flex; flex-wrap:wrap; gap:4px; }
     #sb-toolbar button { width:auto; flex:0 0 auto; margin:0; padding:6px 8px; font-size:12px; }
     .sb-search { display:flex; gap:4px; margin:6px 0; }
@@ -73,15 +76,17 @@
     .sb-acc input { width:100%; box-sizing:border-box; padding:6px; margin:3px 0; background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
     /* 세로 갤러리 썸네일 */
     #gallery-panel .gal-thumb { display:block; width:100%; height:auto; margin:5px 0; border-radius:4px; }
-    /* 좁은 창: 세로 스택 */
+    /* 좁은 창: 세로 스택 + 일반 스크롤로 복귀 */
     @media (max-width: 720px) {
-      #sb-2pane { flex-direction:column; }
+      #sb-2pane { flex-direction:column; height:auto; }
       #sb-right { width:auto; flex:none; }
+      #sb-left, #sb-right { overflow:visible; }
+      #tab-content { overflow-y:auto; }
+      #tab-storyboard, #tab-planning { height:auto; }
     }
 
-    /* 반응형: 넓은 창이면 탭 콘텐츠 2열 여지 + 본문 최대폭 */
+    /* 목록 뷰만 가운데 정렬(상세 뷰는 full-width 사용) */
     @media (min-width: 760px) {
-      #tab-content { max-width:1200px; margin:0 auto; width:100%; }
       #view-list { max-width:520px; margin:0 auto; }
     }
   </style>
