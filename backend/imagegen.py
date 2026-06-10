@@ -1,6 +1,8 @@
 """codex imagegen(빌트인 image_gen, 단일 인증) 호출 — workspace-write 저장 + 재시도 + 버전."""
 from __future__ import annotations
 
+import json
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -168,6 +170,84 @@ def generate_asset(proj_dir: Path, rel_out: str, image_prompt: str,
     prompt = build_asset_prompt(image_prompt, load_style(), rel, has_char_ref=bool(char_ref))
     return _run_codex_image(proj_dir, out, prompt, images=images or None,
                             retries=retries, on_line=on_line)
+
+
+_LAYER_SCHEMA = Path(__file__).resolve().parent / "schemas" / "layer_elements.schema.json"
+
+
+def analyze_scene_layers(proj_dir: Path, scene_image: str, *, on_line=None) -> dict:
+    """codex 멀티모달로 씬 이미지를 분석해 분할 요소 목록 반환. {elements:[{name,location}]}|{error}."""
+    prompt = (
+        "첨부한 씬 이미지를 애니메이션용 레이어로 분리하려 한다. "
+        "서로 겹치지 않는 주요 시각 요소(피사체)들을 구분해라. "
+        "각 요소의 짧은 한국어 이름과 화면 내 위치를 알려줘. 배경은 목록에 포함하지 말 것."
+    )
+    out_json = proj_dir / ".layer_analysis.json"
+    res = run_skill(prompt, proj_dir, output_schema=str(_LAYER_SCHEMA),
+                    output_last=str(out_json), images=[scene_image], on_line=on_line)
+    if res.get("returncode") != 0 or not out_json.is_file():
+        return {"error": "분석 실패", "elements": []}
+    try:
+        data = json.loads(out_json.read_text(encoding="utf-8"))
+    except Exception:
+        return {"error": "분석 결과 파싱 실패", "elements": []}
+    return {"elements": data.get("elements", [])}
+
+
+def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_out: str) -> str:
+    return (
+        f"{style_desc}\n\n## 레이어 분리 — 단일 요소\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
+        f"이 씬에서 '{name}'({location})만 동일한 위치·크기·외형으로 다시 그리고, "
+        f"그 외 전 영역은 순수 마젠타 단색(#FF00FF)으로 채운다.\n"
+        f"image_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. 텍스트 없음. 저장되면 OK만 답해."
+    )
+
+
+def _layer_slug(name: str) -> str:
+    s = re.sub(r"[^0-9A-Za-z가-힣]+", "_", name).strip("_")
+    return s[:24] or "el"
+
+
+def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
+                            *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
+    """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
+    요소는 마젠타→투명 후처리. 무삭제(versioned)."""
+    out_base = proj_dir / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    style = load_style()
+
+    def _element(i_el):
+        i, el = i_el
+        name, loc = el.get("name", f"el{i}"), el.get("location", "")
+        out = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(name)}.png")
+        rel = out.relative_to(proj_dir).as_posix()
+        prompt = build_element_layer_prompt(name, loc, style, rel)
+        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image],
+                               post=lambda o: chroma_key_magenta(o, o))
+        r = {"name": name, "rel": rel, "status": res.get("status")}
+        if on_event:
+            on_event(r)
+        return r
+
+    def _bg():
+        names = ", ".join(e.get("name", "") for e in elements)
+        out = versioned_path(out_base, f"{sid}__bg.png")
+        rel = out.relative_to(proj_dir).as_posix()
+        prompt = (f"{style}\n\n## 레이어 분리 — 배경\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
+                  f"다음 피사체들을 모두 제거하고({names}) 배경·환경만 자연스럽게 채워서 그린다.\n"
+                  f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
+        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
+        r = {"name": "배경", "rel": rel, "status": res.get("status")}
+        if on_event:
+            on_event(r)
+        return r
+
+    layers = []
+    tasks = list(enumerate(elements))
+    with ThreadPoolExecutor(max_workers=max(1, int(concurrency))) as ex:
+        layers = list(ex.map(_element, tasks))
+    layers.append(_bg())
+    return {"layers": layers}
 
 
 def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:

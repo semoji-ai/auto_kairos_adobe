@@ -159,6 +159,49 @@ def test_generate_many_concurrency_min_one(tmp_path, monkeypatch):
     assert len(results) == 1
 
 
+def test_build_element_layer_prompt():
+    p = imagegen.build_element_layer_prompt("왼쪽 전기차", "프레임 왼쪽", "STYLE", "layers/x.png")
+    assert "왼쪽 전기차" in p and "마젠타" in p and "#FF00FF" in p and "layers/x.png" in p
+
+
+def test_analyze_scene_layers_parses(tmp_path, monkeypatch):
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir(); img = proj / "storyboard" / "s.png"; img.write_bytes(b"\x89PNG")
+
+    def fake_run(prompt, cwd, *, output_schema=None, output_last=None, images=None, on_line=None, **kw):
+        from pathlib import Path as _P
+        _P(output_last).write_text('{"elements":[{"name":"전기차","location":"왼쪽"},'
+                                   '{"name":"인물","location":"오른쪽"}]}', encoding="utf-8")
+        return {"returncode": 0, "output_last": output_last}
+
+    monkeypatch.setattr(ig, "run_skill", fake_run)
+    res = ig.analyze_scene_layers(proj, str(img))
+    assert [e["name"] for e in res["elements"]] == ["전기차", "인물"]
+
+
+def test_split_scene_to_elements(tmp_path, monkeypatch):
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir(); img = proj / "storyboard" / "s.png"; img.write_bytes(b"\x89PNG")
+    made = []
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        out.write_bytes(b"\x89PNG"); made.append(out.name)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    res = ig.split_scene_to_elements(proj, str(img), "sid9",
+                                     [{"name": "전기차", "location": "왼쪽"},
+                                      {"name": "인물", "location": "오른쪽"}], concurrency=2)
+    names = [r["rel"] for r in res["layers"]]
+    # 요소 2개 + 배경 1개
+    assert any("sid9__0" in n for n in names) and any("sid9__1" in n for n in names)
+    assert any("sid9__bg" in n for n in names)
+
+
 def test_chroma_key_magenta(tmp_path):
     from PIL import Image
     from backend import imagegen
