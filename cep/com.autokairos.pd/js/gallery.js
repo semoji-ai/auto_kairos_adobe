@@ -18,7 +18,7 @@ function loadGallery() {
           return '<img src="file://' + it.dir + '/' + it.rel + '" draggable="true"'
             + ' ondragstart="event.dataTransfer.setData(\'text/plain\', this.getAttribute(\'data-rel\'))"'
             + ' data-rel="' + _gesc(it.rel) + '" title="' + _gesc(it.rel) + ' — 시트 행으로 드래그"'
-            + ' style="width:72px;height:auto;margin:3px;border-radius:4px;cursor:grab;">';
+            + ' class="gal-thumb" style="cursor:grab;">';
         }
         return '<span data-rel="' + _gesc(it.rel) + '" title="' + _gesc(it.rel) + '" style="display:inline-block;margin:3px;padding:6px;background:#23262b;border-radius:4px;font-size:11px;">🎬 ' + _gesc(it.name) + '</span>';
       }).join("");
@@ -42,7 +42,7 @@ function searchGallery() {
       $("gallery-panel").innerHTML = imgs.map(function (im, idx) {
         return '<img src="' + _gesc(im.thumb) + '" data-url="' + _gesc(im.url) + '" data-idx="' + idx
           + '" title="클릭하면 소스로 저장: ' + _gesc(im.title) + '"'
-          + ' style="width:72px;height:auto;margin:3px;border-radius:4px;cursor:pointer;">';
+          + ' class="gal-thumb" style="cursor:pointer;">';
       }).join("");
       var gi = $("gallery-panel").querySelectorAll("img[data-url]");
       for (var i = 0; i < gi.length; i++) {
