@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import shutil
+import uuid
 from pathlib import Path
 
 from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media
@@ -163,7 +164,8 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         jid = jobs.create("scene-image", pid)
         name = scenes.new_scene_image_name(sid)
         res = imagegen.generate_one(
-            proj_dir, name, scene.get("image_prompt", "") or scene.get("visual_summary", ""),
+            proj_dir, name,
+            (b.get("prompt") or "").strip() or scene.get("image_prompt", "") or scene.get("visual_summary", ""),
             subdir="storyboard", character_ref=character_ref,
             on_line=lambda ln: jobs.append_log(jid, ln))
         if res.get("status") == "completed":
@@ -172,6 +174,27 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             scenes.set_image_ref(proj_dir, sn, rel)
         jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
                         artifact_paths=[str(proj_dir / "storyboard")])
+        return 200, {"job_id": jid, "result": res}
+
+    if method == "POST" and p == "/api/assets/generate":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        cat = (b.get("category") or "").strip()
+        prompt = (b.get("prompt") or "").strip()
+        if cat not in ("background", "prop"):
+            return 400, {"error": "category는 background 또는 prop"}
+        if not prompt:
+            return 400, {"error": "prompt 필요"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("asset", b.get("project_id", ""))
+        name = f"{cat}_{uuid.uuid4().hex[:6]}.png"
+        res = imagegen.generate_one(
+            proj_dir, name, prompt, subdir="images",
+            on_line=lambda ln: jobs.append_log(jid, ln))
+        jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
+                        artifact_paths=[str(proj_dir / "images")])
         return 200, {"job_id": jid, "result": res}
 
     if method == "POST" and p == "/api/scenes/unlink-image":

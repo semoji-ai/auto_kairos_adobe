@@ -420,3 +420,59 @@ def test_scene_set_image_endpoint(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/scenes/set-image", {},
                                 {"project_id": "p", "sceneNumber": 2, "src": "images/a.png"}, ctx)
     assert code == 200 and body["result"]["rel"] == "storyboard/sb_2.png"
+
+
+def test_assets_generate_background(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    seen = {}
+
+    def fake_one(proj_dir, rel_out, image_prompt, *, subdir="images", character_ref=None, **kw):
+        seen.update(rel_out=rel_out, subdir=subdir, prompt=image_prompt, character_ref=character_ref)
+        out = proj_dir / subdir / rel_out
+        out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(r.imagegen, "generate_one", fake_one)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assets/generate", {},
+                                {"project_id": "p", "category": "background", "prompt": "작업실 배경"}, ctx)
+    assert code == 200 and body["result"]["status"] == "completed"
+    assert seen["rel_out"].startswith("background_") and seen["subdir"] == "images"
+    assert seen["character_ref"] is None        # 무캐릭터 분기
+
+
+def test_assets_generate_requires_prompt(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assets/generate", {},
+                                {"project_id": "p", "category": "prop", "prompt": ""}, ctx)
+    assert code == 400
+
+
+def test_assets_generate_bad_category(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assets/generate", {},
+                                {"project_id": "p", "category": "scene", "prompt": "x"}, ctx)
+    assert code == 400        # background/prop만 허용(scene/character는 전용 엔드포인트)
+
+
+def test_scenes_image_prompt_override(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sx","image_prompt":"기본"}]}', encoding="utf-8")
+    seen = {}
+
+    def fake_one(proj_dir, rel_out, image_prompt, *, subdir="images", character_ref=None, **kw):
+        seen["prompt"] = image_prompt
+        out = proj_dir / subdir / rel_out
+        out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(r.imagegen, "generate_one", fake_one)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/image", {},
+                                {"project_id": "p", "sceneNumber": 1, "prompt": "오버라이드 프롬프트"}, ctx)
+    assert code == 200 and seen["prompt"] == "오버라이드 프롬프트"
