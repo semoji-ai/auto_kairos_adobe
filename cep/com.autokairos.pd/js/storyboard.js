@@ -210,8 +210,9 @@ function dropOnScene(ev, n) {
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: n, src: src }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      _rowStatus(n, (j.result && j.result.status === "completed") ? "적용됨 ✓" : ("실패: " + JSON.stringify(j)));
-      if (j.result && j.result.status === "completed") loadSheet();
+      var ok = j.result && j.result.ok;
+      _rowStatus(n, ok ? "적용됨 ✓" : ("실패: " + JSON.stringify(j)));
+      if (ok) loadSheet();
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
