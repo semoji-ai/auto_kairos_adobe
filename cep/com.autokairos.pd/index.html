@@ -37,6 +37,7 @@
     #chatInput { flex:1; box-sizing:border-box; padding:8px; background:#23262b;
                  color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
     #btnChatSend { width:auto; padding:8px 14px; margin:0; }
+    .chat-msg { margin:2px 0; font-size:12px; line-height:1.4; }
 
     /* 스토리보드 프로덕션 시트 — 가로 행 테이블(씬#|이미지|스크립트|에셋|TTS) */
     #sheet { overflow-x:auto; }
@@ -240,12 +241,13 @@
       </div>
     </div>
 
-    <!-- 하단 채팅(자리, P7 활성) -->
+    <!-- 하단 채팅(P7 제작 비서) -->
     <div id="chat-dock">
-      <div class="label" style="margin:0 0 4px">💬 제작 비서 (P7에서 활성)</div>
+      <div class="label" style="margin:0 0 4px">💬 제작 비서</div>
+      <div class="box" id="chatLog" style="max-height:22vh;overflow:auto;margin-bottom:4px">무엇을 할까요? (예: "이미지 없는 씬 채우고 음성 입혀서 합쳐줘")</div>
       <div class="row">
-        <input id="chatInput" type="text" placeholder="메시지… (아직 비활성)" disabled>
-        <button id="btnChatSend" disabled>전송</button>
+        <input id="chatInput" type="text" placeholder='지시를 입력하세요…'>
+        <button id="btnChatSend">전송</button>
       </div>
     </div>
   </div>
@@ -299,5 +301,6 @@
   <script src="js/storyboard.js"></script>
   <script src="js/gallery.js"></script>
   <script src="js/genmodal.js"></script>
+  <script src="js/assistant.js"></script>
 </body>
 </html>

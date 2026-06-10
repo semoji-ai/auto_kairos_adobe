@@ -155,3 +155,14 @@ def test_storyboard_js_has_tts():
 def test_main_js_assembly_uses_manifest():
     js = (PANEL / "js" / "main.js").read_text(encoding="utf-8")
     assert "/api/assembly/manifest" in js and "akBuildScene" in js
+
+
+def test_assistant_js_wired():
+    js = (PANEL / "js" / "assistant.js").read_text(encoding="utf-8")
+    assert "function sendChat" in js and "/api/assistant" in js
+
+
+def test_index_loads_assistant_js():
+    html = (PANEL / "index.html").read_text(encoding="utf-8")
+    assert "js/assistant.js" in html and 'id="chatInput"' in html
+    assert "disabled" not in html.split('id="chatInput"')[1].split(">")[0]   # 입력 활성화
