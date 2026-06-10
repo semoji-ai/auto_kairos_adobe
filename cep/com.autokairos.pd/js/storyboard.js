@@ -12,7 +12,8 @@ function loadSheet() {
     .then(function (j) {
       var dir = j.dir || "", list = j.scenes || [];
       if (!list.length) { $("sheet").textContent = "(씬 없음 — 씬 분해 먼저)"; return; }
-      $("sheet").innerHTML = list.map(function (s) { return renderRow(s, dir); }).join("");
+      var head = '<div class="sheet-head"><div>#</div><div>이미지</div><div>스크립트</div><div>에셋</div><div>TTS</div></div>';
+      $("sheet").innerHTML = head + list.map(function (s) { return renderRow(s, dir); }).join("");
       bindRows();
     })
     .catch(function (e) { $("sheet").textContent = "오류: " + e; });
@@ -21,23 +22,33 @@ function loadSheet() {
 function renderRow(s, dir) {
   var n = s.sceneNumber;
   var media = s._image
-    ? '<img src="file://' + dir + '/' + s._image + '" style="width:100%;border-radius:4px;">'
-    : '<div style="color:#666;font-size:11px">(이미지 없음)</div>';
+    ? '<img class="main" src="file://' + dir + '/' + s._image + '">'
+    : '<div style="color:#666;font-size:11px">(없음)</div>';
   var layers = (s._layers || []).map(function (lp) {
-    return '<img src="file://' + dir + '/' + lp + '" style="width:38px;height:auto;margin:2px;border-radius:3px;" title="' + _esc(lp) + '">';
+    return '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp) + '">';
   }).join("");
   var chars = (s.characters || []).join(", ");
   return ''
-    + '<div class="box scene-row" style="display:block" data-scene="' + n + '" ondragover="event.preventDefault()" ondrop="dropOnScene(event,' + n + ')">'
-    + '  <div style="color:#9aa0a6;font-size:11px">#' + n + " · " + _esc(s.title || "") + (chars ? " · 👤 " + _esc(chars) : "") + '</div>'
-    + '  <div style="margin:4px 0">' + media + '</div>'
-    + (layers ? '<div style="margin:2px 0">' + layers + '</div>' : '')
-    + '  <textarea class="nar" data-scene="' + n + '" rows="2" style="width:100%;box-sizing:border-box;background:#23262b;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;padding:6px;">' + _esc(s.narration || "") + '</textarea>'
-    + '  <div style="display:flex;gap:6px">'
-    + '    <button class="sv-nar" data-scene="' + n + '" style="margin:4px 0">나레이션 저장</button>'
-    + '    <button class="gen-img alt" data-scene="' + n + '" style="margin:4px 0">씬 이미지 생성</button>'
+    + '<div class="sheet-row" data-scene="' + n + '" ondragover="event.preventDefault()" ondrop="dropOnScene(event,' + n + ')">'
+    // 씬#
+    + '  <div class="col-num">' + n + '</div>'
+    // 이미지 미리보기 + 레이어 썸네일
+    + '  <div class="col-img">' + media + (layers ? '<div>' + layers + '</div>' : '') + '</div>'
+    // 스크립트(나레이션)
+    + '  <div class="col-script">'
+    + '    <div class="row-title">' + _esc(s.title || "") + '</div>'
+    + '    <textarea class="nar" data-scene="' + n + '" rows="3">' + _esc(s.narration || "") + '</textarea>'
+    + '    <button class="sv-nar" data-scene="' + n + '">나레이션 저장</button>'
+    + '    <div class="row-status" data-scene="' + n + '"></div>'
     + '  </div>'
-    + '  <div class="row-status" data-scene="' + n + '" style="font-size:11px;color:#9aa0a6"></div>'
+    // 에셋(캐릭터 + 씬 이미지 생성)
+    + '  <div class="col-asset">'
+    + (chars ? '<div style="font-size:11px">👤 ' + _esc(chars) + '</div>' : '<div style="font-size:11px;color:#666">인물 없음</div>')
+    + '    <button class="gen-img alt" data-scene="' + n + '">씬 이미지 생성</button>'
+    + '    <div style="font-size:10px;color:#666;margin-top:2px">소스 드래그로 교체</div>'
+    + '  </div>'
+    // TTS(자리 — P6)
+    + '  <div class="col-tts" style="font-size:11px;color:#666">(P6)</div>'
     + '</div>';
 }
 

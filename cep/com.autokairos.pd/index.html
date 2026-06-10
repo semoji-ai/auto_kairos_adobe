@@ -36,6 +36,23 @@
                  color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
     #btnChatSend { width:auto; padding:8px 14px; margin:0; }
 
+    /* 스토리보드 프로덕션 시트 — 가로 행 테이블(씬#|이미지|스크립트|에셋|TTS) */
+    #sheet { overflow-x:auto; }
+    .sheet-head, .sheet-row { display:grid;
+      grid-template-columns: 30px 110px minmax(150px,1fr) 120px 60px;
+      gap:8px; align-items:start; min-width:500px; }
+    .sheet-head { color:#9aa0a6; font-size:11px; padding:6px 0;
+      border-bottom:1px solid #33363c; position:sticky; top:0; background:#23262b; z-index:1; }
+    .sheet-row { padding:8px 0; border-bottom:1px solid #2c2f36; }
+    .sheet-row .col-num { color:#9aa0a6; font-size:12px; padding-top:2px; }
+    .sheet-row .col-img img.main { width:100%; border-radius:4px; display:block; }
+    .sheet-row .col-img .lyr { width:32px; height:auto; margin:3px 3px 0 0; border-radius:3px; }
+    .sheet-row .row-title { font-size:11px; color:#c5c8cc; margin-bottom:3px; }
+    .sheet-row textarea.nar { width:100%; box-sizing:border-box; background:#23262b;
+      color:#e6e6e6; border:1px solid #33363c; border-radius:5px; padding:6px; font-size:12px; }
+    .sheet-row .row-status { font-size:11px; color:#9aa0a6; }
+    .sheet-row button { margin:4px 0; padding:6px; font-size:12px; }
+
     /* 반응형: 넓은 창이면 탭 콘텐츠 2열 여지 + 본문 최대폭 */
     @media (min-width: 760px) {
       #tab-content { max-width:1200px; margin:0 auto; width:100%; }
