@@ -97,10 +97,17 @@ function renderRow(s, dir) {
     + '</div>';
 }
 
+function _autosize(ta) {
+  ta.style.height = "auto";
+  ta.style.height = (ta.scrollHeight + 2) + "px";   // 내용 높이에 맞춰 확장(스크롤 없음)
+}
+
 function bindRows() {
   // 나레이션: 저장 버튼 없이 blur 시 변경되었으면 확인 후 저장(아니오=되돌림)
   var tas = $("sheet").querySelectorAll("textarea.nar");
   for (var t = 0; t < tas.length; t++) {
+    _autosize(tas[t]);
+    tas[t].addEventListener("input", function () { _autosize(this); });
     tas[t].addEventListener("blur", function () {
       var n = this.getAttribute("data-scene");
       var orig = NAR_ORIG[n] || "";
@@ -110,6 +117,7 @@ function bindRows() {
         NAR_ORIG[n] = this.value;
       } else {
         this.value = orig;   // 되돌림
+        _autosize(this);
       }
     });
   }
