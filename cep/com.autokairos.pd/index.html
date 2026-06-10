@@ -245,6 +245,11 @@
         <option value="scene">씬</option>
       </select>
 
+      <div class="label">아트스타일</div>
+      <select id="genStyle">
+        <option value="semoji">세모지(semoji)</option>
+      </select>
+
       <div id="genFieldName" class="gen-field">
         <div class="label">이름</div>
         <input id="genName" type="text" placeholder="예: 지오 / 작업실 배경 / 렌치">
@@ -253,8 +258,11 @@
       <div id="genFieldScene" class="gen-field" hidden>
         <div class="label">씬 선택</div>
         <select id="genScene"></select>
-        <div class="label">기준 캐릭터(선택)</div>
-        <select id="genSceneChar"><option value="">(없음)</option></select>
+      </div>
+
+      <div id="genFieldChar" class="gen-field" hidden>
+        <div class="label">기준 캐릭터(스타일, 선택)</div>
+        <select id="genChar"><option value="">(없음)</option></select>
       </div>
 
       <div class="label" id="genPromptLabel">설명 / 프롬프트</div>

@@ -187,11 +187,17 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             return 400, {"error": "category는 background 또는 prop"}
         if not prompt:
             return 400, {"error": "prompt 필요"}
+        char = (b.get("character") or "").strip()
+        char_ref = None
+        if char:
+            cref = proj_dir / "characters" / f"char_{char}.png"
+            if cref.exists():
+                char_ref = str(cref)
         jobs = ctx["jobs"]
         jid = jobs.create("asset", b.get("project_id", ""))
         name = f"{cat}_{uuid.uuid4().hex[:6]}.png"
-        res = imagegen.generate_one(
-            proj_dir, name, prompt, subdir="images",
+        res = imagegen.generate_asset(
+            proj_dir, name, prompt, char_ref=char_ref, subdir="images",
             on_line=lambda ln: jobs.append_log(jid, ln))
         jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
                         artifact_paths=[str(proj_dir / "images")])

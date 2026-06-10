@@ -427,19 +427,39 @@ def test_assets_generate_background(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     seen = {}
 
-    def fake_one(proj_dir, rel_out, image_prompt, *, subdir="images", character_ref=None, **kw):
-        seen.update(rel_out=rel_out, subdir=subdir, prompt=image_prompt, character_ref=character_ref)
+    def fake_asset(proj_dir, rel_out, image_prompt, *, char_ref=None, subdir="images", **kw):
+        seen.update(rel_out=rel_out, subdir=subdir, prompt=image_prompt, char_ref=char_ref)
         out = proj_dir / subdir / rel_out
         out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(b"\x89PNG")
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(r.imagegen, "generate_one", fake_one)
+    monkeypatch.setattr(r.imagegen, "generate_asset", fake_asset)
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assets/generate", {},
                                 {"project_id": "p", "category": "background", "prompt": "작업실 배경"}, ctx)
     assert code == 200 and body["result"]["status"] == "completed"
     assert seen["rel_out"].startswith("background_") and seen["subdir"] == "images"
-    assert seen["character_ref"] is None        # 무캐릭터 분기
+    assert seen["char_ref"] is None        # 캐릭터 미지정
+
+
+def test_assets_generate_with_character_style(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "characters").mkdir(); (proj / "characters" / "char_지오.png").write_bytes(b"\x89PNG")
+    seen = {}
+
+    def fake_asset(proj_dir, rel_out, image_prompt, *, char_ref=None, subdir="images", **kw):
+        seen["char_ref"] = char_ref
+        out = proj_dir / subdir / rel_out
+        out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(r.imagegen, "generate_asset", fake_asset)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assets/generate", {},
+                                {"project_id": "p", "category": "prop", "prompt": "렌치", "character": "지오"}, ctx)
+    assert code == 200
+    assert seen["char_ref"] == str(proj / "characters" / "char_지오.png")
 
 
 def test_assets_generate_requires_prompt(tmp_path):

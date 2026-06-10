@@ -14,10 +14,13 @@ function _genOnCategory() {
   var cat = $("genCategory").value;
   $("genFieldName").hidden = (cat === "scene");
   $("genFieldScene").hidden = (cat !== "scene");
+  // 기준 캐릭터(스타일): 씬·배경·소품에서 노출(캐릭터 생성 시엔 숨김)
+  $("genFieldChar").hidden = (cat === "character");
   $("genPromptLabel").textContent =
     cat === "character" ? "헤어·의상" :
     cat === "scene" ? "프롬프트(비우면 원고 기반)" : "장면 설명 / 프롬프트";
   if (cat === "scene") _genLoadScenes();
+  if (cat !== "character") _genLoadChars();
 }
 
 function _genLoadScenes() {
@@ -29,15 +32,17 @@ function _genLoadScenes() {
       }).join("");
       $("genScene").innerHTML = opts || '<option value="">(씬 없음)</option>';
     });
-  // 기준 캐릭터 옵션
+}
+
+function _genLoadChars() {
   fetch(BACKEND + "/api/characters/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
     .then(function (r) { return r.json(); })
     .then(function (j) {
-      var opts = '<option value="">(없음)</option>' + (j.images || []).map(function (n) {
+      var sel = SELECTED_CHARACTER || "";
+      $("genChar").innerHTML = '<option value="">(없음)</option>' + (j.images || []).map(function (n) {
         var nm = n.replace(/^char_/, "").replace(/\.png$/, "");
-        return '<option value="' + nm + '">' + nm + '</option>';
+        return '<option value="' + nm + '"' + (nm === sel ? " selected" : "") + '>' + nm + '</option>';
       }).join("");
-      $("genSceneChar").innerHTML = opts;
     });
 }
 
@@ -53,10 +58,12 @@ function submitGen() {
   } else if (cat === "scene") {
     url = "/api/scenes/image";
     payload = { project_id: SELECTED_PROJECT, sceneNumber: parseInt($("genScene").value, 10),
-                character: $("genSceneChar").value || "", prompt: prompt };
-  } else { // background / prop
+                character: $("genChar").value || "", prompt: prompt, style: $("genStyle").value };
+  } else { // background / prop — 선택 캐릭터의 스타일로(인물은 안 그림)
     if (!prompt) { $("genStatus").textContent = "장면 설명을 입력하세요."; return; }
-    url = "/api/assets/generate"; payload = { project_id: SELECTED_PROJECT, category: cat, name: name, prompt: prompt };
+    url = "/api/assets/generate";
+    payload = { project_id: SELECTED_PROJECT, category: cat, name: name, prompt: prompt,
+                character: $("genChar").value || "", style: $("genStyle").value };
   }
   fetch(BACKEND + url, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),

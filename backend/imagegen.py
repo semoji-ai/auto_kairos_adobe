@@ -138,6 +138,38 @@ def generate_character(proj_dir: Path, name: str, looks: str,
                             retries=retries, on_line=on_line)
 
 
+def build_asset_prompt(image_prompt: str, style_desc: str, rel_out: str,
+                       *, has_char_ref: bool = False) -> str:
+    """배경/소품 — 첨부 이미지는 그림체 참고용, 인물(사람)·캐릭터는 그리지 않음."""
+    refs = "세모지 베이스" + ("와 기준 캐릭터 시트" if has_char_ref else "")
+    return (
+        f"{style_desc}\n\n## 장면(인물 없음)\n{image_prompt}\n\n"
+        f"[첨부 이미지]\n- 첨부 이미지({refs})는 그림체·색감 참고용이다 — "
+        f"인물(사람)·캐릭터는 절대 그리지 말 것. 사물/배경만 그린다.\n\n## 생성 지시\n"
+        f"image_gen 도구로 위 아트스타일을 적용한 이미지 1장을 생성해 현재 폴더의 {rel_out} 로 저장.\n"
+        f"비율을 텍스트로 새로 지정하지 말 것. 텍스트 없음. 저장되면 'OK'만 답해."
+    )
+
+
+def generate_asset(proj_dir: Path, rel_out: str, image_prompt: str,
+                   *, char_ref=None, subdir: str = "images",
+                   retries: int = 2, on_line=None) -> dict:
+    """배경/소품 생성 — 세모지 베이스(+선택 캐릭터 시트)를 스타일 참고로 첨부, 인물은 안 그림."""
+    out_base = proj_dir / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    out = versioned_path(out_base, Path(rel_out).name)
+    rel = out.relative_to(proj_dir).as_posix()
+    images = []
+    base = base_img()
+    if base:
+        images.append(str(base))
+    if char_ref:
+        images.append(str(char_ref))
+    prompt = build_asset_prompt(image_prompt, load_style(), rel, has_char_ref=bool(char_ref))
+    return _run_codex_image(proj_dir, out, prompt, images=images or None,
+                            retries=retries, on_line=on_line)
+
+
 def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
     """마젠타(#FF00FF) 근방을 투명으로. 가장자리 디스필(마젠타 성분 감쇠)."""
     im = Image.open(src_png).convert("RGBA")
