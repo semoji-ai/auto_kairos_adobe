@@ -142,6 +142,22 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         res = scenes.update_narration(proj_dir, sn, b.get("narration", ""))
         return (200, res) if res.get("ok") else (404, res)
 
+    if method == "POST" and p in ("/api/scenes/add", "/api/scenes/delete",
+                                  "/api/scenes/split", "/api/scenes/merge"):
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        if p == "/api/scenes/add":
+            return 200, scenes.add_scene(proj_dir, after_number=b.get("after"),
+                                         narration=b.get("narration", ""), title=b.get("title", ""))
+        if p == "/api/scenes/delete":
+            return 200, scenes.remove_scene(proj_dir, b.get("sceneNumber"))
+        if p == "/api/scenes/split":
+            return 200, scenes.split_scene(proj_dir, b.get("sceneNumber"),
+                                           first=b.get("first"), second=b.get("second"))
+        return 200, scenes.merge_scenes(proj_dir, b.get("sceneNumber"))
+
     if method == "POST" and p == "/api/scenes/image":
         b = body or {}
         pid = b.get("project_id", "")

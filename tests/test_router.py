@@ -537,3 +537,49 @@ def test_scenes_image_prompt_override(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/scenes/image", {},
                                 {"project_id": "p", "sceneNumber": 1, "prompt": "오버라이드 프롬프트"}, ctx)
     assert code == 200 and seen["prompt"] == "오버라이드 프롬프트"
+
+
+def _mk_scenes(tmp_path, arr):
+    import json as _j
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(_j.dumps({"scenes": arr}, ensure_ascii=False), encoding="utf-8")
+    return proj
+
+
+def test_scenes_add(tmp_path):
+    _mk_scenes(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa"}])
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/add", {},
+                                {"project_id": "p", "after": 1}, ctx)
+    assert code == 200 and len(body["scenes"]) == 2
+
+
+def test_scenes_delete(tmp_path):
+    _mk_scenes(tmp_path, [{"sceneNumber": 1, "sceneId": "a"}, {"sceneNumber": 2, "sceneId": "b"}])
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/delete", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and [s["sceneId"] for s in body["scenes"]] == ["b"]
+
+
+def test_scenes_split(tmp_path):
+    _mk_scenes(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "narration": "하나다. 둘이다."}])
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/split", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and len(body["scenes"]) == 2
+
+
+def test_scenes_merge(tmp_path):
+    _mk_scenes(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "narration": "앞"},
+                          {"sceneNumber": 2, "sceneId": "b", "narration": "뒤"}])
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/merge", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and len(body["scenes"]) == 1
+
+
+def test_scenes_add_missing_project_404(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/scenes/add", {}, {"project_id": "none"}, ctx)
+    assert code == 404
