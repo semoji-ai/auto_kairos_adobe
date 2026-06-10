@@ -15,13 +15,25 @@ function loadGallery() {
       if (!items.length) { $("gallery-panel").textContent = "(소스 없음)"; return; }
       $("gallery-panel").innerHTML = items.map(function (it) {
         if (it.type === "image") {
-          return '<img src="file://' + it.dir + '/' + it.rel + '" draggable="true"'
+          return '<div class="gal-item">'
+            + '<img src="file://' + it.dir + '/' + it.rel + '" draggable="true"'
             + ' ondragstart="event.dataTransfer.setData(\'text/plain\', this.getAttribute(\'data-rel\'))"'
-            + ' data-rel="' + _gesc(it.rel) + '" title="' + _gesc(it.rel) + ' — 시트 행으로 드래그"'
-            + ' class="gal-thumb" style="cursor:grab;">';
+            + ' data-rel="' + _gesc(it.rel) + '" title="' + _gesc(it.rel) + ' — 시트 행으로 드래그 / ↧AE로 임포트"'
+            + ' class="gal-thumb" style="cursor:grab;">'
+            + '<button class="gal-ae" data-rel="' + _gesc(it.rel) + '" data-dir="' + _gesc(it.dir) + '" title="AE 프로젝트로 가져오기">↧AE</button>'
+            + '</div>';
         }
-        return '<span data-rel="' + _gesc(it.rel) + '" title="' + _gesc(it.rel) + '" style="display:inline-block;margin:3px;padding:6px;background:#23262b;border-radius:4px;font-size:11px;">🎬 ' + _gesc(it.name) + '</span>';
+        return '<div class="gal-item"><span style="display:inline-block;padding:6px;background:#23262b;border-radius:4px;font-size:11px;">🎬 ' + _gesc(it.name) + '</span>'
+          + '<button class="gal-ae" data-rel="' + _gesc(it.rel) + '" data-dir="' + _gesc(it.dir) + '" title="AE 프로젝트로 가져오기">↧AE</button></div>';
       }).join("");
+      var aebtns = $("gallery-panel").querySelectorAll("button.gal-ae");
+      for (var i = 0; i < aebtns.length; i++) {
+        aebtns[i].addEventListener("click", function () {
+          if (typeof importToAE === "function") {
+            importToAE(this.getAttribute("data-dir"), [this.getAttribute("data-rel")], "gallery", "gallery-panel");
+          }
+        });
+      }
     })
     .catch(function (e) { $("gallery-panel").textContent = "오류: " + e; });
 }
