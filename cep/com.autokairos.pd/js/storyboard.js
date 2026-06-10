@@ -4,6 +4,39 @@ function _esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/* 컬럼 너비(px) — 인덱스 2(스크립트)는 flex(1fr). 드래그로 갱신. */
+var COLW = [30, 220, null, 120, 60];
+
+function _colsCss() {
+  return COLW.map(function (w, i) { return i === 2 ? "minmax(150px,1fr)" : w + "px"; }).join(" ");
+}
+
+function _applyCols() {
+  var el = $("sheet");
+  if (el) el.style.setProperty("--cols", _colsCss());
+}
+
+function _bindColResize() {
+  var handles = $("sheet").querySelectorAll(".col-resize");
+  for (var i = 0; i < handles.length; i++) {
+    handles[i].addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      var idx = parseInt(this.getAttribute("data-col"), 10);
+      var startX = e.clientX, startW = COLW[idx] || 100;
+      function move(ev) {
+        COLW[idx] = Math.max(30, startW + (ev.clientX - startX));
+        _applyCols();
+      }
+      function up() {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+      }
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    });
+  }
+}
+
 function loadSheet() {
   if (!SELECTED_PROJECT) { $("sheet").textContent = "프로젝트를 먼저 선택하세요."; return; }
   $("sheet").textContent = "불러오는 중...";
@@ -12,8 +45,16 @@ function loadSheet() {
     .then(function (j) {
       var dir = j.dir || "", list = j.scenes || [];
       if (!list.length) { $("sheet").textContent = "(씬 없음 — 씬 분해 먼저)"; return; }
-      var head = '<div class="sheet-head"><div>#</div><div>이미지</div><div>스크립트</div><div>에셋</div><div>TTS</div></div>';
+      var head = '<div class="sheet-head">'
+        + '<div>#</div>'
+        + '<div>이미지<span class="col-resize" data-col="1"></span></div>'
+        + '<div>스크립트</div>'
+        + '<div>에셋<span class="col-resize" data-col="3"></span></div>'
+        + '<div>TTS<span class="col-resize" data-col="4"></span></div>'
+        + '</div>';
       $("sheet").innerHTML = head + list.map(function (s) { return renderRow(s, dir); }).join("");
+      _applyCols();
+      _bindColResize();
       bindRows();
     })
     .catch(function (e) { $("sheet").textContent = "오류: " + e; });
@@ -38,7 +79,7 @@ function renderRow(s, dir) {
     + '  <div class="col-script">'
     + '    <div class="row-title">' + _esc(s.title || "") + '</div>'
     + '    <textarea class="nar" data-scene="' + n + '" rows="3">' + _esc(s.narration || "") + '</textarea>'
-    + '    <button class="sv-nar" data-scene="' + n + '">나레이션 저장</button>'
+    + '    <button class="sv-nar mini" data-scene="' + n + '" title="나레이션 저장">💾</button>'
     + '    <div class="row-status" data-scene="' + n + '"></div>'
     + '  </div>'
     // 에셋(캐릭터 + 씬 이미지 생성)
