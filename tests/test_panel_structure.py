@@ -102,3 +102,18 @@ def test_gallery_panel_present():
 def test_storyboard_js_has_drop_handler():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "function dropOnScene" in js and "set-image" in js
+
+
+def test_storyboard_2pane():
+    html = HTML.read_text(encoding="utf-8")
+    for el in ['id="sb-2pane"', 'id="sb-left"', 'id="sb-right"', 'id="sb-toolbar"', 'id="btnOpenGenModal"']:
+        assert el in html, el
+
+
+def test_storyboard_preserves_legacy_ids():
+    html = HTML.read_text(encoding="utf-8")
+    for bid in ['id="btnDecompose"', 'id="btnRefList"', 'id="btnGenStoryboard"',
+                'id="btnGenLayers"', 'id="btnBuild"', 'id="btnGenCharacter"',
+                'id="btnRefreshCharacters"', 'id="btnGalRefresh"', 'id="btnGalSearch"',
+                'id="sheet"', 'id="gallery-panel"', 'id="scenes"', 'id="aeresult"']:
+        assert bid in html, bid

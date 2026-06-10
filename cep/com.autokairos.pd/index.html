@@ -39,8 +39,8 @@
     /* 스토리보드 프로덕션 시트 — 가로 행 테이블(씬#|이미지|스크립트|에셋|TTS) */
     #sheet { overflow-x:auto; }
     .sheet-head, .sheet-row { display:grid;
-      grid-template-columns: 30px 110px minmax(150px,1fr) 120px 60px;
-      gap:8px; align-items:start; min-width:500px; }
+      grid-template-columns: var(--cols, 30px 220px minmax(150px,1fr) 120px 60px);
+      gap:8px; align-items:start; min-width:520px; }
     .sheet-head { color:#9aa0a6; font-size:11px; padding:6px 0;
       border-bottom:1px solid #33363c; position:sticky; top:0; background:#23262b; z-index:1; }
     .sheet-row { padding:8px 0; border-bottom:1px solid #2c2f36; }
@@ -52,6 +52,27 @@
       color:#e6e6e6; border:1px solid #33363c; border-radius:5px; padding:6px; font-size:12px; }
     .sheet-row .row-status { font-size:11px; color:#9aa0a6; }
     .sheet-row button { margin:4px 0; padding:6px; font-size:12px; }
+
+    /* 스토리보드 2-pane */
+    #sb-2pane { display:flex; gap:12px; align-items:flex-start; }
+    #sb-left { flex:1; min-width:0; }
+    #sb-right { width:300px; flex:0 0 300px; }
+    #sb-toolbar { display:flex; flex-wrap:wrap; gap:4px; }
+    #sb-toolbar button { width:auto; flex:0 0 auto; margin:0; padding:6px 8px; font-size:12px; }
+    .sb-search { display:flex; gap:4px; margin:6px 0; }
+    .sb-search input { flex:1; min-width:0; box-sizing:border-box; padding:6px; background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
+    .sb-search select { padding:5px; background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
+    button.mini { width:auto; margin:2px 0; padding:5px 9px; font-size:12px; }
+    .sb-acc { margin-top:8px; border-top:1px solid #2c2f36; }
+    .sb-acc > summary { cursor:pointer; color:#9aa0a6; font-size:12px; padding:6px 0; }
+    .sb-acc input { width:100%; box-sizing:border-box; padding:6px; margin:3px 0; background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
+    /* 세로 갤러리 썸네일 */
+    #gallery-panel .gal-thumb { display:block; width:100%; height:auto; margin:5px 0; border-radius:4px; }
+    /* 좁은 창: 세로 스택 */
+    @media (max-width: 720px) {
+      #sb-2pane { flex-direction:column; }
+      #sb-right { width:auto; flex:none; }
+    }
 
     /* 반응형: 넓은 창이면 탭 콘텐츠 2열 여지 + 본문 최대폭 */
     @media (min-width: 760px) {
@@ -109,55 +130,69 @@
 
       <!-- 스토리보드 탭 -->
       <div id="tab-storyboard" hidden>
-        <div class="label">씬 분해 (PD)</div>
-        <button id="btnDecompose">선택 프로젝트 씬 분해</button>
-        <div class="box" id="scenes">—</div>
+        <div id="sb-2pane">
+          <!-- 좌: 프로덕션 시트 -->
+          <div id="sb-left">
+            <div class="label">프로덕션 시트
+              <button id="btnLoadSheet" class="mini">시트 불러오기</button>
+            </div>
+            <div id="sheet">—</div>
+          </div>
 
-        <div class="label">프로덕션 시트</div>
-        <button id="btnLoadSheet">시트 불러오기</button>
-        <div id="sheet">—</div>
+          <!-- 우: 도구상자 + 세로 갤러리 -->
+          <div id="sb-right">
+            <div id="sb-toolbar">
+              <button id="btnOpenGenModal" title="이미지 생성(SB2)">+ 이미지 생성</button>
+              <button id="btnDecompose" class="alt">씬 분해</button>
+              <button id="btnRefreshCharacters" class="alt">캐릭터</button>
+              <button id="btnGalRefresh" class="alt">소스</button>
+            </div>
+            <div class="sb-search">
+              <input id="galSearch" type="text" placeholder="이미지 검색">
+              <select id="galEngine">
+                <option value="serper">구글</option>
+                <option value="pixabay">pixabay</option>
+              </select>
+              <button id="btnGalSearch" class="mini">검색</button>
+            </div>
+            <div class="box" id="gallery-panel" style="min-height:60px">—</div>
 
-        <div class="label">갤러리 / 소스</div>
-        <div style="display:flex;gap:6px">
-          <input id="galSearch" type="text" placeholder="이미지 검색어" style="flex:1;box-sizing:border-box;padding:7px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-          <select id="galEngine" style="padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-            <option value="serper">구글(serper)</option>
-            <option value="pixabay">pixabay</option>
-          </select>
-          <button id="btnGalSearch" style="width:auto;padding:7px 12px;margin:0">검색</button>
+            <!-- 기준 캐릭터(임시 — SB2에서 모달로 통합) -->
+            <details class="sb-acc">
+              <summary>기준 캐릭터</summary>
+              <input id="charName" type="text" placeholder="이름 (예: 지오)">
+              <input id="charLooks" type="text" placeholder="헤어·의상">
+              <button id="btnGenCharacter" class="mini">캐릭터 생성</button>
+              <div class="box" id="characters">—</div>
+            </details>
+
+            <!-- 배치·고급(레거시 — 접이식, 바인딩 보존) -->
+            <details class="sb-acc">
+              <summary>배치 · 고급</summary>
+              <div class="label">씬 분해 결과</div>
+              <div class="box" id="scenes">—</div>
+              <div class="label">레퍼런스 이미지</div>
+              <button id="btnRefList" class="mini">레퍼런스 목록</button>
+              <button id="btnGenImages" class="mini alt">이미지 생성</button>
+              <div class="box" id="gallery">—</div>
+              <button id="btnImportImages" class="mini alt">레퍼런스 → AE</button>
+              <button id="btnRefreshGallery" class="mini">갤러리 새로고침</button>
+              <div class="label">씬 이미지(배치)</div>
+              <button id="btnGenStoryboard" class="mini">씬 이미지 생성</button>
+              <div class="box" id="storyboard">—</div>
+              <button id="btnRefreshStoryboard" class="mini">새로고침</button>
+              <button id="btnImportStoryboard" class="mini alt">→ AE</button>
+              <div class="label">씬 레이어(배치)</div>
+              <button id="btnGenLayers" class="mini">레이어 생성</button>
+              <div class="box" id="layers">—</div>
+              <button id="btnRefreshLayers" class="mini">레이어 새로고침</button>
+              <button id="btnImportLayers" class="mini alt">레이어 → AE</button>
+              <div class="label">AE 컴프</div>
+              <button id="btnBuild" class="mini alt">manifest → AE 컴프</button>
+              <div class="box" id="aeresult">—</div>
+            </details>
+          </div>
         </div>
-        <button id="btnGalRefresh">소스 새로고침</button>
-        <div class="box" id="gallery-panel" style="min-height:40px">—</div>
-
-        <div class="label">기준 캐릭터 (베이스 리스타일)</div>
-        <input id="charName" type="text" placeholder="캐릭터 이름 (예: 지오)" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-        <input id="charLooks" type="text" placeholder="헤어·의상" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-        <button id="btnGenCharacter">캐릭터 생성</button>
-        <div class="box" id="characters">—</div>
-        <button id="btnRefreshCharacters">캐릭터 새로고침</button>
-
-        <div class="label">레퍼런스 이미지</div>
-        <button id="btnRefList">레퍼런스 목록 생성</button>
-        <button id="btnGenImages" class="alt">이미지 생성</button>
-        <div class="box" id="gallery">—</div>
-        <button id="btnImportImages" class="alt">레퍼런스 → AE 가져오기</button>
-        <button id="btnRefreshGallery">갤러리 새로고침</button>
-
-        <div class="label">스토리보드(씬 이미지)</div>
-        <button id="btnGenStoryboard">씬 이미지 생성</button>
-        <div class="box" id="storyboard">—</div>
-        <button id="btnRefreshStoryboard">새로고침</button>
-        <button id="btnImportStoryboard" class="alt">→ AE 가져오기</button>
-
-        <div class="label">씬 레이어</div>
-        <button id="btnGenLayers">레이어 생성</button>
-        <div class="box" id="layers">—</div>
-        <button id="btnRefreshLayers">레이어 새로고침</button>
-        <button id="btnImportLayers" class="alt">레이어 → AE 가져오기</button>
-
-        <div class="label">AE 컴프</div>
-        <button id="btnBuild" class="alt">샘플 manifest → AE 컴프 생성</button>
-        <div class="box" id="aeresult">—</div>
       </div>
     </div>
 
