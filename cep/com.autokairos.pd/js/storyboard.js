@@ -103,6 +103,7 @@ function renderRow(s, dir) {
     // 이미지 미리보기 + 레이어 썸네일
     + '  <div class="col-img">'
     +      (s._image ? '<button class="unlink-img" data-scene="' + n + '" title="씬 이미지 링크 해제">✕</button>' : '')
+    +      (s._image ? '<button class="layer-img" data-scene="' + n + '" title="레이어 분리(LLM 분석)">⧉</button>' : '')
     +      media + (layers ? '<div>' + layers + '</div>' : '')
     + '  </div>'
     // 스크립트(나레이션)
@@ -154,6 +155,10 @@ function bindRows() {
   for (var u = 0; u < un.length; u++) {
     un[u].addEventListener("click", function () { unlinkScene(this.getAttribute("data-scene")); });
   }
+  var ly = $("sheet").querySelectorAll("button.layer-img");
+  for (var L = 0; L < ly.length; L++) {
+    ly[L].addEventListener("click", function () { analyzeLayers(this.getAttribute("data-scene")); });
+  }
 }
 
 function _rowStatus(n, msg) {
@@ -196,6 +201,39 @@ function unlinkScene(n) {
     .then(function (j) {
       _rowStatus(n, j.ok ? "링크 해제됨(파일은 갤러리에 보존)" : ("실패: " + JSON.stringify(j)));
       if (j.ok) loadSheet();
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+function analyzeLayers(n) {
+  _rowStatus(n, "레이어 분석 중... (codex가 분할 요소 파악, 수십 초)");
+  fetch(BACKEND + "/api/scenes/analyze-layers", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      var els = j.elements || [];
+      if (!els.length) { _rowStatus(n, "분석 실패: " + (j.error || JSON.stringify(j))); return; }
+      var list = els.map(function (e) { return "· " + e.name + " (" + e.location + ")"; }).join("\n");
+      if (confirm("이 씬을 다음 요소로 분리합니다:\n\n" + list + "\n\n진행할까요?")) {
+        splitLayers(n, els);
+      } else {
+        _rowStatus(n, "분리 취소됨");
+      }
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+function splitLayers(n, els) {
+  _rowStatus(n, "레이어 분리 중... (" + els.length + "개 요소 + 배경, codex)");
+  fetch(BACKEND + "/api/scenes/split-layers", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), elements: els }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      var done = (j.result && j.result.layers) ? j.result.layers.filter(function (l) { return l.status === "completed"; }).length : 0;
+      _rowStatus(n, done ? ("레이어 " + done + "개 생성 ✓") : ("실패: " + JSON.stringify(j)));
+      if (done) loadSheet();   // 레이어 썸네일 갱신
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }

@@ -124,6 +124,11 @@ def test_storyboard_preserves_legacy_ids():
         assert bid in html, bid
 
 
+def test_storyboard_js_has_layer_analysis():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function analyzeLayers" in js and "analyze-layers" in js and "split-layers" in js
+
+
 def test_genmodal_present():
     html = HTML.read_text(encoding="utf-8")
     for el in ['id="genModal"', 'id="genCategory"', 'id="genPrompt"', 'id="genSubmit"',
