@@ -166,3 +166,10 @@ def test_index_loads_assistant_js():
     html = (PANEL / "index.html").read_text(encoding="utf-8")
     assert "js/assistant.js" in html and 'id="chatInput"' in html
     assert "disabled" not in html.split('id="chatInput"')[1].split(">")[0]   # 입력 활성화
+
+
+def test_tts_settings_panel():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function loadTtsSettings" in js and "/api/tts/settings" in js
+    html = (PANEL / "index.html").read_text(encoding="utf-8")
+    assert 'id="ttsStyle"' in html and 'id="ttsVoiceId"' in html

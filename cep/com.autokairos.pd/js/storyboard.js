@@ -323,3 +323,42 @@ function genTts(n) {
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
+
+function loadTtsSettings() {
+  if (!SELECTED_PROJECT) return;
+  fetch(BACKEND + "/api/tts/settings?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var sel = $("ttsStyle"); if (!sel) return;
+      var presets = (j.presets && j.presets.presets) || {};
+      sel.innerHTML = Object.keys(presets).map(function (k) {
+        return '<option value="' + k + '">' + _esc(presets[k].label || k) + '</option>';
+      }).join("");
+      if (j.config) {
+        sel.value = j.config.style;
+        $("ttsStatus").textContent = "현재: " + j.config.style + " / voice " + j.config.voice_id;
+      }
+    }).catch(function () {});
+}
+
+function saveTtsSettings() {
+  if (!SELECTED_PROJECT) { $("ttsStatus").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  var style = $("ttsStyle").value;
+  var vid = ($("ttsVoiceId").value || "").trim();
+  $("ttsStatus").textContent = "저장 중...";
+  fetch(BACKEND + "/api/tts/settings", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, style: style, voice_id: vid }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      $("ttsStatus").textContent = j.config
+        ? ("저장됨 — " + j.config.style + " / voice " + j.config.voice_id) : ("실패: " + JSON.stringify(j));
+      $("ttsVoiceId").value = "";
+    }).catch(function (e) { $("ttsStatus").textContent = "오류: " + e; });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  var b = $("btnSaveTts"); if (b) b.addEventListener("click", saveTtsSettings);
+  var d = $("ttsSettings");
+  if (d) d.addEventListener("toggle", function () { if (d.open) loadTtsSettings(); });
+});
