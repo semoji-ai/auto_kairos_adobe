@@ -646,3 +646,29 @@ def test_assistant_missing_project_404(tmp_path):
     code, _ = handle_request("POST", "/api/assistant", {},
                              {"project_id": "none", "instruction": "x"}, ctx)
     assert code == 404
+
+
+def test_tts_settings_get_default(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/tts/settings", {"project_id": "p"}, None, ctx)
+    assert code == 200
+    assert body["config"]["style"] == "semoji"
+    assert body["config"]["voice_id"] == "W7FnAxJNpD5WGjrF5GLp"
+    assert "semoji" in body["presets"]["presets"]
+
+
+def test_tts_settings_post_style(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/tts/settings", {},
+                                {"project_id": "p", "style": "lego"}, ctx)
+    assert code == 200 and body["config"]["voice_id"] == "4JJwo477JUAx3HV0T7n7"
+
+
+def test_tts_settings_post_voice_override(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/tts/settings", {},
+                                {"project_id": "p", "voice_id": "ZZZ999"}, ctx)
+    assert code == 200 and body["config"]["voice_id"] == "ZZZ999"

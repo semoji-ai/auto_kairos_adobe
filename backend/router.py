@@ -194,6 +194,17 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             return 404, {"error": "프로젝트 없음"}
         return 200, manifest.build_manifest(proj_dir)
 
+    if p == "/api/tts/settings" and method in ("GET", "POST"):
+        pid = (query.get("project_id") if method == "GET" else (body or {}).get("project_id")) or ""
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        if method == "POST":
+            b = body or {}
+            tts.set_tts_config(proj_dir, style=b.get("style"), voice_id=b.get("voice_id"),
+                               model=b.get("model"), voice_settings=b.get("voice_settings"))
+        return 200, {"config": tts.effective_voice(proj_dir), "presets": tts.load_voice_presets()}
+
     if method == "POST" and p == "/api/assistant":
         b = body or {}
         proj_dir = root / b.get("project_id", "")
