@@ -203,3 +203,30 @@ def test_buildall_button_and_full_comp():
 def test_gallery_select_import():
     js = (PANEL / "js" / "gallery.js").read_text(encoding="utf-8")
     assert "function importSelectedToProject" in js and "btnGalImport" in js
+
+
+def test_storyboard_no_double_plus_concat():
+    # '+   + ' 이중 플러스 = 단항 플러스로 문자열이 NaN 되는 버그 패턴(재발 방지)
+    import re
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    bad = [ln for ln in js.splitlines() if re.match(r"\s*\+\s+\+\s", ln)]
+    assert not bad, "이중 + 연결 발견(단항 플러스 NaN 위험): " + repr(bad[:3])
+
+
+def test_storyboard_tts_player_renders_without_nan():
+    # renderRow를 node로 실행해 TTS 플레이어 HTML이 NaN 없이 생성되는지 검증
+    import subprocess, json
+    sb = str(PANEL / "js" / "storyboard.js")
+    script = (
+        "global.window={localStorage:{getItem:function(){return null;},setItem:function(){}}};"
+        "global.document={getElementById:function(){return null;},addEventListener:function(){}};"
+        "eval(require('fs').readFileSync(" + json.dumps(sb) + ",'utf8'));"
+        "var s={sceneNumber:1,sceneId:'x',title:'t',narration:'n',_image:'storyboard/a.png',"
+        "_layers:[],_audio:'audio/tts_x.mp3',_audio_dur:13.5,"
+        "_status:{narration:true,image:true,layers:false,tts:true},characters:[]};"
+        "var h=renderRow(s,'/p');"
+        "process.stdout.write(JSON.stringify({nan:h.indexOf('NaN')>=0,play:h.indexOf('>\\u25b6<')>=0,player:h.indexOf('tts-player')>=0}));"
+    )
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    res = json.loads(out.stdout)
+    assert res["player"] and res["play"] and not res["nan"], (out.stdout, out.stderr)
