@@ -260,7 +260,10 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         prompt = build_element_layer_prompt(name, loc, style, rel)
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image],
                                post=lambda o: chroma_key_magenta(o, o))
-        r = {"name": name, "rel": rel, "status": res.get("status")}
+        bbox = None
+        if res.get("status") == "completed" and out.exists():
+            bbox = crop_to_content(out)     # 요소 내용으로 크롭 + 프레임 내 위치 기록
+        r = {"name": name, "rel": rel, "status": res.get("status"), "bbox": bbox}
         if on_event:
             on_event(r)
         return r
@@ -285,6 +288,10 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     with ThreadPoolExecutor(max_workers=max(1, int(concurrency))) as ex:
         layers = list(ex.map(_element, tasks))
     layers.append(_bg())
+    # 요소별 크롭 위치를 사이드카로 저장 → manifest가 AE 좌표로 변환(파일명→bbox)
+    meta = {Path(r["rel"]).name: r["bbox"] for r in layers if r.get("bbox")}
+    (out_base / f"{sid}__meta.json").write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"layers": layers}
 
 
@@ -302,6 +309,23 @@ def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
     out = Image.fromarray(a.astype("uint8"), "RGBA")
     out.save(out_png)
     return {"transparent_ratio": float(mask.sum()) / mask.size}
+
+
+def crop_to_content(png_path: Path, *, pad: int = 8) -> dict | None:
+    """투명 PNG를 내용(비투명) 영역으로 크롭(제자리 저장). 요소의 프레임 내 위치를 반환.
+    반환 {x,y,w,h,frame_w,frame_h}(크롭 박스 좌상단 + 원프레임 크기) 또는 None(전부 투명/실패)."""
+    try:
+        im = Image.open(png_path).convert("RGBA")
+    except Exception:
+        return None
+    fw, fh = im.size
+    bbox = im.getchannel("A").getbbox()
+    if not bbox:
+        return None
+    l, t, r, b = bbox
+    l = max(0, l - pad); t = max(0, t - pad); r = min(fw, r + pad); b = min(fh, b + pad)
+    im.crop((l, t, r, b)).save(png_path)
+    return {"x": l, "y": t, "w": r - l, "h": b - t, "frame_w": fw, "frame_h": fh}
 
 
 def build_layer_prompt(layer_kind: str, style_desc: str, rel_out: str) -> str:

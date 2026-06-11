@@ -249,3 +249,23 @@ def test_archive_prev_layers_moves_not_deletes(tmp_path):
     assert not (lay / "sid9__0_old.png").exists()        # 활성 폴더에서 빠짐
     assert (lay / "_prev" / "sid9__0_old.png").exists()  # 보존됨(무삭제)
     assert (lay / "other__0_x.png").exists()             # 다른 씬 그대로
+
+
+def test_crop_to_content_crops_and_reports_bbox(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    im = Image.new("RGBA", (1000, 800), (0, 0, 0, 0))      # 전부 투명
+    for y in range(200, 360):                              # 좌상단에 불투명 사각형
+        for x in range(100, 300):
+            im.putpixel((x, y), (255, 0, 0, 255))
+    p = tmp_path / "el.png"; im.save(p)
+    bb = ig.crop_to_content(p, pad=0)
+    assert bb == {"x": 100, "y": 200, "w": 200, "h": 160, "frame_w": 1000, "frame_h": 800}
+    assert Image.open(p).size == (200, 160)                # 제자리 크롭됨
+
+
+def test_crop_to_content_all_transparent_returns_none(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    p = tmp_path / "t.png"; Image.new("RGBA", (50, 50), (0, 0, 0, 0)).save(p)
+    assert ig.crop_to_content(p) is None

@@ -24,14 +24,31 @@ def _img_size(path: Path):
         return None
 
 
-def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
-    """[{name, path(abs), kind}] — 배경(__bg)을 맨 앞(AE 최하단)으로."""
+def _scene_layers(proj_dir: Path, sid: str, layer_rels: list, comp_w: int, comp_h: int) -> list:
+    """[{name, path(abs), kind, position?, scale?}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
+    요소는 사이드카(layers/{sid}__meta.json) bbox로 AE 컴프 좌표(중앙) + 스케일 계산."""
+    meta = {}
+    mp = proj_dir / "layers" / f"{sid}__meta.json"
+    if mp.is_file():
+        try:
+            meta = json.loads(mp.read_text(encoding="utf-8"))
+        except Exception:
+            meta = {}
     out = []
     bg = [r for r in layer_rels if "__bg" in Path(r).name]
     el = [r for r in layer_rels if "__bg" not in Path(r).name]
     for r in bg + el:
-        out.append({"name": Path(r).stem, "path": _abs(proj_dir, r),
-                    "kind": "bg" if "__bg" in Path(r).name else "element"})
+        fn = Path(r).name
+        entry = {"name": Path(r).stem, "path": _abs(proj_dir, r),
+                 "kind": "bg" if "__bg" in fn else "element"}
+        bb = meta.get(fn)
+        if bb and entry["kind"] == "element":      # 크롭된 요소 → 프레임 위치를 컴프 좌표로
+            fw, fh = bb.get("frame_w") or comp_w, bb.get("frame_h") or comp_h
+            cx = (bb["x"] + bb["w"] / 2) / fw * comp_w
+            cy = (bb["y"] + bb["h"] / 2) / fh * comp_h
+            entry["position"] = [round(cx, 1), round(cy, 1)]
+            entry["scale"] = round(comp_w / fw * 100, 2)
+        out.append(entry)
     return out
 
 
@@ -44,20 +61,15 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
         if only_scene is not None and s.get("sceneNumber") != only_scene:
             continue
         sid = s.get("sceneId")
-        layers = _scene_layers(proj_dir, s.get("_layers") or [])
         audio = _abs(proj_dir, s["_audio"]) if s.get("_audio") else None
         if audio:
             dur = tts.audio_duration(proj_dir / s["_audio"]) or DEFAULT_DUR
         else:
             dur = float(s.get("duration_estimate_sec") or DEFAULT_DUR)
-        # 씬 컴프 크기 = 씬 이미지(또는 배경 레이어) 크기 → 같은 크기 레이어들이 1:1·중앙으로 정확히 겹침
-        ref = None
-        if s.get("_image"):
-            ref = proj_dir / s["_image"]
-        elif layers:
-            ref = Path(layers[0]["path"])
-        size = _img_size(ref) if ref else None
+        # 씬 컴프 크기 = 씬 이미지 크기(요소 크롭 전 원프레임) → 요소 위치를 정확히 매핑
+        size = _img_size(proj_dir / s["_image"]) if s.get("_image") else None
         sw, sh = size if size else (W, H)
+        layers = _scene_layers(proj_dir, sid, s.get("_layers") or [], sw, sh)
         out_scenes.append({
             "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
             "width": sw, "height": sh,

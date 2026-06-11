@@ -3,18 +3,23 @@
 // ExtendScript에는 native JSON이 없을 수 있어 eval로 파싱(로컬 신뢰 파일 전제, PoC).
 
 function akBuildScene(manifestPath) {
-    // 레이어/이미지를 화면 채움 스케일로 추가(필요 시 페이드인). 없으면 null.
-    function addFilledLayer(proj, comp, absPath, W, H, fade) {
-        var f = new File(absPath);
+    // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
+    function addLayerObj(proj, comp, layer, W, H, fade) {
+        var f = new File(layer.path);
         if (!f.exists) return null;
         var foot = proj.importFile(new ImportOptions(f));
         var il = comp.layers.add(foot);
         var sw = il.source.width, sh = il.source.height;
-        // 앵커=소스 중앙, 포지션=컴프 중앙, 스케일=채움 → 풀프레임 레이어가 컴프에 정확히 겹침(원위치 보존)
         il.property("Anchor Point").setValue([sw / 2, sh / 2]);
-        il.property("Position").setValue([W / 2, H / 2]);
-        var sc = Math.max(W / sw, H / sh) * 100;
-        il.property("Scale").setValue([sc, sc]);
+        if (layer.position) {                         // 크롭된 요소 — 원위치 좌표 적용
+            il.property("Position").setValue([layer.position[0], layer.position[1]]);
+            var es = (layer.scale != null) ? layer.scale : 100;
+            il.property("Scale").setValue([es, es]);
+        } else {                                      // 풀프레임(배경/단일 이미지) — 채움·중앙
+            il.property("Position").setValue([W / 2, H / 2]);
+            var fs = Math.max(W / sw, H / sh) * 100;
+            il.property("Scale").setValue([fs, fs]);
+        }
         if (fade) { var op = il.property("Opacity"); op.setValueAtTime(0, 0); op.setValueAtTime(0.5, 100); }
         return il;
     }
@@ -43,11 +48,11 @@ function akBuildScene(manifestPath) {
             // 레이어 스택(있으면) — 배열 앞이 먼저 추가되어 최하단(배경). 없으면 단일 이미지.
             if (s.layers && s.layers.length) {
                 for (var li = 0; li < s.layers.length; li++) {
-                    var ok = addFilledLayer(proj, comp, s.layers[li].path, cw, ch, li === 0);
+                    var ok = addLayerObj(proj, comp, s.layers[li], cw, ch, li === 0);
                     if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);
                 }
             } else if (s.image) {
-                if (!addFilledLayer(proj, comp, s.image, cw, ch, true)) log.push(name + ": image 누락");
+                if (!addLayerObj(proj, comp, { path: s.image }, cw, ch, true)) log.push(name + ": image 누락");
             }
 
             // 자막 텍스트 레이어 (있으면)

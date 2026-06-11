@@ -146,7 +146,7 @@ def test_storyboard_js_has_scene_ops():
 
 def test_build_scene_jsx_handles_layers():
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
-    assert "s.layers" in jsx and "addFilledLayer" in jsx
+    assert "s.layers" in jsx and "addLayerObj" in jsx and "position" in jsx
 
 
 def test_storyboard_js_has_tts():
