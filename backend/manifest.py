@@ -25,12 +25,14 @@ def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
     return out
 
 
-def build_manifest(proj_dir: Path) -> dict:
-    """manifest.json 생성. 반환 {path, scenes}."""
+def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
+    """manifest.json 생성. only_scene 지정 시 그 씬만(manifest_scene_{n}.json). 반환 {path, scenes}."""
     proj_dir = Path(proj_dir)
     data = scenes.load_scenes(proj_dir)
     out_scenes = []
     for s in data.get("scenes", []):
+        if only_scene is not None and s.get("sceneNumber") != only_scene:
+            continue
         sid = s.get("sceneId")
         layers = _scene_layers(proj_dir, s.get("_layers") or [])
         audio = _abs(proj_dir, s["_audio"]) if s.get("_audio") else None
@@ -47,6 +49,6 @@ def build_manifest(proj_dir: Path) -> dict:
             "duration": dur,
         })
     mf = {"width": W, "height": H, "fps": FPS, "scenes": out_scenes}
-    out = proj_dir / "manifest.json"
+    out = proj_dir / (f"manifest_scene_{only_scene}.json" if only_scene is not None else "manifest.json")
     out.write_text(json.dumps(mf, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"path": str(out), "scenes": len(out_scenes)}

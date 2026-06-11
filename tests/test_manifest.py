@@ -51,3 +51,15 @@ def test_build_manifest_duration_fallback(tmp_path):
     manifest.build_manifest(d)
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["duration"] == 3.0                    # 기본값
+
+
+def test_build_manifest_only_scene(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a"},
+                         {"sceneNumber": 2, "sceneId": "b"},
+                         {"sceneNumber": 3, "sceneId": "c"}])
+    res = manifest.build_manifest(d, only_scene=2)
+    assert res["scenes"] == 1 and Path(res["path"]).name == "manifest_scene_2.json"
+    mf = json.loads(Path(res["path"]).read_text(encoding="utf-8"))
+    assert len(mf["scenes"]) == 1 and "_b" in mf["scenes"][0]["ae_comp_name"]
+    # 전체 manifest.json은 건드리지 않음
+    assert not (d / "manifest.json").exists()

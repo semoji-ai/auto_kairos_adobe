@@ -17,7 +17,7 @@ function _loadCols() {
     var s = window.localStorage.getItem(COL_KEY);
     if (s) { var a = JSON.parse(s); if (a && a.length === 5) return a; }
   } catch (e) {}
-  return [30, 200, 280, 120, 70];
+  return [30, 200, 280, 120, 140];
 }
 
 function _persistCols() {
@@ -135,10 +135,15 @@ function renderRow(s, dir) {
     + '    <button class="gen-img alt" data-scene="' + n + '">씬 이미지 생성</button>'
     + '    <div style="font-size:10px;color:#666;margin-top:2px">소스 드래그로 교체</div>'
     + '  </div>'
-    // TTS(씬별 생성 + 재생)
+    // TTS(씬별 생성 + 재생) + 씬 컴프
     + '  <div class="col-tts">'
     +      '<button class="gen-tts alt" data-scene="' + n + '">TTS 생성</button>'
-    +      (s._audio ? '<audio controls preload="none" src="file://' + dir + '/' + s._audio + '"></audio>' : '')
+    +      (s._audio ? ('<div class="tts-player">'
+    +        + '<button class="tts-play" title="재생/정지">▶</button>'
+    +        + '<span class="tts-dur">--:--</span>'
+    +        + '<audio class="tts-audio" preload="metadata" src="file://' + dir + '/' + s._audio + '"></audio>'
+    +        + '</div>') : '')
+    +      '<button class="scene-comp" data-scene="' + n + '" title="이 씬을 AE 컴프로">🎬 컴프</button>'
     +      '<div class="row-status" data-scene="' + n + '"></div>'
     + '  </div>'
     + '</div>';
@@ -147,6 +152,28 @@ function renderRow(s, dir) {
 function _autosize(ta) {
   ta.style.height = "auto";
   ta.style.height = (ta.scrollHeight + 2) + "px";   // 내용 높이에 맞춰 확장(스크롤 없음)
+}
+
+function _fmtDur(sec) {
+  sec = Math.round(sec || 0);
+  var m = Math.floor(sec / 60), s = sec % 60;
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+/* 커스텀 TTS 플레이어 — 좁은 칸에서도 재생 버튼·길이가 보이게 */
+function _bindTtsPlayer(pl) {
+  var audio = pl.querySelector(".tts-audio");
+  var btn = pl.querySelector(".tts-play");
+  var durEl = pl.querySelector(".tts-dur");
+  if (!audio || !btn) return;
+  audio.addEventListener("loadedmetadata", function () {
+    if (isFinite(audio.duration)) durEl.textContent = _fmtDur(audio.duration);
+  });
+  btn.addEventListener("click", function () {
+    if (audio.paused) { audio.play(); btn.textContent = "⏸"; }
+    else { audio.pause(); btn.textContent = "▶"; }
+  });
+  audio.addEventListener("ended", function () { btn.textContent = "▶"; });
 }
 
 function bindRows() {
@@ -183,6 +210,14 @@ function bindRows() {
   var gt = $("sheet").querySelectorAll("button.gen-tts");
   for (var g = 0; g < gt.length; g++) {
     gt[g].addEventListener("click", function () { genTts(this.getAttribute("data-scene")); });
+  }
+  var players = $("sheet").querySelectorAll(".tts-player");
+  for (var pp = 0; pp < players.length; pp++) { _bindTtsPlayer(players[pp]); }
+  var sc = $("sheet").querySelectorAll("button.scene-comp");
+  for (var c = 0; c < sc.length; c++) {
+    sc[c].addEventListener("click", function () {
+      if (typeof buildSceneComp === "function") buildSceneComp(this.getAttribute("data-scene"));
+    });
   }
   _bindOp("op-add", function (n) { sceneOp("add", { after: parseInt(n, 10) }); });
   _bindOp("op-split", function (n) { sceneOp("split", { sceneNumber: parseInt(n, 10) }); });

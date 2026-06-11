@@ -613,10 +613,23 @@ def test_assembly_manifest(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
     monkeypatch.setattr(r.manifest, "build_manifest",
-                        lambda proj_dir: {"path": str(proj_dir / "manifest.json"), "scenes": 0})
+                        lambda proj_dir, only_scene=None: {"path": str(proj_dir / "manifest.json"),
+                                                           "scenes": 0, "only_scene": only_scene})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assembly/manifest", {}, {"project_id": "p"}, ctx)
-    assert code == 200 and body["path"].endswith("manifest.json")
+    assert code == 200 and body["path"].endswith("manifest.json") and body["only_scene"] is None
+
+
+def test_assembly_manifest_single_scene(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
+    monkeypatch.setattr(r.manifest, "build_manifest",
+                        lambda proj_dir, only_scene=None: {"path": "x", "scenes": 1, "only_scene": only_scene})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assembly/manifest", {},
+                                {"project_id": "p", "sceneNumber": 3}, ctx)
+    assert code == 200 and body["only_scene"] == 3
 
 
 def test_assistant_endpoint(tmp_path, monkeypatch):

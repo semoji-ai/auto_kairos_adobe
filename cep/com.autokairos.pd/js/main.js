@@ -22,40 +22,55 @@ function readLocal(relPath) {
   return x.responseText;
 }
 
+function _setHealth(ok, text) {
+  var dot = $("healthDot"); if (dot) dot.className = "dot " + (ok ? "ok" : "bad");
+  if ($("healthText")) $("healthText").textContent = text;
+  var rc = $("btnReconnect"); if (rc) rc.hidden = ok;     // 연결되면 버튼 숨김
+}
+
 function checkBackend() {
-  $("health").textContent = "확인 중...";
+  _setHealth(false, "백엔드 확인 중…");
   fetch(BACKEND + "/health")
     .then(function (r) { return r.json(); })
     .then(function (j) {
-      $("health").textContent =
-        "backend: " + j.backend_status +
-        "\ncodex: " + j.codex_status +
-        "\nversion: " + j.version;
+      _setHealth(true, "백엔드 연결됨 · codex " + j.codex_status + " · v" + j.version);
+      loadProjects();                                     // 연결되면 목록 자동 로드
     })
-    .catch(function (e) {
-      $("health").textContent = "연결 실패 — 백엔드(app.py)가 실행 중인지 확인: " + e;
+    .catch(function () {
+      _setHealth(false, "백엔드 연결 안 됨 — app.py 실행 후 [연결]");
     });
 }
 
-function buildComp() {
-  if (!SELECTED_PROJECT) { $("aeresult").textContent = "프로젝트를 먼저 선택하세요."; return; }
-  $("aeresult").textContent = "매니페스트 빌드 중...";
+function buildComp() { _assemble(null); }
+
+/* 씬별/전체 AE 컴프 조립. sceneNumber=null이면 전체, 숫자면 그 씬만. */
+function _assemble(sceneNumber, statusFn) {
+  if (!SELECTED_PROJECT) { (statusFn || function (m) { $("aeresult").textContent = m; })("프로젝트를 먼저 선택하세요."); return; }
+  var setS = statusFn || function (m) { $("aeresult").textContent = m; };
+  setS("매니페스트 빌드 중...");
+  var bodyObj = { project_id: SELECTED_PROJECT };
+  if (sceneNumber != null) bodyObj.sceneNumber = sceneNumber;
   fetch(BACKEND + "/api/assembly/manifest", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+    body: JSON.stringify(bodyObj),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      if (j.error || !j.path) { $("aeresult").textContent = "매니페스트 실패: " + JSON.stringify(j); return; }
+      if (j.error || !j.path) { setS("매니페스트 실패: " + JSON.stringify(j)); return; }
       var jsx;
       try { jsx = readLocal("./jsx/build_scene.jsx"); }
-      catch (e) { $("aeresult").textContent = "jsx 로드 실패: " + e; return; }
-      $("aeresult").textContent = "AE 조립 중... (씬 " + j.scenes + ")";
+      catch (e) { setS("jsx 로드 실패: " + e); return; }
+      setS("AE 조립 중... (씬 " + j.scenes + ")");
       var call = "\nakBuildScene(" + JSON.stringify(j.path) + ");";
-      evalScript(jsx + call).then(function (r) {
-        $("aeresult").textContent = r || "(빈 응답 — AE 콘솔 확인)";
-      });
+      evalScript(jsx + call).then(function (r) { setS(r || "(빈 응답 — AE 콘솔 확인)"); });
     })
-    .catch(function (e) { $("aeresult").textContent = "오류: " + e; });
+    .catch(function (e) { setS("오류: " + e); });
+}
+
+/* 시트 행의 '컴프' 버튼 — 한 씬만 AE 컴프로. 행 상태에 결과 표시. */
+function buildSceneComp(n) {
+  _assemble(parseInt(n, 10), function (m) {
+    if (typeof _rowStatus === "function") _rowStatus(n, m); else $("aeresult").textContent = m;
+  });
 }
 
 var SELECTED_PROJECT = null;
@@ -110,16 +125,14 @@ function loadProjects() {
       var rows = j.projects || [];
       if (!rows.length) { $("projects").textContent = "(프로젝트 없음)"; return; }
       $("projects").innerHTML = rows.map(function (p) {
-        return '<div><a href="#" data-pid="' + p.project_id + '">'
-          + p.project_id + " · " + p.title + " [" + p.status + "]</a></div>";
+        return '<div class="proj-item" data-pid="' + p.project_id + '" data-label="' + p.title + ' (' + p.project_id + ') [' + p.status + ']">'
+          + '<span class="pid">' + p.project_id + '</span>' + p.title
+          + '<span class="st">' + p.status + '</span></div>';
       }).join("");
-      var links = $("projects").querySelectorAll("a[data-pid]");
+      var links = $("projects").querySelectorAll(".proj-item");
       for (var i = 0; i < links.length; i++) {
-        links[i].addEventListener("click", function (e) {
-          e.preventDefault();
-          var pid = this.getAttribute("data-pid");
-          $("current").textContent = "현재 프로젝트: " + this.textContent;
-          enterProject(pid, this.textContent);   // nav.js — 상세 뷰로 입장
+        links[i].addEventListener("click", function () {
+          enterProject(this.getAttribute("data-pid"), this.getAttribute("data-label"));
         });
       }
     })
@@ -316,6 +329,7 @@ function importAllLayers() {
 }
 
 function createProject() {
+  $("current").hidden = false;
   var title = ($("newTitle").value || "").trim();
   if (!title) { $("current").textContent = "제목을 입력하세요."; return; }
   fetch(BACKEND + "/api/projects/create", {
@@ -335,9 +349,14 @@ function createProject() {
 
 document.addEventListener("DOMContentLoaded", function () {
   $("btnCreate").addEventListener("click", createProject);
-  $("btnHealth").addEventListener("click", checkBackend);
+  $("btnReconnect").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
+  $("btnBuildAll").addEventListener("click", buildComp);
   $("btnProjects").addEventListener("click", loadProjects);
+  $("btnNewProject").addEventListener("click", function () {
+    var f = $("newProjectForm"); f.hidden = !f.hidden;
+  });
+  checkBackend();          // 열면 자동 백엔드 확인 → 연결 시 프로젝트 목록 자동 로드
   $("btnDecompose").addEventListener("click", decompose);
   $("btnGenCharacter").addEventListener("click", genCharacter);
   $("btnRefreshCharacters").addEventListener("click", showCharacters);

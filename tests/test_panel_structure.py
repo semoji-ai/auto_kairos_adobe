@@ -64,8 +64,10 @@ def test_existing_result_boxes_wired():
     # checkBackend/buildComp가 쓰는 박스가 실제 존재 + main.js 참조 일치(레거시 #status 잔존 금지)
     html = HTML.read_text(encoding="utf-8")
     main = MAIN.read_text(encoding="utf-8")
-    assert 'id="health"' in html and 'id="aeresult"' in html
-    assert '$("status")' not in main   # #status → #health 로 교체됨
+    # 백엔드 상태등(초록/빨강 점) + 연결 버튼 + AE 결과 박스
+    assert 'id="healthDot"' in html and 'id="healthText"' in html and 'id="btnReconnect"' in html
+    assert 'id="aeresult"' in html
+    assert '$("status")' not in main   # 레거시 #status 잔존 금지
 
 
 def test_planning_tab_has_file_viewer():
@@ -173,3 +175,31 @@ def test_tts_settings_panel():
     assert "function loadTtsSettings" in js and "/api/tts/settings" in js
     html = (PANEL / "index.html").read_text(encoding="utf-8")
     assert 'id="ttsStyle"' in html and 'id="ttsVoiceId"' in html
+
+
+def test_first_screen_auto_health_and_projects():
+    html = HTML.read_text(encoding="utf-8")
+    main = MAIN.read_text(encoding="utf-8")
+    assert 'id="btnNewProject"' in html and 'id="newProjectForm"' in html
+    assert "checkBackend();" in main                 # 열면 자동 호출
+    assert "_setHealth" in main and "loadProjects()" in main
+    assert ".proj-item" in main                       # 가독 카드형 목록
+
+
+def test_tts_custom_player_and_scene_comp():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "tts-player" in js and "function _bindTtsPlayer" in js and "tts-dur" in js
+    assert "scene-comp" in js                          # 씬별 컴프 버튼
+    main = MAIN.read_text(encoding="utf-8")
+    assert "function buildSceneComp" in main and "function _assemble" in main
+
+
+def test_buildall_button_and_full_comp():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="btnBuildAll"' in html
+    assert "btnBuildAll" in MAIN.read_text(encoding="utf-8")
+
+
+def test_gallery_select_import():
+    js = (PANEL / "js" / "gallery.js").read_text(encoding="utf-8")
+    assert "function importSelectedToProject" in js and "btnGalImport" in js

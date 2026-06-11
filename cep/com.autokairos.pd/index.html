@@ -42,7 +42,7 @@
     /* 스토리보드 프로덕션 시트 — 가로 행 테이블(씬#|이미지|스크립트|에셋|TTS) */
     #sheet { overflow-x:auto; }
     .sheet-head, .sheet-row { display:grid;
-      grid-template-columns: var(--cols, 30px 200px 280px 120px 70px);
+      grid-template-columns: var(--cols, 30px 200px 280px 120px 140px);
       gap:8px; align-items:start; width:max-content; min-width:100%; }
     .sheet-head { color:#9aa0a6; font-size:11px; padding:6px 0;
       border-bottom:1px solid #33363c; position:sticky; top:0; background:#23262b; z-index:1; }
@@ -63,7 +63,6 @@
       overflow:hidden; resize:none; min-height:42px; }
     .sheet-row .row-status { font-size:11px; color:#9aa0a6; }
     .sheet-row button { margin:4px 0; padding:6px; font-size:12px; }
-    .col-tts audio { width:100%; height:28px; margin-top:4px; }
     .col-tts .gen-tts { width:auto; }
     .scene-badges { display:flex; gap:2px; margin-top:4px; }
     .scene-badges .badge { font-size:9px; padding:1px 3px; border-radius:3px; }
@@ -98,6 +97,13 @@
     #gallery-panel .gal-ae { display:none; position:absolute; top:4px; right:4px;
       width:auto; margin:0; padding:2px 6px; font-size:11px; background:rgba(0,0,0,0.65); }
     #gallery-panel .gal-item:hover .gal-ae { display:block; }
+    /* 검색 결과 선택 → 프로젝트로 불러오기 */
+    #gallery-panel .gal-selbar { display:flex; align-items:center; gap:6px; margin-bottom:6px;
+      position:sticky; top:0; background:#1b1d21; padding:4px 0; z-index:1; }
+    #gallery-panel .gal-selbar .gal-hint { font-size:10px; color:#9aa0a6; }
+    #gallery-panel #btnGalImport { width:auto; margin:0; padding:5px 10px; font-size:12px; }
+    #gallery-panel .gal-pick { box-sizing:border-box; border:3px solid transparent; }
+    #gallery-panel .gal-pick.sel { border-color:#3a6df0; }
     /* 좁은 창: 세로 스택 + 일반 스크롤로 복귀 */
     @media (max-width: 720px) {
       #sb-2pane { flex-direction:column; height:auto; }
@@ -111,6 +117,35 @@
     @media (min-width: 760px) {
       #view-list { max-width:520px; margin:0 auto; }
     }
+
+    /* 백엔드 상태등 */
+    #health-bar { display:flex; align-items:center; gap:8px; margin:8px 0 16px; }
+    #health-bar .dot { width:11px; height:11px; border-radius:50%; flex:0 0 auto; }
+    #health-bar .dot.ok { background:#2ecc71; box-shadow:0 0 7px #2ecc71; }
+    #health-bar .dot.bad { background:#e74c3c; box-shadow:0 0 7px #e74c3c; }
+    #healthText { flex:1; font-size:12px; color:#c5c8cc; }
+    #btnReconnect { width:auto; margin:0; padding:4px 12px; }
+    /* 새 프로젝트 */
+    .proj-actions { display:flex; gap:6px; }
+    #btnNewProject { flex:1; }
+    #btnProjects { flex:0 0 auto; width:auto; }
+    #newProjectForm input, #newProjectForm select { box-sizing:border-box; padding:7px; margin:3px 0;
+      background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
+    #newProjectForm input { width:100%; }
+    #newProjectForm .np-row { display:flex; gap:6px; }
+    #newProjectForm .np-row select { flex:1; }
+    /* 프로젝트 목록 — 가독 색상 + 카드형 */
+    #projects .proj-item { display:block; padding:8px 10px; margin:5px 0; background:#1b1d21;
+      border:1px solid #33363c; border-radius:6px; color:#e6e6e6; cursor:pointer; text-decoration:none; }
+    #projects .proj-item:hover { background:#2c2f36; border-color:#3a6df0; }
+    #projects .proj-item .pid { color:#8ab4f8; font-family:ui-monospace,monospace; font-size:11px; margin-right:6px; }
+    #projects .proj-item .st { color:#9aa0a6; font-size:11px; margin-left:6px; }
+
+    /* TTS 커스텀 플레이어(좁은 칸에서도 재생·길이 표시) */
+    .col-tts .tts-player { display:flex; align-items:center; gap:5px; margin-top:4px; }
+    .col-tts .tts-play { width:auto; margin:0; padding:3px 9px; font-size:13px; }
+    .col-tts .tts-dur { font-size:11px; color:#c5c8cc; font-family:ui-monospace,monospace; }
+    .col-tts .scene-comp { width:auto; margin-top:6px; padding:4px 8px; font-size:11px; background:#444; }
 
     /* 이미지 생성 모달 */
     #genModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
@@ -131,25 +166,32 @@
   <div id="view-list">
     <h1>auto_kairos PD</h1>
 
-    <div class="label">1) 백엔드 연결</div>
-    <button id="btnHealth">백엔드 확인</button>
-    <div class="box" id="health">—</div>
-
-    <div class="label">새 프로젝트</div>
-    <input id="newTitle" type="text" placeholder="영상 제목/주제" style="width:100%;box-sizing:border-box;padding:7px;margin:3px 0;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-    <select id="newStyle" style="width:49%;padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-      <option value="semoji">semoji</option>
-      <option value="iromism">iromism</option>
-    </select>
-    <select id="newDuration" style="width:49%;padding:6px;background:#1b1d21;color:#e6e6e6;border:1px solid #33363c;border-radius:5px;">
-      <option value="1분">1분</option><option value="3분">3분</option><option value="5분">5분</option>
-    </select>
-    <button id="btnCreate">프로젝트 만들기</button>
-    <div class="box" id="current">현재 프로젝트: (없음)</div>
+    <div id="health-bar">
+      <span id="healthDot" class="dot bad"></span>
+      <span id="healthText">백엔드 확인 중…</span>
+      <button id="btnReconnect" class="mini" hidden>연결</button>
+    </div>
 
     <div class="label">프로젝트</div>
-    <button id="btnProjects">프로젝트 목록 새로고침</button>
-    <div class="box" id="projects">—</div>
+    <div class="proj-actions">
+      <button id="btnNewProject">+ 새 프로젝트</button>
+      <button id="btnProjects" class="mini alt" title="목록 새로고침">↻</button>
+    </div>
+    <div id="newProjectForm" hidden>
+      <input id="newTitle" type="text" placeholder="영상 제목/주제">
+      <div class="np-row">
+        <select id="newStyle">
+          <option value="semoji">semoji</option>
+          <option value="iromism">iromism</option>
+        </select>
+        <select id="newDuration">
+          <option value="1분">1분</option><option value="3분">3분</option><option value="5분">5분</option>
+        </select>
+      </div>
+      <button id="btnCreate">만들기</button>
+    </div>
+    <div class="box" id="projects" style="min-height:40px">불러오는 중…</div>
+    <div class="box" id="current" hidden>현재 프로젝트: (없음)</div>
   </div>
 
   <!-- ===== 상세 뷰 ===== -->
@@ -191,6 +233,7 @@
               <button id="btnDecompose" class="alt">씬 분해</button>
               <button id="btnRefreshCharacters" class="alt">캐릭터</button>
               <button id="btnGalRefresh" class="alt">소스</button>
+              <button id="btnBuildAll" class="alt" title="전체 씬을 AE 컴프로 조립">🎬 전체 컴프</button>
             </div>
             <div class="sb-search">
               <input id="galSearch" type="text" placeholder="이미지 검색">

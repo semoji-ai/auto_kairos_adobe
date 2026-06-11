@@ -189,10 +189,11 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         return 200, {"job_id": jid, "result": res}
 
     if method == "POST" and p == "/api/assembly/manifest":
-        proj_dir = root / (body or {}).get("project_id", "")
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
         if not proj_dir.is_dir():
             return 404, {"error": "프로젝트 없음"}
-        return 200, manifest.build_manifest(proj_dir)
+        return 200, manifest.build_manifest(proj_dir, only_scene=b.get("sceneNumber"))
 
     if p == "/api/tts/settings" and method in ("GET", "POST"):
         pid = (query.get("project_id") if method == "GET" else (body or {}).get("project_id")) or ""

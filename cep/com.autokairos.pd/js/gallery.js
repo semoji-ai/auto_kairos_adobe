@@ -51,19 +51,51 @@ function searchGallery() {
       if (j.error) { $("gallery-panel").textContent = "검색 오류: " + j.error; return; }
       var imgs = j.images || [];
       if (!imgs.length) { $("gallery-panel").textContent = "(결과 없음)"; return; }
-      $("gallery-panel").innerHTML = imgs.map(function (im, idx) {
-        return '<img src="' + _gesc(im.thumb) + '" data-url="' + _gesc(im.url) + '" data-idx="' + idx
-          + '" title="클릭하면 소스로 저장: ' + _gesc(im.title) + '"'
-          + ' class="gal-thumb" style="cursor:pointer;">';
-      }).join("");
+      _galSel = {};   // 선택 초기화
+      $("gallery-panel").innerHTML =
+        '<div class="gal-selbar"><button id="btnGalImport" class="mini">선택 불러오기 (0)</button>'
+        + '<span class="gal-hint">이미지를 클릭해 선택 → 프로젝트 소스로 저장</span></div>'
+        + imgs.map(function (im, idx) {
+          return '<img src="' + _gesc(im.thumb) + '" data-url="' + _gesc(im.url) + '" data-idx="' + idx
+            + '" title="' + _gesc(im.title) + '" class="gal-thumb gal-pick" style="cursor:pointer;">';
+        }).join("");
       var gi = $("gallery-panel").querySelectorAll("img[data-url]");
       for (var i = 0; i < gi.length; i++) {
         gi[i].addEventListener("click", function () {
-          saveSearchResult(this.getAttribute("data-url"), "search_" + this.getAttribute("data-idx") + ".jpg");
+          var idx = this.getAttribute("data-idx");
+          if (_galSel[idx]) { delete _galSel[idx]; this.classList.remove("sel"); }
+          else { _galSel[idx] = this.getAttribute("data-url"); this.classList.add("sel"); }
+          _updateGalImportBtn();
         });
       }
+      $("btnGalImport").addEventListener("click", importSelectedToProject);
     })
     .catch(function (e) { $("gallery-panel").textContent = "오류: " + e; });
+}
+
+var _galSel = {};   // {idx: url} — 검색 결과 선택분
+
+function _updateGalImportBtn() {
+  var n = Object.keys(_galSel).length;
+  var b = $("btnGalImport");
+  if (b) b.textContent = "선택 불러오기 (" + n + ")";
+}
+
+function importSelectedToProject() {
+  var idxs = Object.keys(_galSel);
+  if (!idxs.length) { return; }
+  var hint = $("gallery-panel").querySelector(".gal-hint");
+  var done = 0, total = idxs.length;
+  if (hint) hint.textContent = "불러오는 중… 0/" + total;
+  idxs.forEach(function (idx) {
+    fetch(BACKEND + "/api/search-images/save", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: SELECTED_PROJECT, url: _galSel[idx], name: "search_" + idx + ".jpg" }),
+    }).then(function (r) { return r.json(); })
+      .then(function () { done++; if (hint) hint.textContent = "불러오는 중… " + done + "/" + total;
+        if (done === total) loadGallery(); })       // 모두 끝나면 소스 목록으로 갱신
+      .catch(function () { done++; });
+  });
 }
 
 function saveSearchResult(url, name) {
