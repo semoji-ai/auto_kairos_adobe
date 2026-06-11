@@ -24,31 +24,15 @@ def _img_size(path: Path):
         return None
 
 
-def _scene_layers(proj_dir: Path, sid: str, layer_rels: list, comp_w: int, comp_h: int) -> list:
-    """[{name, path(abs), kind, position?, scale?}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
-    요소는 사이드카(layers/{sid}__meta.json) bbox로 AE 컴프 좌표(중앙) + 스케일 계산."""
-    meta = {}
-    mp = proj_dir / "layers" / f"{sid}__meta.json"
-    if mp.is_file():
-        try:
-            meta = json.loads(mp.read_text(encoding="utf-8"))
-        except Exception:
-            meta = {}
+def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
+    """[{name, path(abs), kind}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
+    레이어는 풀프레임(요소가 제 위치에 그려진 투명 PNG) — 컴프 크기를 이미지에 맞추면 1:1·중앙으로 정확히 겹침."""
     out = []
     bg = [r for r in layer_rels if "__bg" in Path(r).name]
     el = [r for r in layer_rels if "__bg" not in Path(r).name]
     for r in bg + el:
-        fn = Path(r).name
-        entry = {"name": Path(r).stem, "path": _abs(proj_dir, r),
-                 "kind": "bg" if "__bg" in fn else "element"}
-        bb = meta.get(fn)
-        if bb and entry["kind"] == "element":      # 크롭된 요소 → 프레임 위치를 컴프 좌표로
-            fw, fh = bb.get("frame_w") or comp_w, bb.get("frame_h") or comp_h
-            cx = (bb["x"] + bb["w"] / 2) / fw * comp_w
-            cy = (bb["y"] + bb["h"] / 2) / fh * comp_h
-            entry["position"] = [round(cx, 1), round(cy, 1)]
-            entry["scale"] = round(comp_w / fw * 100, 2)
-        out.append(entry)
+        out.append({"name": Path(r).stem, "path": _abs(proj_dir, r),
+                    "kind": "bg" if "__bg" in Path(r).name else "element"})
     return out
 
 
@@ -66,10 +50,10 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             dur = tts.audio_duration(proj_dir / s["_audio"]) or DEFAULT_DUR
         else:
             dur = float(s.get("duration_estimate_sec") or DEFAULT_DUR)
-        # 씬 컴프 크기 = 씬 이미지 크기(요소 크롭 전 원프레임) → 요소 위치를 정확히 매핑
+        # 씬 컴프 크기 = 씬 이미지 크기 → 풀프레임 레이어가 1:1·중앙으로 정확히 겹침(위치 보존)
         size = _img_size(proj_dir / s["_image"]) if s.get("_image") else None
         sw, sh = size if size else (W, H)
-        layers = _scene_layers(proj_dir, sid, s.get("_layers") or [], sw, sh)
+        layers = _scene_layers(proj_dir, s.get("_layers") or [])
         out_scenes.append({
             "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
             "width": sw, "height": sh,

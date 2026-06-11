@@ -63,24 +63,3 @@ def test_build_manifest_only_scene(tmp_path):
     assert len(mf["scenes"]) == 1 and "_b" in mf["scenes"][0]["ae_comp_name"]
     # 전체 manifest.json은 건드리지 않음
     assert not (d / "manifest.json").exists()
-
-
-def test_scene_layers_position_from_meta(tmp_path):
-    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "z", "imageRef": "storyboard/sb_z.png"}])
-    (d / "storyboard").mkdir()
-    from PIL import Image
-    Image.new("RGB", (1536, 1024)).save(d / "storyboard" / "sb_z.png")   # 컴프 크기 기준
-    lay = d / "layers"; lay.mkdir()
-    Image.new("RGBA", (100, 100)).save(lay / "z__0_car.png")             # 크롭된 요소
-    Image.new("RGBA", (1536, 1024)).save(lay / "z__bg.png")
-    (lay / "z__meta.json").write_text(
-        '{"z__0_car.png":{"x":300,"y":200,"w":200,"h":160,"frame_w":1536,"frame_h":1024}}',
-        encoding="utf-8")
-    manifest.build_manifest(d)
-    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
-    assert sc["width"] == 1536 and sc["height"] == 1024
-    car = next(L for L in sc["layers"] if "car" in L["name"])
-    assert car["position"] == [400.0, 280.0]      # 중심 (300+100, 200+80)
-    assert car["scale"] == 100.0
-    bg = next(L for L in sc["layers"] if L["kind"] == "bg")
-    assert "position" not in bg                    # 배경은 풀프레임(좌표 없음)
