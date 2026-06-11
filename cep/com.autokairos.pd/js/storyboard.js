@@ -140,8 +140,8 @@ function renderRow(s, dir) {
     +      '<button class="gen-tts alt" data-scene="' + n + '">TTS 생성</button>'
     +      (s._audio ? ('<div class="tts-player">'
     +        + '<button class="tts-play" title="재생/정지">▶</button>'
-    +        + '<span class="tts-dur">--:--</span>'
-    +        + '<audio class="tts-audio" preload="metadata" src="file://' + dir + '/' + s._audio + '"></audio>'
+    +        + '<span class="tts-dur">' + (s._audio_dur ? _fmtDur(s._audio_dur) : "--:--") + '</span>'
+    +        + '<audio class="tts-audio" preload="none" src="file://' + dir + '/' + s._audio + '"></audio>'
     +        + '</div>') : '')
     +      '<button class="scene-comp" data-scene="' + n + '" title="이 씬을 AE 컴프로">🎬 컴프</button>'
     +      '<div class="row-status" data-scene="' + n + '"></div>'

@@ -97,6 +97,11 @@ def load_scenes(proj_dir: Path) -> dict:
         auds = list(aud_dir.glob(f"tts_{sid}.*")) if sid and aud_dir.is_dir() else []
         s["_audio"] = (f"audio/{max(auds, key=lambda p: p.stat().st_mtime).name}"
                        if auds else None)      # 최신(mp3/wav 공존 시 방금 생성분)
+        if s["_audio"]:                         # 길이는 백엔드(afinfo)에서 — 브라우저 메타 불안정(MP3 Infinity)
+            from backend import tts as _tts
+            s["_audio_dur"] = _tts.audio_duration(proj_dir / s["_audio"])
+        else:
+            s["_audio_dur"] = 0.0
         aud = proj_dir / "audio"
         s["_status"] = {
             "narration": bool((s.get("narration") or "").strip()),
