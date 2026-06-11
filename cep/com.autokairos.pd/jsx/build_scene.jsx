@@ -32,16 +32,18 @@ function akBuildScene(manifestPath) {
             var s = scenes[i];
             var dur = s.duration || 3;
             var name = s.ae_comp_name || ("Scene_" + (i + 1));
-            var comp = proj.items.addComp(name, W, H, 1.0, dur, FPS);
+            // 씬 컴프 크기 = 씬 이미지 크기(레이어들과 동일) → 같은 크기 레이어가 1:1·중앙으로 정확히 겹침
+            var cw = s.width || W, ch = s.height || H;
+            var comp = proj.items.addComp(name, cw, ch, 1.0, dur, FPS);
 
             // 레이어 스택(있으면) — 배열 앞이 먼저 추가되어 최하단(배경). 없으면 단일 이미지.
             if (s.layers && s.layers.length) {
                 for (var li = 0; li < s.layers.length; li++) {
-                    var ok = addFilledLayer(proj, comp, s.layers[li].path, W, H, li === 0);
+                    var ok = addFilledLayer(proj, comp, s.layers[li].path, cw, ch, li === 0);
                     if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);
                 }
             } else if (s.image) {
-                if (!addFilledLayer(proj, comp, s.image, W, H, true)) log.push(name + ": image 누락");
+                if (!addFilledLayer(proj, comp, s.image, cw, ch, true)) log.push(name + ": image 누락");
             }
 
             // 자막 텍스트 레이어 (있으면)
@@ -62,11 +64,13 @@ function akBuildScene(manifestPath) {
             comps.push(comp); totalDur += dur;
         }
 
-        // Final 컴프 — 씬 순서대로 배치
+        // Final 컴프(1920x1080) — 씬 컴프를 순서대로 배치(크기 다르면 채움 스케일 + 중앙)
         var fc = proj.items.addComp("Final", W, H, 1.0, Math.max(totalDur, 1), FPS);
         var t = 0;
         for (var j = 0; j < comps.length; j++) {
             var fl = fc.layers.add(comps[j]);
+            var fsc = Math.max(W / comps[j].width, H / comps[j].height) * 100;
+            fl.property("Scale").setValue([fsc, fsc]);
             fl.startTime = t; t += comps[j].duration;
         }
         fc.openInViewer();

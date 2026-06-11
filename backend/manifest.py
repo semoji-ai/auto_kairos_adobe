@@ -14,6 +14,16 @@ def _abs(proj_dir: Path, rel: str) -> str:
     return str((proj_dir / rel).resolve())
 
 
+def _img_size(path: Path):
+    """이미지 픽셀 크기 (w, h). 실패 시 None."""
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            return im.width, im.height
+    except Exception:
+        return None
+
+
 def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
     """[{name, path(abs), kind}] — 배경(__bg)을 맨 앞(AE 최하단)으로."""
     out = []
@@ -40,8 +50,17 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             dur = tts.audio_duration(proj_dir / s["_audio"]) or DEFAULT_DUR
         else:
             dur = float(s.get("duration_estimate_sec") or DEFAULT_DUR)
+        # 씬 컴프 크기 = 씬 이미지(또는 배경 레이어) 크기 → 같은 크기 레이어들이 1:1·중앙으로 정확히 겹침
+        ref = None
+        if s.get("_image"):
+            ref = proj_dir / s["_image"]
+        elif layers:
+            ref = Path(layers[0]["path"])
+        size = _img_size(ref) if ref else None
+        sw, sh = size if size else (W, H)
         out_scenes.append({
             "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
+            "width": sw, "height": sh,
             "image": _abs(proj_dir, s["_image"]) if s.get("_image") else None,
             "layers": layers,
             "audio": audio,
