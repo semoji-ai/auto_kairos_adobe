@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -181,15 +182,19 @@ def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
     캐릭터는 항상 분리, 사물은 내레이션상 움직일 때만. {elements:[{name,location,kind,reason}]}|{error}."""
     prompt = (
         "첨부한 씬 이미지를 모션그래픽 레이어로 분리하려 한다. "
-        "아래 내레이션과 연출 맥락을 읽고, 실제로 움직임/애니메이션이 필요한 주요 요소만 골라라.\n\n"
+        "분리한 요소들과 배경을 다시 겹쳤을 때 원본 씬이 그대로 복원되도록 빠짐없이 식별하는 게 핵심이다. "
+        "아래 내레이션과 맥락도 참고한다.\n\n"
         f"## 내레이션\n{narration or '(없음)'}\n\n## 맥락\n{context or '(없음)'}\n\n"
-        "## 원칙\n"
-        "1) 등장하는 캐릭터(사람·인물·생명체)는 항상 각각 개별 레이어로 분리한다.\n"
-        "2) 캐릭터가 아닌 사물·오브젝트는 내레이션상 움직이거나 강조·등장하는 경우에만 분리한다.\n"
-        "3) 움직임이 없는 장식·소품·고정 배경 요소는 분리하지 말고 배경에 남긴다(목록에서 제외).\n"
-        "4) 불필요하게 모든 요소를 쪼개지 말 것 — 보통 2~6개가 적당하다.\n\n"
-        "각 요소: name(짧은 한국어 이름), location(화면 내 위치), "
-        "kind('character' 또는 'object'), reason(왜 이 레이어를 분리·애니메이션하는지 한 줄)."
+        "## 분리 원칙\n"
+        "1) 화면에 보이는 사람·인물·캐릭터·생명체는 한 명도 빠짐없이 각각 개별 레이어로 분리한다 "
+        "(다른 것에 가려져 일부만 보여도 반드시 포함).\n"
+        "2) 인물이나 주요 피사체를 '앞에서 가리는' 전경 사물(책상·기둥·난간·소품 등)은 반드시 개별 레이어로 분리한다 "
+        "— 그래야 앞뒤 겹침(가림)이 유지된다.\n"
+        "3) 내레이션상 움직이거나 강조·등장하는 사물도 분리한다.\n"
+        "4) 그 외 정적인 배경·장식 요소는 분리하지 말고 배경에 남긴다(목록에서 제외).\n"
+        "5) 요소는 '가장 뒤'에서 '가장 앞' 순서로 나열한다(뒤→앞). 가리는 사물은 가려지는 인물보다 앞에 온다.\n\n"
+        "각 요소: name(짧은 한국어 이름), location(화면 내 위치), kind('character' 또는 'object'), "
+        "reason(왜 분리하는지 — 특히 전경에서 무엇을 가리는지 한 줄)."
     )
     out_json = proj_dir / ".layer_analysis.json"
     res = run_skill(prompt, proj_dir, output_schema=str(_LAYER_SCHEMA),
@@ -206,7 +211,8 @@ def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
 def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_out: str) -> str:
     return (
         f"{style_desc}\n\n## 레이어 분리 — 단일 요소\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-        f"이 씬에서 '{name}'({location})만 동일한 위치·크기·외형으로 다시 그리고, "
+        f"이 씬에서 '{name}'({location})만 동일한 위치·크기·외형으로 다시 그린다. "
+        f"다른 사물에 가려진 부분이 있으면 가려지지 않은 온전한 모습으로 자연스럽게 완성해서 그린다. "
         f"그 외 전 영역은 순수 마젠타 단색(#FF00FF)으로 채운다.\n"
         f"image_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. 텍스트 없음. 저장되면 OK만 답해."
     )
@@ -217,12 +223,33 @@ def _layer_slug(name: str) -> str:
     return s[:24] or "el"
 
 
+def _archive_prev_layers(out_base: Path, sid: str) -> int:
+    """재분리 전, 같은 sid의 기존 레이어를 layers/_prev/ 로 이동(무삭제). 옮긴 개수 반환.
+    load_scenes의 _layers glob(layers/*{sid}*.png, 비재귀)은 _prev/ 를 보지 않는다."""
+    if not sid:
+        return 0
+    existing = [p for p in out_base.glob(f"*{sid}*.png") if p.is_file()]
+    if not existing:
+        return 0
+    prev = out_base / "_prev"
+    prev.mkdir(exist_ok=True)
+    for p in existing:
+        dest = prev / p.name
+        n = 2
+        while dest.exists():
+            dest = prev / f"{p.stem}_p{n}{p.suffix}"
+            n += 1
+        shutil.move(str(p), str(dest))
+    return len(existing)
+
+
 def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
                             *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
     """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
     요소는 마젠타→투명 후처리. 무삭제(versioned)."""
     out_base = proj_dir / subdir
     out_base.mkdir(parents=True, exist_ok=True)
+    _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제: _prev로 이동)
     style = load_style()
 
     def _element(i_el):
@@ -243,7 +270,9 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         out = versioned_path(out_base, f"{sid}__bg.png")
         rel = out.relative_to(proj_dir).as_posix()
         prompt = (f"{style}\n\n## 레이어 분리 — 배경\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-                  f"다음 피사체들을 모두 제거하고({names}) 배경·환경만 자연스럽게 채워서 그린다.\n"
+                  f"다음 요소들만 제거한다: {names}.\n"
+                  f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
+                  f"그 외의 모든 것 — 다른 인물, 다른 사물, 환경 — 은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
                   f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
         r = {"name": "배경", "rel": rel, "status": res.get("status")}

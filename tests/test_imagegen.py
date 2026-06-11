@@ -236,3 +236,16 @@ def test_chroma_key_magenta(tmp_path):
     assert r.getpixel((0, 0))[3] == 0
     assert r.getpixel((3, 0))[3] == 255
     assert res["transparent_ratio"] > 0.4
+
+
+def test_archive_prev_layers_moves_not_deletes(tmp_path):
+    from backend import imagegen as ig
+    lay = tmp_path / "layers"; lay.mkdir()
+    (lay / "sid9__0_old.png").write_bytes(b"\x89PNG")
+    (lay / "sid9__bg.png").write_bytes(b"\x89PNG")
+    (lay / "other__0_x.png").write_bytes(b"\x89PNG")     # 다른 씬 — 유지
+    moved = ig._archive_prev_layers(lay, "sid9")
+    assert moved == 2
+    assert not (lay / "sid9__0_old.png").exists()        # 활성 폴더에서 빠짐
+    assert (lay / "_prev" / "sid9__0_old.png").exists()  # 보존됨(무삭제)
+    assert (lay / "other__0_x.png").exists()             # 다른 씬 그대로
