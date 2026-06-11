@@ -170,6 +170,12 @@ def test_index_loads_assistant_js():
     assert "disabled" not in html.split('id="chatInput"')[1].split(">")[0]   # 입력 활성화
 
 
+def test_llm_selector():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="llmSelect"' in html
+    assert "function loadLlmSetting" in MAIN.read_text(encoding="utf-8") and "/api/llm/settings" in MAIN.read_text(encoding="utf-8")
+
+
 def test_tts_settings_panel():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "function loadTtsSettings" in js and "/api/tts/settings" in js

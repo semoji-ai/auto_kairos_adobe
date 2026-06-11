@@ -37,10 +37,30 @@ function checkBackend() {
     .then(function (j) {
       _setHealth(true, "백엔드 연결됨 · codex " + j.codex_status + " · v" + j.version);
       loadProjects();                                     // 연결되면 목록 자동 로드
+      loadLlmSetting();                                   // 오케스트레이터 LLM 선택값 로드
     })
     .catch(function () {
       _setHealth(false, "백엔드 연결 안 됨 — app.py 실행 후 [연결]");
     });
+}
+
+function loadLlmSetting() {
+  fetch(BACKEND + "/api/llm/settings").then(function (r) { return r.json(); })
+    .then(function (j) {
+      var sel = $("llmSelect"); if (!sel) return;
+      sel.innerHTML = (j.choices || ["claude", "codex"]).map(function (c) {
+        return '<option value="' + c + '"' + (c === j.orchestrator ? " selected" : "") + '>' + c + '</option>';
+      }).join("");
+    }).catch(function () {});
+}
+
+function saveLlmSetting() {
+  fetch(BACKEND + "/api/llm/settings", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orchestrator: $("llmSelect").value }),
+  }).then(function (r) { return r.json(); }).then(function (j) {
+    if ($("llmHint")) $("llmHint").textContent = "추론=" + j.orchestrator + " / 이미지=codex";
+  });
 }
 
 function buildComp() { _assemble(null); }
@@ -358,6 +378,7 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnNewProject").addEventListener("click", function () {
     var f = $("newProjectForm"); f.hidden = !f.hidden;
   });
+  var ls = $("llmSelect"); if (ls) ls.addEventListener("change", saveLlmSetting);
   checkBackend();          // 열면 자동 백엔드 확인 → 연결 시 프로젝트 목록 자동 로드
   $("btnDecompose").addEventListener("click", decompose);
   $("btnGenCharacter").addEventListener("click", genCharacter);
