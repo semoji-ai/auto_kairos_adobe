@@ -1,17 +1,49 @@
-"""씬 내레이션 TTS — macOS `say`(기본) 기반. 한국어 보이스 Yuna. afinfo로 길이 측정."""
+"""씬 내레이션 TTS.
+
+기본 엔진: **ElevenLabs**(MP3 — CEP/Chromium 재생·AE 가져오기 호환).
+ELEVENLABS_API_KEY 없으면 macOS `say`(WAV)로 폴백(개발용).
+길이는 afinfo(초). stdlib만 사용(urllib).
+"""
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 import subprocess
+import urllib.request
 from pathlib import Path
 
-DEFAULT_VOICE = os.environ.get("TTS_VOICE", "Yuna")     # 한국어 ko_KR
+from backend import env
+
+# ElevenLabs 기본값(v3 narrator와 동일 계열)
+DEFAULT_VOICE_ID = "9Sj8ugvpK1DmcAXyvi3a"
+DEFAULT_MODEL = "eleven_multilingual_v2"
+VOICE_SETTINGS = {
+    "stability": 1.0, "similarity_boost": 0.6, "style": 0.9,
+    "use_speaker_boost": True, "speed": 1.1,
+}
+SAY_VOICE = os.environ.get("TTS_SAY_VOICE", "Yuna")     # 폴백용 한국어 보이스
+
+
+def _engine() -> str:
+    """ELEVENLABS_API_KEY 있으면 elevenlabs, 없으면 say."""
+    return "elevenlabs" if env.get_key("ELEVENLABS_API_KEY") else "say"
+
+
+def _ext() -> str:
+    return "mp3" if _engine() == "elevenlabs" else "wav"
 
 
 def scene_audio_name(sid: str) -> str:
-    return f"tts_{sid}.wav"     # WAV — CEP(Chromium) <audio> 재생 가능(AIFF는 불가)
+    return f"tts_{sid}.{_ext()}"
+
+
+def _clean_text(text: str) -> str:
+    """TTS 전 가벼운 정리 — 지문(괄호)·이모지 제거. 한국어 발음 교정은 미적용(필요 시 확장)."""
+    t = re.sub(r"[\(\[\{][^\)\]\}]*[\)\]\}]", "", text or "")
+    t = re.sub(r"[\U0001F000-\U0001FAFF\U00002600-\U000027BF]", "", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def _parse_afinfo_duration(text: str) -> float:
@@ -20,7 +52,7 @@ def _parse_afinfo_duration(text: str) -> float:
 
 
 def audio_duration(path: Path) -> float:
-    """afinfo로 길이(초). 실패 시 0.0."""
+    """afinfo로 길이(초). wav·mp3 모두 가능. 실패 시 0.0."""
     try:
         r = subprocess.run(["afinfo", str(path)], capture_output=True, text=True, timeout=20)
         return _parse_afinfo_duration(r.stdout)
@@ -28,31 +60,56 @@ def audio_duration(path: Path) -> float:
         return 0.0
 
 
+def _eleven_fetch(text: str, voice: str | None = None) -> bytes:
+    """ElevenLabs TTS — MP3 bytes 반환. 실패 시 예외."""
+    key = env.get_key("ELEVENLABS_API_KEY")
+    vid = voice or env.get_key("ELEVENLABS_VOICE_ID") or DEFAULT_VOICE_ID
+    model = env.get_key("ELEVENLABS_MODEL_ID") or DEFAULT_MODEL
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_128"
+    body = json.dumps({"text": text, "model_id": model, "voice_settings": VOICE_SETTINGS}).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body, method="POST",
+        headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        return resp.read()
+
+
+def _synth_say(text: str, out_path: Path, voice: str | None) -> None:
+    cmd = ["say", "-v", voice or SAY_VOICE, "-o", str(out_path),
+           "--data-format=LEI16@22050", "--file-format=WAVE", text]
+    subprocess.run(cmd, capture_output=True, text=True, timeout=300, check=True)
+
+
 def synthesize(text: str, out_path: Path, voice: str | None = None) -> dict:
-    """`say`로 합성해 out_path(WAV) 생성. {status, path, duration}.
-    WAVE/LEI16 포맷 — CEP(Chromium) <audio> 재생 가능. AE 가져오기도 호환."""
+    """text를 out_path로 합성. 엔진(elevenlabs/say)은 키 유무로 결정. {status, path, duration, engine}."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    if shutil.which("say") is None:
-        return {"status": "failed", "error": "say 없음(macOS 전용)", "path": str(out_path), "duration": 0.0}
-    cmd = ["say", "-v", voice or DEFAULT_VOICE, "-o", str(out_path),
-           "--data-format=LEI16@22050", "--file-format=WAVE", text]
+    eng = _engine()
+    clean = _clean_text(text)
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if eng == "elevenlabs":
+            out_path.write_bytes(_eleven_fetch(clean, voice))
+        else:
+            if shutil.which("say") is None:
+                return {"status": "failed", "error": "say 없음·ElevenLabs 키 없음", "path": str(out_path), "duration": 0.0}
+            _synth_say(clean, out_path, voice)
     except Exception as e:
-        return {"status": "failed", "error": str(e), "path": str(out_path), "duration": 0.0}
-    if r.returncode != 0 or not out_path.exists():
-        return {"status": "failed", "error": (r.stderr or "")[:200], "path": str(out_path), "duration": 0.0}
-    return {"status": "completed", "path": str(out_path), "duration": audio_duration(out_path)}
+        return {"status": "failed", "error": str(e)[:200], "path": str(out_path), "duration": 0.0, "engine": eng}
+    if not out_path.exists() or out_path.stat().st_size == 0:
+        return {"status": "failed", "error": "출력 없음", "path": str(out_path), "duration": 0.0, "engine": eng}
+    dur = audio_duration(out_path)
+    if dur == 0.0 and eng == "elevenlabs":          # afinfo 실패 시 비트레이트 추정(128kbps)
+        dur = round(out_path.stat().st_size * 8 / 128000, 3)
+    return {"status": "completed", "path": str(out_path), "duration": dur, "engine": eng}
 
 
 def generate_scene_tts(proj_dir: Path, sid: str, text: str, voice: str | None = None) -> dict:
-    """씬 오디오 audio/tts_{sid}.wav 생성(갱신). 빈 텍스트면 failed."""
+    """씬 오디오 audio/tts_{sid}.{ext} 생성(갱신). 빈 텍스트면 failed."""
     if not (text or "").strip():
         return {"status": "failed", "error": "내레이션 비어있음"}
     out = Path(proj_dir) / "audio" / scene_audio_name(sid)
     out.parent.mkdir(parents=True, exist_ok=True)
     res = synthesize(text, out, voice=voice)
     if res.get("status") == "completed":
-        res["rel"] = f"audio/{scene_audio_name(sid)}"
+        res["rel"] = f"audio/{out.name}"
     return res
