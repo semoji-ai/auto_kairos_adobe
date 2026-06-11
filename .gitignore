@@ -30,3 +30,6 @@ projects/*/layers
 projects/*/characters
 projects/*/audio
 projects/*/video_sources
+
+# LLM 오케스트레이터 선택(런타임)
+data/llm_config.json
