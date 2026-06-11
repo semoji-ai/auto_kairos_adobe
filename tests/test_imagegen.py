@@ -162,6 +162,15 @@ def test_generate_many_concurrency_min_one(tmp_path, monkeypatch):
 def test_build_element_layer_prompt():
     p = imagegen.build_element_layer_prompt("왼쪽 전기차", "프레임 왼쪽", "STYLE", "layers/x.png")
     assert "왼쪽 전기차" in p and "마젠타" in p and "#FF00FF" in p and "layers/x.png" in p
+    assert "얹혀" in p          # 위에 얹힌 것 함께 그림(베이스 포함)
+
+
+def test_build_element_layer_prompt_excludes_others():
+    # 다른 선택 요소(문서)는 별도 레이어이므로 책상 레이어에서 제외
+    p = imagegen.build_element_layer_prompt("책상", "중앙", "STYLE", "layers/d.png", others=["문서", "책상"])
+    assert "별도 레이어" in p and "문서" in p
+    # 자기 자신(책상)은 제외 목록에 안 들어감
+    assert p.count("책상") >= 1
 
 
 def test_analyze_scene_layers_parses(tmp_path, monkeypatch):

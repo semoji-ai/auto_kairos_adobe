@@ -208,11 +208,19 @@ def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
     return {"elements": data.get("elements", [])}
 
 
-def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_out: str) -> str:
+def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_out: str,
+                               others: list | None = None) -> str:
+    """단일 요소 레이어 프롬프트. others=별도 레이어로 분리되는 다른 요소들(이 레이어에서 제외).
+    이 요소 위에 얹힌/붙은 것(others 제외)은 함께 그려 한 덩어리로 유지."""
+    others = [o for o in (others or []) if o and o != name]
+    excl = (f"단, 다음은 별도 레이어이므로 포함하지 말고 마젠타로 채운다: {', '.join(others)}.\n"
+            if others else "")
     return (
         f"{style_desc}\n\n## 레이어 분리 — 단일 요소\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-        f"이 씬에서 '{name}'({location})만 동일한 위치·크기·외형으로 다시 그리고, "
-        f"그 외 전 영역(다른 인물·사물·배경 포함)은 순수 마젠타 단색(#FF00FF)으로 채운다.\n"
+        f"이 씬에서 '{name}'({location})를 동일한 위치·크기·외형으로 다시 그린다. "
+        f"이 요소 위에 얹혀 있거나 붙어 있는 것(예: 위에 놓인 문서·물건)도 함께 그려 한 덩어리로 유지한다.\n"
+        f"{excl}"
+        f"그 외 전 영역(다른 인물·사물·배경)은 순수 마젠타 단색(#FF00FF)으로 채운다.\n"
         f"image_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. 텍스트 없음. 저장되면 OK만 답해."
     )
 
@@ -251,12 +259,15 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제: _prev로 이동)
     style = load_style()
 
+    all_names = [e.get("name", "") for e in elements]
+
     def _element(i_el):
         i, el = i_el
         name, loc = el.get("name", f"el{i}"), el.get("location", "")
         out = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(name)}.png")
         rel = out.relative_to(proj_dir).as_posix()
-        prompt = build_element_layer_prompt(name, loc, style, rel)
+        others = [nm for j, nm in enumerate(all_names) if j != i]   # 다른 선택 요소는 제외
+        prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image],
                                post=lambda o: chroma_key_magenta(o, o))
         r = {"name": name, "rel": rel, "status": res.get("status")}     # 풀프레임 레이어(크롭 안 함)
@@ -269,9 +280,9 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         out = versioned_path(out_base, f"{sid}__bg.png")
         rel = out.relative_to(proj_dir).as_posix()
         prompt = (f"{style}\n\n## 레이어 분리 — 배경\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-                  f"다음 요소들만 제거한다: {names}.\n"
+                  f"다음 요소들과 '그 위에 얹혀 있거나 붙어 있는 것'까지 함께 제거한다: {names}.\n"
                   f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
-                  f"그 외의 모든 것 — 다른 인물, 다른 사물, 환경 — 은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
+                  f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
                   f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
         r = {"name": "배경", "rel": rel, "status": res.get("status")}
