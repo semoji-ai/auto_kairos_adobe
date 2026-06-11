@@ -16,14 +16,71 @@ from pathlib import Path
 
 from backend import env
 
-# ElevenLabs 기본값(v3 narrator와 동일 계열)
-DEFAULT_VOICE_ID = "9Sj8ugvpK1DmcAXyvi3a"
+# ElevenLabs 기본값(v3 narrator와 동일 계열 — semoji)
+DEFAULT_VOICE_ID = "W7FnAxJNpD5WGjrF5GLp"
 DEFAULT_MODEL = "eleven_multilingual_v2"
 VOICE_SETTINGS = {
-    "stability": 1.0, "similarity_boost": 0.6, "style": 0.9,
+    "stability": 1.0, "similarity_boost": 0.9, "style": 0.9,
     "use_speaker_boost": True, "speed": 1.1,
 }
 SAY_VOICE = os.environ.get("TTS_SAY_VOICE", "Yuna")     # 폴백용 한국어 보이스
+
+_VOICES_FILE = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "voices.json"
+
+
+def load_voice_presets() -> dict:
+    try:
+        return json.loads(_VOICES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"default_style": "semoji", "presets": {}}
+
+
+def _tts_config_path(proj_dir: Path) -> Path:
+    return Path(proj_dir) / "tts_config.json"
+
+
+def get_tts_config(proj_dir: Path) -> dict:
+    """프로젝트 tts_config.json(없으면 {})."""
+    p = _tts_config_path(proj_dir)
+    if p.is_file():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+
+def set_tts_config(proj_dir: Path, *, style=None, voice_id=None, model=None, voice_settings=None) -> dict:
+    """프로젝트 TTS 설정 저장(부분 갱신). 반환=effective_voice."""
+    proj_dir = Path(proj_dir)
+    cfg = get_tts_config(proj_dir)
+    if style is not None:
+        cfg["style"] = style
+    if voice_id is not None:
+        cfg["voice_id"] = voice_id          # 빈 문자열이면 override 해제(스타일 프리셋 사용)
+        if voice_id == "":
+            cfg.pop("voice_id", None)
+    if model is not None:
+        cfg["model"] = model
+    if voice_settings is not None:
+        cfg["voice_settings"] = voice_settings
+    _tts_config_path(proj_dir).write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    return effective_voice(proj_dir)
+
+
+def effective_voice(proj_dir: Path) -> dict:
+    """유효 voice 설정 해석: 프로젝트 override → 스타일 프리셋 → semoji 기본.
+    반환 {style, voice_id, model, voice_settings}."""
+    presets = load_voice_presets()
+    table = presets.get("presets", {})
+    default_style = presets.get("default_style", "semoji")
+    cfg = get_tts_config(proj_dir)
+    style = cfg.get("style") or default_style
+    base = table.get(style) or table.get(default_style) or {}
+    voice_id = cfg.get("voice_id") or base.get("voice_id") or DEFAULT_VOICE_ID
+    voice_settings = cfg.get("voice_settings") or base.get("voice_settings") or VOICE_SETTINGS
+    model = cfg.get("model") or base.get("model") or DEFAULT_MODEL
+    return {"style": style, "voice_id": voice_id, "model": model, "voice_settings": voice_settings}
 
 
 def _engine() -> str:
@@ -60,13 +117,15 @@ def audio_duration(path: Path) -> float:
         return 0.0
 
 
-def _eleven_fetch(text: str, voice: str | None = None) -> bytes:
+def _eleven_fetch(text: str, cfg: dict | None = None) -> bytes:
     """ElevenLabs TTS — MP3 bytes 반환. 실패 시 예외."""
+    cfg = cfg or {}
     key = env.get_key("ELEVENLABS_API_KEY")
-    vid = voice or env.get_key("ELEVENLABS_VOICE_ID") or DEFAULT_VOICE_ID
-    model = env.get_key("ELEVENLABS_MODEL_ID") or DEFAULT_MODEL
+    vid = cfg.get("voice_id") or DEFAULT_VOICE_ID
+    model = cfg.get("model") or DEFAULT_MODEL
+    settings = cfg.get("voice_settings") or VOICE_SETTINGS
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_128"
-    body = json.dumps({"text": text, "model_id": model, "voice_settings": VOICE_SETTINGS}).encode("utf-8")
+    body = json.dumps({"text": text, "model_id": model, "voice_settings": settings}).encode("utf-8")
     req = urllib.request.Request(
         url, data=body, method="POST",
         headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"})
@@ -80,7 +139,7 @@ def _synth_say(text: str, out_path: Path, voice: str | None) -> None:
     subprocess.run(cmd, capture_output=True, text=True, timeout=300, check=True)
 
 
-def synthesize(text: str, out_path: Path, voice: str | None = None) -> dict:
+def synthesize(text: str, out_path: Path, cfg: dict | None = None) -> dict:
     """text를 out_path로 합성. 엔진(elevenlabs/say)은 키 유무로 결정. {status, path, duration, engine}."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -88,11 +147,11 @@ def synthesize(text: str, out_path: Path, voice: str | None = None) -> dict:
     clean = _clean_text(text)
     try:
         if eng == "elevenlabs":
-            out_path.write_bytes(_eleven_fetch(clean, voice))
+            out_path.write_bytes(_eleven_fetch(clean, cfg))
         else:
             if shutil.which("say") is None:
                 return {"status": "failed", "error": "say 없음·ElevenLabs 키 없음", "path": str(out_path), "duration": 0.0}
-            _synth_say(clean, out_path, voice)
+            _synth_say(clean, out_path, SAY_VOICE)
     except Exception as e:
         return {"status": "failed", "error": str(e)[:200], "path": str(out_path), "duration": 0.0, "engine": eng}
     if not out_path.exists() or out_path.stat().st_size == 0:
@@ -107,9 +166,13 @@ def generate_scene_tts(proj_dir: Path, sid: str, text: str, voice: str | None = 
     """씬 오디오 audio/tts_{sid}.{ext} 생성(갱신). 빈 텍스트면 failed."""
     if not (text or "").strip():
         return {"status": "failed", "error": "내레이션 비어있음"}
+    cfg = effective_voice(proj_dir)
+    if voice:
+        cfg = {**cfg, "voice_id": voice}
     out = Path(proj_dir) / "audio" / scene_audio_name(sid)
     out.parent.mkdir(parents=True, exist_ok=True)
-    res = synthesize(text, out, voice=voice)
+    res = synthesize(text, out, cfg=cfg)
     if res.get("status") == "completed":
         res["rel"] = f"audio/{out.name}"
+        res["voice_id"] = cfg["voice_id"]
     return res
