@@ -93,7 +93,7 @@ def load_scenes(proj_dir: Path) -> dict:
         s["_image"] = ref if (ref and (proj_dir / ref).is_file()) else None
         s["_layers"] = (sorted(f"layers/{p.name}" for p in lay_dir.glob(f"*{sid}*.png"))
                         if sid and lay_dir.is_dir() else [])
-        aud_name = f"tts_{sid}.aiff"
+        aud_name = f"tts_{sid}.wav"
         s["_audio"] = (f"audio/{aud_name}"
                        if sid and (proj_dir / "audio" / aud_name).is_file() else None)
         aud = proj_dir / "audio"

@@ -12,7 +12,7 @@ def test_parse_afinfo_duration_missing():
 
 
 def test_scene_audio_name():
-    assert tts.scene_audio_name("abc123") == "tts_abc123.aiff"
+    assert tts.scene_audio_name("abc123") == "tts_abc123.wav"
 
 
 def test_synthesize_invokes_say(tmp_path, monkeypatch):
@@ -26,7 +26,7 @@ def test_synthesize_invokes_say(tmp_path, monkeypatch):
 
     monkeypatch.setattr(tts.subprocess, "run", fake_run)
     monkeypatch.setattr(tts, "audio_duration", lambda p: 2.5)
-    out = tmp_path / "a.aiff"
+    out = tmp_path / "a.wav"
     res = tts.synthesize("안녕하세요", out, voice="Yuna")
     assert res["status"] == "completed" and out.exists() and res["duration"] == 2.5
     assert "say" in calls["cmd"][0] and "Yuna" in calls["cmd"]
@@ -39,8 +39,8 @@ def test_generate_scene_tts(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     res = tts.generate_scene_tts(proj, "sid9", "내레이션", voice="Yuna")
     assert res["status"] == "completed"
-    assert (proj / "audio" / "tts_sid9.aiff").exists()
-    assert res["rel"] == "audio/tts_sid9.aiff"
+    assert (proj / "audio" / "tts_sid9.wav").exists()
+    assert res["rel"] == "audio/tts_sid9.wav"
 
 
 def test_generate_scene_tts_empty_text(tmp_path):

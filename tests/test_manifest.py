@@ -39,11 +39,11 @@ def test_build_manifest_layers_bg_first(tmp_path):
 
 def test_build_manifest_audio_duration(tmp_path, monkeypatch):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "c", "narration": "n"}])
-    (d / "audio").mkdir(); (d / "audio" / "tts_c.aiff").write_bytes(b"x")
+    (d / "audio").mkdir(); (d / "audio" / "tts_c.wav").write_bytes(b"x")
     monkeypatch.setattr(manifest.tts, "audio_duration", lambda p: 5.5)
     mf = json.loads((d / "manifest.json").read_text(encoding="utf-8")) if manifest.build_manifest(d) else {}
     sc = mf["scenes"][0]
-    assert sc["audio"].endswith("audio/tts_c.aiff") and sc["duration"] == 5.5
+    assert sc["audio"].endswith("audio/tts_c.wav") and sc["duration"] == 5.5
 
 
 def test_build_manifest_duration_fallback(tmp_path):

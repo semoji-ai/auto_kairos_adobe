@@ -11,7 +11,7 @@ DEFAULT_VOICE = os.environ.get("TTS_VOICE", "Yuna")     # 한국어 ko_KR
 
 
 def scene_audio_name(sid: str) -> str:
-    return f"tts_{sid}.aiff"
+    return f"tts_{sid}.wav"     # WAV — CEP(Chromium) <audio> 재생 가능(AIFF는 불가)
 
 
 def _parse_afinfo_duration(text: str) -> float:
@@ -29,12 +29,14 @@ def audio_duration(path: Path) -> float:
 
 
 def synthesize(text: str, out_path: Path, voice: str | None = None) -> dict:
-    """`say`로 합성해 out_path(.aiff) 생성. {status, path, duration}."""
+    """`say`로 합성해 out_path(WAV) 생성. {status, path, duration}.
+    WAVE/LEI16 포맷 — CEP(Chromium) <audio> 재생 가능. AE 가져오기도 호환."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if shutil.which("say") is None:
         return {"status": "failed", "error": "say 없음(macOS 전용)", "path": str(out_path), "duration": 0.0}
-    cmd = ["say", "-v", voice or DEFAULT_VOICE, "-o", str(out_path), text]
+    cmd = ["say", "-v", voice or DEFAULT_VOICE, "-o", str(out_path),
+           "--data-format=LEI16@22050", "--file-format=WAVE", text]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     except Exception as e:
@@ -45,7 +47,7 @@ def synthesize(text: str, out_path: Path, voice: str | None = None) -> dict:
 
 
 def generate_scene_tts(proj_dir: Path, sid: str, text: str, voice: str | None = None) -> dict:
-    """씬 오디오 audio/tts_{sid}.aiff 생성(갱신). 빈 텍스트면 failed."""
+    """씬 오디오 audio/tts_{sid}.wav 생성(갱신). 빈 텍스트면 failed."""
     if not (text or "").strip():
         return {"status": "failed", "error": "내레이션 비어있음"}
     out = Path(proj_dir) / "audio" / scene_audio_name(sid)

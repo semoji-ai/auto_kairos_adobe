@@ -232,9 +232,9 @@ def test_merge_last_scene_noop(tmp_path):
 
 def test_load_scenes_audio_ref(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aud1", "narration": "n"}])
-    (d / "audio").mkdir(); (d / "audio" / "tts_aud1.aiff").write_bytes(b"x")
+    (d / "audio").mkdir(); (d / "audio" / "tts_aud1.wav").write_bytes(b"x")
     s = scenes.load_scenes(d)["scenes"][0]
-    assert s["_audio"] == "audio/tts_aud1.aiff" and s["_status"]["tts"] is True
+    assert s["_audio"] == "audio/tts_aud1.wav" and s["_status"]["tts"] is True
 
 
 def test_load_scenes_status_flags(tmp_path):

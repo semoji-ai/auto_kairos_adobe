@@ -591,11 +591,11 @@ def test_scenes_tts(tmp_path, monkeypatch):
     (proj / "scenes.json").write_text(
         '{"scenes":[{"sceneNumber":1,"sceneId":"sa","narration":"안녕"}]}', encoding="utf-8")
     monkeypatch.setattr(r.tts, "generate_scene_tts",
-                        lambda proj_dir, sid, text, voice=None: {"status": "completed", "rel": f"audio/tts_{sid}.aiff", "duration": 1.0})
+                        lambda proj_dir, sid, text, voice=None: {"status": "completed", "rel": f"audio/tts_{sid}.wav", "duration": 1.0})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/scenes/tts", {},
                                 {"project_id": "p", "sceneNumber": 1}, ctx)
-    assert code == 200 and body["result"]["rel"] == "audio/tts_sa.aiff"
+    assert code == 200 and body["result"]["rel"] == "audio/tts_sa.wav"
 
 
 def test_scenes_tts_no_narration_422(tmp_path):
