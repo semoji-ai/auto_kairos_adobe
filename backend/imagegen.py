@@ -263,6 +263,8 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         bbox = None
         if res.get("status") == "completed" and out.exists():
             bbox = crop_to_content(out)     # 요소 내용으로 크롭 + 프레임 내 위치 기록
+            if bbox:
+                apply_original_pixels(out, scene_image, bbox)   # RGB를 원본 픽셀로(실루엣만 codex)
         r = {"name": name, "rel": rel, "status": res.get("status"), "bbox": bbox}
         if on_event:
             on_event(r)
@@ -309,6 +311,27 @@ def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
     out = Image.fromarray(a.astype("uint8"), "RGBA")
     out.save(out_png)
     return {"transparent_ratio": float(mask.sum()) / mask.size}
+
+
+def apply_original_pixels(layer_png: Path, scene_image, bbox: dict) -> None:
+    """크롭된 요소 레이어의 RGB를 '원본 씬 이미지'의 해당 영역으로 교체(알파=codex 실루엣 유지).
+    codex 재드로잉이 경계를 키워 뒤 요소를 덮는 문제 회피 → 재조립이 원본과 픽셀 일치."""
+    try:
+        layer = Image.open(layer_png).convert("RGBA")
+        orig = Image.open(scene_image).convert("RGB")
+    except Exception:
+        return
+    lw, lh = layer.size
+    fw, fh = bbox.get("frame_w") or orig.width, bbox.get("frame_h") or orig.height
+    if orig.size != (fw, fh):
+        orig = orig.resize((fw, fh))
+    region = orig.crop((bbox["x"], bbox["y"], bbox["x"] + lw, bbox["y"] + lh))
+    if region.size != (lw, lh):
+        region = region.resize((lw, lh))
+    out = Image.new("RGBA", (lw, lh))
+    out.paste(region, (0, 0))
+    out.putalpha(layer.getchannel("A"))     # 원본 픽셀 + codex 실루엣
+    out.save(layer_png)
 
 
 def crop_to_content(png_path: Path, *, pad: int = 8) -> dict | None:

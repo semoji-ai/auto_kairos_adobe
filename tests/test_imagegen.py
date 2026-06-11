@@ -269,3 +269,22 @@ def test_crop_to_content_all_transparent_returns_none(tmp_path):
     from backend import imagegen as ig
     p = tmp_path / "t.png"; Image.new("RGBA", (50, 50), (0, 0, 0, 0)).save(p)
     assert ig.crop_to_content(p) is None
+
+
+def test_apply_original_pixels_replaces_rgb_keeps_alpha(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    # 원본: 빨강, 레이어: 파랑 RGB + 일부만 불투명
+    Image.new("RGB", (200, 200), (255, 0, 0)).save(tmp_path / "orig.png")
+    layer = Image.new("RGBA", (50, 40), (0, 0, 255, 0))
+    for y in range(10, 30):
+        for x in range(5, 45):
+            layer.putpixel((x, y), (0, 0, 255, 255))   # 불투명 파랑 영역
+    lp = tmp_path / "el.png"; layer.save(lp)
+    bbox = {"x": 30, "y": 20, "w": 50, "h": 40, "frame_w": 200, "frame_h": 200}
+    ig.apply_original_pixels(lp, tmp_path / "orig.png", bbox)
+    out = Image.open(lp).convert("RGBA")
+    assert out.size == (50, 40)
+    assert out.getpixel((20, 15))[:3] == (255, 0, 0)   # RGB가 원본(빨강)으로 교체
+    assert out.getpixel((20, 15))[3] == 255            # 알파 유지(불투명)
+    assert out.getpixel((0, 0))[3] == 0                # 투명 영역 유지
