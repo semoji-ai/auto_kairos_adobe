@@ -147,18 +147,24 @@
     .col-tts .tts-dur { font-size:11px; color:#c5c8cc; font-family:ui-monospace,monospace; }
     .col-tts .scene-comp { width:auto; margin-top:6px; padding:4px 8px; font-size:11px; background:#444; }
 
-    /* 이미지 생성 모달 */
-    #genModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
+    /* 모달(이미지 생성 + 레이어 선택 공용) */
+    #genModal, #layerModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
       display:flex; align-items:center; justify-content:center; }
-    #genModal[hidden] { display:none; }
-    #genModal .gen-box { width:min(420px,92vw); max-height:88vh; overflow-y:auto;
+    #genModal[hidden], #layerModal[hidden] { display:none; }
+    #genModal .gen-box, #layerModal .gen-box { width:min(440px,92vw); max-height:88vh; overflow-y:auto;
       background:#23262b; border:1px solid #33363c; border-radius:10px; padding:16px; }
-    #genModal .gen-head { display:flex; justify-content:space-between; align-items:center;
+    /* 레이어 선택 체크리스트 */
+    #layerList { padding:4px; }
+    #layerList .layer-chk { display:flex; gap:8px; align-items:flex-start; padding:7px 6px;
+      border-bottom:1px solid #2c2f36; cursor:pointer; line-height:1.4; }
+    #layerList .layer-chk:hover { background:#2c2f36; }
+    #layerList .layer-chk input { width:16px; height:16px; margin:2px 0 0; flex:0 0 auto; }
+    #genModal .gen-head, #layerModal .gen-head { display:flex; justify-content:space-between; align-items:center;
       font-size:14px; font-weight:600; margin-bottom:8px; }
     #genModal select, #genModal input, #genModal textarea { width:100%; box-sizing:border-box;
       padding:7px; margin:3px 0; background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
-    #genModal .gen-actions { display:flex; gap:8px; margin-top:10px; }
-    #genModal .gen-actions button { flex:1; }
+    #genModal .gen-actions, #layerModal .gen-actions { display:flex; gap:8px; margin-top:10px; }
+    #genModal .gen-actions button, #layerModal .gen-actions button { flex:1; }
   </style>
 </head>
 <body>
@@ -345,6 +351,20 @@
         <button id="genCancel" class="alt">취소</button>
       </div>
       <div class="box" id="genStatus" style="min-height:16px">—</div>
+    </div>
+  </div>
+
+  <!-- 레이어 분리 — 요소 선택 모달 -->
+  <div id="layerModal" hidden>
+    <div class="gen-box">
+      <div class="gen-head">레이어 분리 — 요소 선택 <button id="layerClose" class="mini">✕</button></div>
+      <div class="label">분리할 요소만 체크하세요. 체크 안 한 요소는 배경에 그대로 남습니다.</div>
+      <div id="layerList" class="box" style="max-height:50vh;overflow:auto">—</div>
+      <div class="gen-actions">
+        <button id="layerSubmit">선택 분리</button>
+        <button id="layerCancel" class="alt">취소</button>
+      </div>
+      <div class="box" id="layerModalStatus" style="min-height:16px">—</div>
     </div>
   </div>
 

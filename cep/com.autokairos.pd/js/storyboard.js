@@ -283,18 +283,46 @@ function analyzeLayers(n) {
     .then(function (j) {
       var els = j.elements || [];
       if (!els.length) { _rowStatus(n, "분석 실패: " + (j.error || JSON.stringify(j))); return; }
-      var list = els.map(function (e) {
-        var tag = e.kind === "character" ? "[인물]" : "[사물]";
-        return "· " + tag + " " + e.name + " (" + e.location + ")" + (e.reason ? " — " + e.reason : "");
-      }).join("\n");
-      if (confirm("내레이션 기반으로 다음 레이어를 분리합니다(움직임 필요한 것만):\n\n" + list + "\n\n진행할까요?")) {
-        splitLayers(n, els);
-      } else {
-        _rowStatus(n, "분리 취소됨");
-      }
+      _rowStatus(n, els.length + "개 요소 분석됨 — 선택 창에서 분리할 항목 고르기");
+      _openLayerModal(n, els);     // confirm 대신 체크박스 선택 모달
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
+
+var _layerScene = null, _layerEls = [];
+
+function _openLayerModal(n, els) {
+  _layerScene = n; _layerEls = els;
+  $("layerList").innerHTML = els.map(function (e, i) {
+    var tag = e.kind === "character" ? "👤 인물" : "📦 사물";
+    return '<label class="layer-chk"><input type="checkbox" data-idx="' + i + '" checked>'
+      + '<span><b>' + tag + '</b> ' + _esc(e.name)
+      + ' <span style="color:#9aa0a6">(' + _esc(e.location) + ')</span>'
+      + (e.reason ? '<br><span style="font-size:10px;color:#9aa0a6">' + _esc(e.reason) + '</span>' : '')
+      + '</span></label>';
+  }).join("");
+  $("layerModalStatus").textContent = els.length + "개 분석됨 — 체크된 것만 레이어로 분리";
+  $("layerModal").hidden = false;
+}
+
+function _closeLayerModal() { $("layerModal").hidden = true; }
+
+function _submitLayerSplit() {
+  var chks = $("layerList").querySelectorAll('input[type="checkbox"]');
+  var chosen = [];
+  for (var i = 0; i < chks.length; i++) {
+    if (chks[i].checked) chosen.push(_layerEls[parseInt(chks[i].getAttribute("data-idx"), 10)]);
+  }
+  if (!chosen.length) { $("layerModalStatus").textContent = "분리할 요소를 1개 이상 체크하세요."; return; }
+  _closeLayerModal();
+  splitLayers(_layerScene, chosen);
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  var s = $("layerSubmit"); if (s) s.addEventListener("click", _submitLayerSplit);
+  var c = $("layerCancel"); if (c) c.addEventListener("click", _closeLayerModal);
+  var x = $("layerClose"); if (x) x.addEventListener("click", _closeLayerModal);
+});
 
 function splitLayers(n, els) {
   _rowStatus(n, "레이어 분리 중... (" + els.length + "개 요소 + 배경, codex)");

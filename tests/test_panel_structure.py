@@ -230,3 +230,11 @@ def test_storyboard_tts_player_renders_without_nan():
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
     res = json.loads(out.stdout)
     assert res["player"] and res["play"] and not res["nan"], (out.stdout, out.stderr)
+
+
+def test_layer_select_modal():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="layerModal"' in html and 'id="layerList"' in html and 'id="layerSubmit"' in html
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "_openLayerModal" in js and "_submitLayerSplit" in js
+    assert "confirm(" not in js.split("function analyzeLayers")[1].split("function ")[1]  # confirm 제거됨
