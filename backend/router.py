@@ -5,7 +5,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm
 from backend.codex_runner import run_skill
 
 VERSION = "0.2.0-m2"
@@ -68,7 +68,7 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
         out.parent.mkdir(parents=True, exist_ok=True)
         schema = (SKILLS_DIR / skill / cfg["schema"]) if cfg.get("schema") else None
         sid = sessions.load_session(proj_dir)
-        result = run_skill(
+        result = llm.run_orchestrator(
             prompt, proj_dir,
             session_id=sid,
             output_schema=str(schema) if schema else None,
@@ -205,6 +205,11 @@ def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: 
             tts.set_tts_config(proj_dir, style=b.get("style"), voice_id=b.get("voice_id"),
                                model=b.get("model"), voice_settings=b.get("voice_settings"))
         return 200, {"config": tts.effective_voice(proj_dir), "presets": tts.load_voice_presets()}
+
+    if p == "/api/llm/settings" and method in ("GET", "POST"):
+        if method == "POST":
+            llm.set_orchestrator((body or {}).get("orchestrator", ""))
+        return 200, {"orchestrator": llm.get_orchestrator(), "choices": list(llm.VALID)}
 
     if method == "POST" and p == "/api/assistant":
         b = body or {}

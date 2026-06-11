@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend import scenes, imagegen, tts, manifest
+from backend import scenes, imagegen, tts, manifest, llm
 from backend.codex_runner import run_skill
 
 _PLAN_SCHEMA = Path(__file__).resolve().parent / "schemas" / "assistant_plan.schema.json"
@@ -103,7 +103,7 @@ def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> list:
         f"## 사용자 지시\n{instruction}"
     )
     out = proj_dir / ".assistant_plan.json"
-    res = run_skill(prompt, proj_dir, output_schema=str(_PLAN_SCHEMA), output_last=str(out), on_line=on_line)
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_PLAN_SCHEMA), output_last=str(out), on_line=on_line)
     if res.get("returncode") != 0 or not out.is_file():
         return []
     try:

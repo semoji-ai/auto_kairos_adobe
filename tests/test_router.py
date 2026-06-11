@@ -49,7 +49,7 @@ def test_skills_run_returns_job_id(monkeypatch, tmp_path):
                 encoding="utf-8")
         return {"returncode": 0, "session_id": "sess-1", "output_last": out}
 
-    monkeypatch.setattr(r, "run_skill", fake_run)
+    monkeypatch.setattr(r.llm, "run_orchestrator", fake_run)
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/skills/run", {},
                                 {"project_id": "demoX", "skill_name": "scene-decompose"}, ctx)
@@ -685,3 +685,20 @@ def test_tts_settings_post_voice_override(tmp_path):
     code, body = handle_request("POST", "/api/tts/settings", {},
                                 {"project_id": "p", "voice_id": "ZZZ999"}, ctx)
     assert code == 200 and body["config"]["voice_id"] == "ZZZ999"
+
+
+def test_llm_settings_get_default(tmp_path, monkeypatch):
+    import backend.router as r, backend.llm as L
+    monkeypatch.setattr(L, "_CFG", tmp_path / "llm.json")
+    monkeypatch.delenv("AK_ORCHESTRATOR", raising=False)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/llm/settings", {}, None, ctx)
+    assert code == 200 and body["orchestrator"] == "claude" and "claude" in body["choices"]
+
+
+def test_llm_settings_post(tmp_path, monkeypatch):
+    import backend.llm as L
+    monkeypatch.setattr(L, "_CFG", tmp_path / "llm.json")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/llm/settings", {}, {"orchestrator": "codex"}, ctx)
+    assert code == 200 and body["orchestrator"] == "codex"

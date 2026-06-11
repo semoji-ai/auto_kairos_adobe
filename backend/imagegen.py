@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from backend import llm
 from backend.codex_runner import run_skill
 
 STYLE_FILE = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "semoji.md"
@@ -197,8 +198,8 @@ def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
         "reason(왜 분리하는지 — 특히 전경에서 무엇을 가리는지 한 줄)."
     )
     out_json = proj_dir / ".layer_analysis.json"
-    res = run_skill(prompt, proj_dir, output_schema=str(_LAYER_SCHEMA),
-                    output_last=str(out_json), images=[scene_image], on_line=on_line)
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_LAYER_SCHEMA),
+                               output_last=str(out_json), images=[scene_image], on_line=on_line)
     if res.get("returncode") != 0 or not out_json.is_file():
         return {"error": "분석 실패", "elements": []}
     try:

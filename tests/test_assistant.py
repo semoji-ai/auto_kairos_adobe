@@ -30,14 +30,14 @@ def test_plan_actions_parses(tmp_path, monkeypatch):
                                      '{"action":"assemble","reason":"합치기"}]}', encoding="utf-8")
         return {"returncode": 0, "output_last": output_last}
 
-    monkeypatch.setattr(assistant, "run_skill", fake_run)
+    monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
     actions = assistant.plan_actions(d, "음성 입혀서 합쳐줘")
     assert [a["action"] for a in actions] == ["tts_all", "assemble"]
 
 
 def test_plan_actions_failure_returns_empty(tmp_path, monkeypatch):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a"}])
-    monkeypatch.setattr(assistant, "run_skill",
+    monkeypatch.setattr(assistant.llm, "run_orchestrator",
                         lambda *a, **k: {"returncode": 1, "output_last": k.get("output_last")})
     assert assistant.plan_actions(d, "뭐든") == []
 
