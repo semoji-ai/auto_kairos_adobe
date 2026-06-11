@@ -17,7 +17,9 @@ function evalScript(script) {
 /* 로컬 파일(확장 내부 jsx) 동기 읽기 — file:// 에서 fetch가 막혀도 XHR은 동작 */
 function readLocal(relPath) {
   var x = new XMLHttpRequest();
-  x.open("GET", relPath, false);
+  // 캐시 무력화 — CEF가 jsx를 캐시해 옛 버전을 로드하는 것 방지(항상 최신 파일)
+  var bust = relPath + (relPath.indexOf("?") < 0 ? "?" : "&") + "_=" + (new Date()).getTime();
+  x.open("GET", bust, false);
   x.send();
   return x.responseText;
 }

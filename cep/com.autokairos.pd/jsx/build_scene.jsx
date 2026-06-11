@@ -9,7 +9,11 @@ function akBuildScene(manifestPath) {
         if (!f.exists) return null;
         var foot = proj.importFile(new ImportOptions(f));
         var il = comp.layers.add(foot);
-        var sc = Math.max(W / il.source.width, H / il.source.height) * 100;
+        var sw = il.source.width, sh = il.source.height;
+        // 앵커=소스 중앙, 포지션=컴프 중앙, 스케일=채움 → 풀프레임 레이어가 컴프에 정확히 겹침(원위치 보존)
+        il.property("Anchor Point").setValue([sw / 2, sh / 2]);
+        il.property("Position").setValue([W / 2, H / 2]);
+        var sc = Math.max(W / sw, H / sh) * 100;
         il.property("Scale").setValue([sc, sc]);
         if (fade) { var op = il.property("Opacity"); op.setValueAtTime(0, 0); op.setValueAtTime(0.5, 100); }
         return il;
