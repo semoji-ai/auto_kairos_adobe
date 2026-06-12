@@ -245,3 +245,17 @@ def test_load_scenes_status_flags(tmp_path):
     st = scenes.load_scenes(d)["scenes"][0]["_status"]
     assert st["narration"] is True and st["image"] is True and st["layers"] is True
     assert st["tts"] is False
+
+
+def test_concurrent_mutations_consistent(tmp_path):
+    import threading
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "c0", "narration": "기준"}])
+    def add_many():
+        for _ in range(5):
+            scenes.add_scene(d, narration="동시")
+    ts = [threading.Thread(target=add_many) for _ in range(4)]
+    [t.start() for t in ts]; [t.join() for t in ts]
+    data = scenes.load_scenes(d)
+    assert len(data["scenes"]) == 21                       # 1 + 4*5 (유실 없음)
+    nums = [s["sceneNumber"] for s in data["scenes"]]
+    assert nums == list(range(1, 22))                      # 재번호 일관
