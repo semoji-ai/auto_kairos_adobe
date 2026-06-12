@@ -2,7 +2,75 @@
    백엔드에 PNG로 저장 → 씬 이미지로 링크. 타일: OpenFreeMap(키 불필요).
    좌표 규칙: scenes.json은 [위도, 경도] — MapLibre는 [경도, 위도]라서 여기서 swap. */
 
-var MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/bright";
+var MAP_BRIGHT_URL = "https://tiles.openfreemap.org/styles/bright";
+var MAP_DARK_URL = "https://tiles.openfreemap.org/styles/dark";
+
+/* 맵 테마 — v3 mapStyles.ts 이식(레이어 paint 오버라이드).
+   CSS 필터 테마는 캔버스 캡처에 안 구워지므로 오버라이드 방식만 사용. */
+var MAP_THEMES = {
+  warm_earth: { url: MAP_BRIGHT_URL, overrides: [          // 세모지 기본 — 따뜻한 대지색
+    { match: "background", paint: { "background-color": "#F0E8DE" } },
+    { match: "water", paint: { "fill-color": "#C8BAA0" } },
+    { match: "waterway*", paint: { "line-color": "#B8A888" } },
+    { match: "landcover*", paint: { "fill-color": "#E4DCC8", "fill-opacity": 0.5 } },
+    { match: "landuse*", paint: { "fill-color": "#E8DDCC", "fill-opacity": 0.3 } },
+    { match: "park*", paint: { "fill-color": "#D4CCB8", "fill-opacity": 0.5 } },
+    { match: "boundary*", paint: { "line-color": "#8A6E48", "line-width": 1.6, "line-opacity": 0.9 } },
+    { match: "road*", paint: { "line-color": "#C8B498", "line-opacity": 0.7 } },
+    { match: "building*", paint: { "fill-color": "#E0D6C8", "fill-opacity": 0.4 } },
+  ] },
+  matte_slate: { url: MAP_DARK_URL, overrides: [           // 뉴트럴 다크
+    { match: "background", paint: { "background-color": "#1A1C22" } },
+    { match: "water", paint: { "fill-color": "#0E1018" } },
+    { match: "waterway*", paint: { "line-color": "#1E2030" } },
+    { match: "landcover*", paint: { "fill-color": "#22242E", "fill-opacity": 0.4 } },
+    { match: "landuse*", paint: { "fill-color": "#20222C", "fill-opacity": 0.3 } },
+    { match: "park*", paint: { "fill-color": "#1E2028", "fill-opacity": 0.3 } },
+    { match: "boundary*", paint: { "line-color": "#6A6E7C", "line-width": 1.4, "line-opacity": 0.8 } },
+    { match: "road*", paint: { "line-color": "#383C48", "line-opacity": 0.6 } },
+    { match: "building*", paint: { "fill-color": "#24262E", "fill-opacity": 0.3 } },
+  ] },
+  clean_white: { url: MAP_BRIGHT_URL, overrides: [         // 순백 모던
+    { match: "background", paint: { "background-color": "#FFFFFF" } },
+    { match: "water", paint: { "fill-color": "#D6E6F5" } },
+    { match: "waterway*", paint: { "line-color": "#B0D0F0" } },
+    { match: "landcover*", paint: { "fill-color": "#F0F4F0", "fill-opacity": 0.3 } },
+    { match: "landuse*", paint: { "fill-color": "#F8F8FA", "fill-opacity": 0.2 } },
+    { match: "park*", paint: { "fill-color": "#E8F2E8", "fill-opacity": 0.3 } },
+    { match: "boundary*", paint: { "line-color": "#A0AAB8", "line-width": 1.2, "line-opacity": 0.8 } },
+    { match: "road*", paint: { "line-color": "#D8DCE4", "line-opacity": 0.7 } },
+    { match: "building*", paint: { "fill-color": "#F0F0F4", "fill-opacity": 0.3 } },
+  ] },
+  dark_cyber: { url: MAP_DARK_URL, overrides: [
+    { match: "boundary*", paint: { "line-color": "#4A8080", "line-width": 1.2, "line-opacity": 0.8 } },
+    { match: "water", paint: { "fill-color": "#18202A" } },
+    { match: "road*", paint: { "line-color": "#2A3540", "line-opacity": 0.6 } },
+  ] },
+  bright: { url: MAP_BRIGHT_URL, overrides: [] },
+};
+
+// v3 applyLayerOverrides 이식 — match는 정확 일치 또는 "prefix*"
+function _applyOverrides(map, overrides) {
+  var style = map.getStyle();
+  if (!style || !style.layers) return;
+  for (var i = 0; i < overrides.length; i++) {
+    var ov = overrides[i];
+    var isPrefix = ov.match.charAt(ov.match.length - 1) === "*";
+    var prefix = isPrefix ? ov.match.slice(0, -1) : "";
+    for (var j = 0; j < style.layers.length; j++) {
+      var id = style.layers[j].id;
+      if (!(isPrefix ? id.indexOf(prefix) === 0 : id === ov.match)) continue;
+      for (var k in (ov.paint || {})) {
+        try { map.setPaintProperty(id, k, ov.paint[k]); } catch (e) { }
+      }
+    }
+  }
+}
+
+function _mapTheme() {                                      // ae_tokens.map.defaultTheme(세모지=warm_earth)
+  var name = (typeof TOKENS === "object" && TOKENS && TOKENS.map && TOKENS.map.defaultTheme) || "warm_earth";
+  return MAP_THEMES[name] || MAP_THEMES.warm_earth;
+}
 
 function _swapLL(c) { return [c[1], c[0]]; }   // [lat,lng] → [lng,lat]
 
@@ -23,8 +91,9 @@ function renderMapScene(s) {
     }
     var map;
     try {
+      var theme = _mapTheme();
       map = new maplibregl.Map({
-        container: host, style: MAP_STYLE_URL,
+        container: host, style: theme.url,
         center: center, zoom: s.map_zoom || 5,
         interactive: false, attributionControl: false,
         preserveDrawingBuffer: true,            // canvas.toDataURL 필수
@@ -36,6 +105,7 @@ function renderMapScene(s) {
       if (e && e.error && /style/i.test(String(e.error.message || ""))) finish("스타일 로드 실패: " + e.error.message);
     });
     map.on("load", function () {
+      _applyOverrides(map, theme.overrides);               // 아트스타일 맵 테마 적용
       var marks = s.map_markers || [];
       if (marks.length) {
         var fc = { type: "FeatureCollection", features: marks.map(function (m) {

@@ -940,3 +940,11 @@ def test_map_image_save(tmp_path):
     st2, res2 = router.handle_request("POST", "/api/scenes/map-image", {},
         {"project_id": "p1", "sceneNumber": 1, "dataUrl": "data:image/jpeg;base64,xx"}, {"root": tmp_path})
     assert st2 == 400
+
+
+def test_tokens_has_map_theme():
+    """ae_tokens.map.defaultTheme — v3 semoji와 동일(warm_earth)."""
+    from backend import router
+    from pathlib import Path
+    st, res = router.handle_request("GET", "/api/tokens", {}, None, {"root": Path(".")})
+    assert res.get("map", {}).get("defaultTheme") == "warm_earth"

@@ -65,5 +65,8 @@
     "subtitle": "Aggro",
     "quote": "Batang",
     "quoteBold": "Batang"
+  },
+  "map": {
+    "defaultTheme": "warm_earth"
   }
 }

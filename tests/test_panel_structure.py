@@ -476,5 +476,7 @@ def test_map_scene_wiring():
     assert "preserveDrawingBuffer" in mg            # 캔버스 캡처 필수 옵션
     assert "_swapLL" in mg                          # [위도,경도] → [경도,위도]
     assert "/api/scenes/map-image" in mg
+    # v3 맵 테마 이식 — 세모지 기본 warm_earth + 오버라이드 적용
+    assert "warm_earth" in mg and "_applyOverrides" in mg and "clean_white" in mg
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "sa-map" in js and "genMapForScene" in js
