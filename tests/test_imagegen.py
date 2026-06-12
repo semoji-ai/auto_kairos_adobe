@@ -349,3 +349,48 @@ def test_run_codex_image_classifies_no_file(tmp_path, monkeypatch):
     monkeypatch.setattr(ig, "run_skill", lambda *a, **k: {"returncode": 0, "output_last": None})
     res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=0)
     assert res["status"] == "failed" and res["error"] == "no_file"
+
+
+def test_split_qc_retries_on_bad_ratio(tmp_path, monkeypatch):
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+    calls = {"n": 0}
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        calls["n"] += 1
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    # 1차: ratio 0.01(불량 — 전체를 그림), 2차: 0.6(정상)
+    ratios = iter([0.01, 0.6])
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": next(ratios)})
+    res = ig.split_scene_to_elements(proj, str(scene), "qc1",
+                                     [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    el = res["layers"][0]
+    assert calls["n"] >= 3                       # 요소 1차+재시도 + 배경 1
+    assert el["status"] == "completed" and el.get("qc") == "retried_ok"
+
+
+def test_split_qc_marks_lowq_after_retry(tmp_path, monkeypatch):
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.005})  # 항상 불량
+    res = ig.split_scene_to_elements(proj, str(scene), "qc2",
+                                     [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    el = res["layers"][0]
+    assert el["status"] == "completed_lowq"      # 보존하되 저품질 표시(무삭제)

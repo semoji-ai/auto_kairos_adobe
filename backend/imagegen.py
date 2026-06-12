@@ -279,6 +279,18 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         scene_size = None
 
     all_names = [e.get("name", "") for e in elements]
+    QC_MIN, QC_MAX = 0.05, 0.98     # transparent_ratio 정상 범위(요소 레이어만)
+
+    def _gen_element_once(out, prompt):
+        ratio_box = {}
+
+        def _post(o):
+            ratio_box.update(chroma_key_magenta(o, o))
+
+        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
+        if res.get("status") == "completed" and scene_size:
+            normalize_layer_size(out, scene_size)       # 크기 변칙 가드
+        return res, ratio_box.get("transparent_ratio")
 
     def _element(i_el):
         i, el = i_el
@@ -287,11 +299,19 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         rel = out.relative_to(proj_dir).as_posix()
         others = [nm for j, nm in enumerate(all_names) if j != i]   # 다른 선택 요소는 제외
         prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
-        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image],
-                               post=lambda o: chroma_key_magenta(o, o))
-        if res.get("status") == "completed" and scene_size:
-            normalize_layer_size(out, scene_size)       # 크기 변칙 가드
-        r = {"name": name, "rel": rel, "status": res.get("status")}     # 풀프레임 레이어(크롭 안 함)
+        res, ratio = _gen_element_once(out, prompt)
+        qc = None
+        if res.get("status") == "completed" and ratio is not None and not (QC_MIN <= ratio <= QC_MAX):
+            fb = ("이전 시도에서 마젠타 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 마젠타로."
+                  if ratio < QC_MIN else
+                  "이전 시도에서 요소가 거의 그려지지 않았다(전부 마젠타). 요소를 분명히 그려라.")
+            out2 = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(name)}.png")  # 새 파일(무삭제)
+            res2, ratio2 = _gen_element_once(out2, prompt + "\n[재시도 피드백] " + fb)
+            if res2.get("status") == "completed" and ratio2 is not None and QC_MIN <= ratio2 <= QC_MAX:
+                out, rel, res, qc = out2, out2.relative_to(proj_dir).as_posix(), res2, "retried_ok"
+            else:
+                res = {"status": "completed_lowq", "path": str(out)}   # 1차본 유지, 저품질 표시
+        r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc}   # 풀프레임 레이어(크롭 안 함)
         if on_event:
             on_event(r)
         return r
