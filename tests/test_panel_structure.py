@@ -264,3 +264,12 @@ def test_jsx_subtitle_uses_comp_size():
 def test_no_hardcoded_machine_paths_in_panel():
     main = MAIN.read_text(encoding="utf-8")
     assert "/Users/jleavens_macmini" not in main
+
+
+def test_main_js_escapes_dynamic_html():
+    main = MAIN.read_text(encoding="utf-8")
+    assert "_esc(p.title" in main            # 프로젝트 제목 이스케이프
+    # data-name/data-label 왕복 속성은 encodeURIComponent/decodeURIComponent
+    assert 'encodeURIComponent(nm)' in main
+    assert 'decodeURIComponent(this.getAttribute("data-name")' in main
+    assert "_esc(nm)" in main.split("function showCharacters")[1]

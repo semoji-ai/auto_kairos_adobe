@@ -143,12 +143,13 @@ function showCharacters() {
       $("characters").innerHTML = imgs.map(function (n) {
         var nm = n.replace(/^char_/, "").replace(/\.png$/, "");
         var sel = (nm === SELECTED_CHARACTER) ? "border:2px solid #4A90D9;" : "border:2px solid transparent;";
-        return '<img src="file://' + dir + '/' + n + '" data-name="' + nm + '" style="width:90px;height:auto;margin:3px;border-radius:4px;cursor:pointer;' + sel + '" title="' + nm + ' — 클릭하면 씬 생성 기준 캐릭터로 선택">';
+        // data-name은 되읽는 속성 — encodeURIComponent 왕복(SELECTED_CHARACTER는 원본 이름 유지)
+        return '<img src="file://' + dir + '/' + n + '" data-name="' + encodeURIComponent(nm) + '" style="width:90px;height:auto;margin:3px;border-radius:4px;cursor:pointer;' + sel + '" title="' + _esc(nm) + ' — 클릭하면 씬 생성 기준 캐릭터로 선택">';
       }).join("");
       var ci = $("characters").querySelectorAll("img");
       for (var x = 0; x < ci.length; x++) {
         ci[x].addEventListener("click", function () {
-          SELECTED_CHARACTER = this.getAttribute("data-name");
+          SELECTED_CHARACTER = decodeURIComponent(this.getAttribute("data-name") || "");
           showCharacters();  // 선택 테두리 갱신
         });
       }
@@ -162,14 +163,16 @@ function loadProjects() {
       var rows = j.projects || [];
       if (!rows.length) { $("projects").textContent = "(프로젝트 없음)"; return; }
       $("projects").innerHTML = rows.map(function (p) {
-        return '<div class="proj-item" data-pid="' + p.project_id + '" data-label="' + p.title + ' (' + p.project_id + ') [' + p.status + ']">'
-          + '<span class="pid">' + p.project_id + '</span>' + p.title
-          + '<span class="st">' + p.status + '</span></div>';
+        // data-label은 클릭 시 되읽는 속성 — encodeURIComponent 왕복(따옴표 깨짐 방지)
+        return '<div class="proj-item" data-pid="' + p.project_id + '" data-label="'
+          + encodeURIComponent(p.title + ' (' + p.project_id + ') [' + p.status + ']') + '">'
+          + '<span class="pid">' + p.project_id + '</span>' + _esc(p.title)
+          + '<span class="st">' + _esc(p.status) + '</span></div>';
       }).join("");
       var links = $("projects").querySelectorAll(".proj-item");
       for (var i = 0; i < links.length; i++) {
         links[i].addEventListener("click", function () {
-          enterProject(this.getAttribute("data-pid"), this.getAttribute("data-label"));
+          enterProject(this.getAttribute("data-pid"), decodeURIComponent(this.getAttribute("data-label") || ""));
         });
       }
     })
@@ -240,7 +243,7 @@ function showGallery() {
       var imgs = j.images || [];
       if (!imgs.length) { $("gallery").textContent = "(이미지 없음)"; return; }
       $("gallery").innerHTML = imgs.map(function (n) {
-        return '<img src="file://' + dir + '/' + n + '" style="width:90px;height:auto;margin:3px;border-radius:4px;cursor:pointer;" title="' + n + '">';
+        return '<img src="file://' + dir + '/' + n + '" style="width:90px;height:auto;margin:3px;border-radius:4px;cursor:pointer;" title="' + _esc(n) + '">';
       }).join("");
       $("gallery").setAttribute("data-dir", dir);
       $("gallery").setAttribute("data-names", imgs.join(","));
@@ -282,7 +285,7 @@ function showStoryboard() {
       var dir = j.dir || "", imgs = j.images || [];
       if (!imgs.length) { $("storyboard").textContent = "(스토리보드 없음)"; return; }
       $("storyboard").innerHTML = imgs.map(function (n) {
-        return '<img src="file://' + dir + '/' + n + '" style="width:120px;height:auto;margin:3px;border-radius:4px;cursor:pointer;" title="' + n + '">';
+        return '<img src="file://' + dir + '/' + n + '" style="width:120px;height:auto;margin:3px;border-radius:4px;cursor:pointer;" title="' + _esc(n) + '">';
       }).join("");
       $("storyboard").setAttribute("data-dir", dir);
       $("storyboard").setAttribute("data-names", imgs.join(","));
@@ -323,7 +326,7 @@ function showLayers() {
       var dir = j.dir || "", imgs = j.images || [];
       if (!imgs.length) { $("layers").textContent = "(레이어 없음)"; return; }
       $("layers").innerHTML = imgs.map(function (n) {
-        return '<img src="file://' + dir + '/' + n + '" style="width:100px;height:auto;margin:3px;border:1px solid #444;border-radius:4px;background:#666;cursor:pointer;" title="' + n + '">';
+        return '<img src="file://' + dir + '/' + n + '" style="width:100px;height:auto;margin:3px;border:1px solid #444;border-radius:4px;background:#666;cursor:pointer;" title="' + _esc(n) + '">';
       }).join("");
       $("layers").setAttribute("data-dir", dir);
       $("layers").setAttribute("data-names", imgs.join(","));
