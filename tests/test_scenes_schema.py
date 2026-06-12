@@ -27,6 +27,9 @@ def test_sample_doc_has_all_required_fields():
             "narration": "카지노가 세 번 무너졌습니다.", "characters": [],
             "visual_summary": "카지노 외관", "image_prompt": "무너진 카지노",
             "duration_estimate_sec": 3.0,
+            "layout": "cinematic", "headline": None, "sub": None, "items": None,
+            "value": None, "label": None, "chart": None,
+            "quote_text": None, "quote_who": None,
         }],
     }
     for k in s["required"]:

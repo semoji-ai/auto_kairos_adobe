@@ -32,6 +32,19 @@ description: final_manuscript.md를 의미·길이·인물 기준으로 씬으�
 - `scenes.json` 만 출력. JSON 외 텍스트 금지(--output-schema 강제).
 - 모든 씬은 8개 필드(sceneNumber, section, title, narration, characters, visual_summary, image_prompt, duration_estimate_sec)를 빠짐없이 채운다. 없으면 section은 null, characters는 빈 배열.
 
+## 레이아웃 선택(씬마다)
+- 모든 씬을 이미지(cinematic)로 만들지 마라. 내용에 맞는 레이아웃을 고른다:
+  - cinematic: 장면 묘사가 필요한 스토리텔링 씬(이미지 생성) — image_prompt 필수
+  - headline_only: 한 문장 선언/전환(헤드라인 타이포) — headline 필수, sub 선택
+  - items_list: 나열(3~5개) — headline+items 필수
+  - metric_spotlight: 핵심 수치 강조 — value+label 필수
+  - bar: 수치 비교(3~6개) — headline+chart{labels,values,unit} 필수
+  - quote: 인용 — quote_text+quote_who 필수
+- 비율 감각: 이미지 씬 40~60%, 나머지를 내용에 맞게 섞어라. 연속 2씬 같은 비-이미지 레이아웃 지양.
+- cinematic이 아닌 씬은 image_prompt를 빈 문자열로.
+- headline은 내레이션 요지의 단순 반복이 아니라 다른 표현으로 쓴다(자막과 중복 방지).
+- 사용하지 않는 레이아웃 데이터 필드는 null로 채운다.
+
 ## 금지
 - narration 변경(요약/오탈자 수정 포함)
 - 연출/레이아웃/이미지 생성 결정(후속 단계)

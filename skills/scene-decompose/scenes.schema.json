@@ -12,7 +12,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["sceneNumber", "section", "title", "narration", "characters", "visual_summary", "image_prompt", "duration_estimate_sec"],
+        "required": ["sceneNumber", "section", "title", "narration", "characters", "visual_summary", "image_prompt", "duration_estimate_sec", "layout", "headline", "sub", "items", "value", "label", "chart", "quote_text", "quote_who"],
         "properties": {
           "sceneNumber": { "type": "integer" },
           "section": { "type": ["string", "null"] },
@@ -21,7 +21,25 @@
           "characters": { "type": "array", "items": { "type": "string" } },
           "visual_summary": { "type": "string" },
           "image_prompt": { "type": "string" },
-          "duration_estimate_sec": { "type": "number" }
+          "duration_estimate_sec": { "type": "number" },
+          "layout": { "type": ["string", "null"], "enum": ["cinematic", "headline_only", "items_list", "metric_spotlight", "bar", "quote", null] },
+          "headline": { "type": ["string", "null"] },
+          "sub": { "type": ["string", "null"] },
+          "items": { "type": ["array", "null"], "items": { "type": "string" } },
+          "value": { "type": ["string", "null"] },
+          "label": { "type": ["string", "null"] },
+          "chart": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["labels", "values", "unit"],
+            "properties": {
+              "labels": { "type": "array", "items": { "type": "string" } },
+              "values": { "type": "array", "items": { "type": "number" } },
+              "unit": { "type": ["string", "null"] }
+            }
+          },
+          "quote_text": { "type": ["string", "null"] },
+          "quote_who": { "type": ["string", "null"] }
         }
       }
     }
