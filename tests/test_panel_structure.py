@@ -307,3 +307,13 @@ def test_panel_motion_button():
     assert "scene-motion" in js and "function planMotion" in js and "/api/scenes/motion" in js
     html = HTML.read_text(encoding="utf-8")
     assert ".col-tts .scene-motion" in html
+
+
+def test_render_queue_wired():
+    assert (PANEL / "jsx" / "render_queue.jsx").exists()
+    jsx = (PANEL / "jsx" / "render_queue.jsx").read_text(encoding="utf-8")
+    assert "function akQueueRender" in jsx and "renderQueue.items.add" in jsx
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="btnQueueRender"' in html
+    main = MAIN.read_text(encoding="utf-8")
+    assert "function queueRender" in main and "render_queue.jsx" in main

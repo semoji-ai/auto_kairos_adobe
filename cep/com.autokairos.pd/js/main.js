@@ -80,6 +80,22 @@ function saveLlmSetting() {
 
 function buildComp() { _assemble(null); }
 
+/* Final 컴프를 AE 렌더 큐에 추가 — 출력은 프로젝트 render/ 폴더(MP4 인코딩은 OM 템플릿/AME). */
+function queueRender() {
+  if (!SELECTED_PROJECT) { $("aeresult").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  if (!PROJECTS_ROOT) { $("aeresult").textContent = "백엔드 연결 필요(/health root)."; return; }
+  var outPath = PROJECTS_ROOT + "/" + SELECTED_PROJECT + "/render/final.mov";
+  var jsx;
+  try { jsx = readLocal("./jsx/render_queue.jsx"); }
+  catch (e) { $("aeresult").textContent = "jsx 로드 실패: " + e; return; }
+  $("aeresult").textContent = "렌더 큐 추가 중...";
+  var call = "\nakQueueRender(" + JSON.stringify("Final") + ", " + JSON.stringify(outPath)
+    + ", \"\", \"0\");";   // 템플릿 기본·즉시 렌더 안 함(사용자가 AE에서 Render)
+  evalScript(jsx + call).then(function (r) {
+    $("aeresult").textContent = r || "(빈 응답 — AE 콘솔 확인)";
+  });
+}
+
 /* 씬별/전체 AE 컴프 조립. sceneNumber=null이면 전체, 숫자면 그 씬만. */
 function _assemble(sceneNumber, statusFn) {
   if (!SELECTED_PROJECT) { (statusFn || function (m) { $("aeresult").textContent = m; })("프로젝트를 먼저 선택하세요."); return; }
@@ -404,6 +420,7 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnReconnect").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
   $("btnBuildAll").addEventListener("click", buildComp);
+  $("btnQueueRender").addEventListener("click", queueRender);
   $("btnProjects").addEventListener("click", loadProjects);
   $("btnNewProject").addEventListener("click", function () {
     var f = $("newProjectForm"); f.hidden = !f.hidden;
