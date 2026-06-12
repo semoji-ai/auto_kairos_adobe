@@ -76,7 +76,7 @@ function loadSheet() {
       NAR_ORIG = {};
       list.forEach(function (s) { NAR_ORIG[s.sceneNumber] = s.narration || ""; });
       var head = '<div class="sheet-head">'
-        + '<div>#<span class="col-resize" data-col="0"></span></div>'
+        + '<div><input type="checkbox" id="selAllScenes" title="전체 선택/해제">#<span class="col-resize" data-col="0"></span></div>'
         + '<div>이미지<span class="col-resize" data-col="1"></span></div>'
         + '<div>스크립트<span class="col-resize" data-col="2"></span></div>'
         + '<div>작업<span class="col-resize" data-col="3"></span></div>'
@@ -85,6 +85,16 @@ function loadSheet() {
       _applyCols();
       _bindColResize();
       bindRows();
+      var sa = $("selAllScenes");
+      if (sa) sa.addEventListener("change", function () {
+        var on = this.checked;
+        SEL_SCENES = {};
+        var cbs = $("sheet").querySelectorAll("input.scene-sel");
+        for (var c = 0; c < cbs.length; c++) {
+          cbs[c].checked = on;
+          if (on) SEL_SCENES[cbs[c].getAttribute("data-scene")] = true;
+        }
+      });
       // 레이아웃 후 나레이션 높이 재계산(탭 표시 직후 scrollHeight=0 방지)
       if (window.requestAnimationFrame) requestAnimationFrame(_autosizeAll); else _autosizeAll();
     })
@@ -103,14 +113,10 @@ function renderRow(s, dir) {
   var st = s._status || {};
   return ''
     + '<div class="sheet-row" data-scene="' + n + '" ondragover="event.preventDefault()" ondrop="dropOnScene(event,' + n + ')">'
-    // 씬#
-    + '  <div class="col-num">' + n
-    +      '<div class="scene-ops">'
-    +        '<button class="op-add" data-scene="' + n + '" title="아래에 씬 추가">＋</button>'
-    +        '<button class="op-split" data-scene="' + n + '" title="이 씬 분할">✂</button>'
-    +        '<button class="op-merge" data-scene="' + n + '" title="다음 씬과 병합">⤵</button>'
-    +        '<button class="op-del" data-scene="' + n + '" title="이 씬 삭제">🗑</button>'
-    +      '</div>'
+    // 씬# — 체크박스로 선택 → 상단 도구상자 버튼이 체크된 씬에 일괄 실행
+    + '  <div class="col-num">'
+    +      '<label class="scene-sel-wrap"><input type="checkbox" class="scene-sel" data-scene="' + n + '"'
+    +        (SEL_SCENES[n] ? ' checked' : '') + '> ' + n + '</label>'
     + '  </div>'
     // 이미지 미리보기 + 레이어 썸네일
     + '  <div class="col-img">'
@@ -122,17 +128,10 @@ function renderRow(s, dir) {
     + '    <div class="row-title">' + _esc(s.title || "") + '</div>'
     + '    <textarea class="nar" data-scene="' + n + '" rows="3">' + _esc(s.narration || "") + '</textarea>'
     + '  </div>'
-    // 작업 — 평소엔 진행 점(●=완료), 행 호버 시 같은 자리가 실행 버튼으로 바뀜(완료=초록)
+    // 작업 — 진행 점(●=완료) + 플레이어 + 상태(실행 버튼은 시트 상단 도구상자)
     + '  <div class="col-work">'
     +      '<div class="work-dots" title="이미지·레이어·음성·모션 진행 상태">'
     +        _dot("이미지", st.image) + _dot("레이어", st.layers) + _dot("음성", st.tts) + _dot("모션", st.motion)
-    +      '</div>'
-    +      '<div class="work-actions">'
-    +        '<button class="gen-img' + (st.image ? " done" : "") + '" data-scene="' + n + '" title="씬 이미지 생성' + (st.image ? " (완료됨 — 다시 생성)" : "") + '">🖼</button>'
-    +        '<button class="layer-img' + (st.layers ? " done" : "") + '" data-scene="' + n + '" title="레이어 분리(LLM 분석)' + (st.layers ? " (완료됨 — 재분리)" : "") + '"' + (s._image ? '' : ' disabled') + '>⧉</button>'
-    +        '<button class="gen-tts' + (st.tts ? " done" : "") + '" data-scene="' + n + '" title="TTS 생성' + (st.tts ? " (완료됨 — 다시 생성)" : "") + '">🔊</button>'
-    +        '<button class="scene-motion' + (st.motion ? " done" : "") + '" data-scene="' + n + '" title="모션 플랜(LLM)' + (st.motion ? " (완료됨 — 다시 설계)" : "") + '"' + ((s._layers || []).length ? '' : ' disabled') + '>🎞</button>'
-    +        '<button class="scene-comp" data-scene="' + n + '" title="이 씬을 AE 컴프로">🎬</button>'
     +      '</div>'
     + (chars ? '<div class="work-chars">👤 ' + _esc(chars) + '</div>' : '')
     +      (s._audio
@@ -195,42 +194,91 @@ function bindRows(scope) {
       }
     });
   }
-  var gen = scope.querySelectorAll("button.gen-img");
-  for (var k = 0; k < gen.length; k++) {
-    gen[k].addEventListener("click", function () { genSceneImage(this.getAttribute("data-scene")); });
-  }
   var un = scope.querySelectorAll("button.unlink-img");
   for (var u = 0; u < un.length; u++) {
     un[u].addEventListener("click", function () { unlinkScene(this.getAttribute("data-scene")); });
   }
-  var ly = scope.querySelectorAll("button.layer-img");
-  for (var L = 0; L < ly.length; L++) {
-    ly[L].addEventListener("click", function () { analyzeLayers(this.getAttribute("data-scene")); });
-  }
-  var gt = scope.querySelectorAll("button.gen-tts");
-  for (var g = 0; g < gt.length; g++) {
-    gt[g].addEventListener("click", function () { genTts(this.getAttribute("data-scene")); });
-  }
   var players = scope.querySelectorAll(".tts-player");
   for (var pp = 0; pp < players.length; pp++) { _bindTtsPlayer(players[pp]); }
-  var sm = scope.querySelectorAll("button.scene-motion");
-  for (var m2 = 0; m2 < sm.length; m2++) {
-    sm[m2].addEventListener("click", function () { planMotion(this.getAttribute("data-scene")); });
-  }
-  var sc = scope.querySelectorAll("button.scene-comp");
-  for (var c = 0; c < sc.length; c++) {
-    sc[c].addEventListener("click", function () {
-      if (typeof buildSceneComp === "function") buildSceneComp(this.getAttribute("data-scene"));
+  var cbs = scope.querySelectorAll("input.scene-sel");
+  for (var cb = 0; cb < cbs.length; cb++) {
+    cbs[cb].addEventListener("change", function () {
+      var n = this.getAttribute("data-scene");
+      if (this.checked) SEL_SCENES[n] = true; else delete SEL_SCENES[n];
     });
   }
-  _bindOp("op-add", function (n) { sceneOp("add", { after: parseInt(n, 10) }); }, scope);
-  _bindOp("op-split", function (n) { sceneOp("split", { sceneNumber: parseInt(n, 10) }); }, scope);
-  _bindOp("op-merge", function (n) { sceneOp("merge", { sceneNumber: parseInt(n, 10) }); }, scope);
-  _bindOp("op-del", function (n) {
-    if (confirm("씬 " + n + " 을 삭제할까요? (이미지/레이어 파일은 보존됩니다)"))
-      sceneOp("delete", { sceneNumber: parseInt(n, 10) });
-  }, scope);
 }
+
+/* ===== 도구상자(시트 상단) — 체크된 씬에 일괄 실행 ===== */
+var SEL_SCENES = {};    // {sceneNumber(str): true} — 재렌더에도 유지
+
+function _checkedScenes() {
+  return Object.keys(SEL_SCENES).map(function (k) { return parseInt(k, 10); })
+    .sort(function (a, b) { return a - b; });
+}
+
+function _needChecked(min, what) {
+  var ns = _checkedScenes();
+  if (ns.length < (min || 1)) { alert("씬을 먼저 체크하세요" + (what ? " — " + what : "") + "."); return null; }
+  return ns;
+}
+
+/* 순차 실행 — 각 씬을 차례로(fn은 promise 반환). 행 상태는 각 fn이 표시. */
+function _runSeq(ns, fn) {
+  return ns.reduce(function (p, n) {
+    return p.then(function () { return fn(n); }).catch(function () { /* 한 씬 실패해도 계속 */ });
+  }, Promise.resolve());
+}
+
+function bindSheetToolbar() {
+  function on(id, h) { var b = $(id); if (b) b.addEventListener("click", h); }
+  on("sa-img", function () {
+    var ns = _needChecked(1, "이미지 생성"); if (ns) _runSeq(ns, genSceneImage);
+  });
+  on("sa-layer", function () {
+    var ns = _needChecked(1, "레이어 분리"); if (!ns) return;
+    if (ns.length > 1) { alert("레이어 분리는 요소 선택 창이 떠서 한 번에 한 씬만 가능합니다. 1개만 체크하세요."); return; }
+    analyzeLayers(ns[0]);
+  });
+  on("sa-tts", function () {
+    var ns = _needChecked(1, "TTS 생성"); if (ns) _runSeq(ns, genTts);
+  });
+  on("sa-motion", function () {
+    var ns = _needChecked(1, "모션 플랜"); if (ns) _runSeq(ns, planMotion);
+  });
+  on("sa-comp", function () {
+    var ns = _needChecked(1, "AE 컴프"); if (ns) _runSeq(ns, function (n) {
+      return Promise.resolve(buildSceneComp(n));
+    });
+  });
+  on("sa-add", function () {
+    var ns = _checkedScenes();
+    sceneOp("add", ns.length ? { after: ns[ns.length - 1] } : {});   // 체크 없으면 맨 끝에
+  });
+  on("sa-split", function () {
+    var ns = _needChecked(1, "분할(1개만)"); if (!ns) return;
+    if (ns.length > 1) { alert("분할은 한 씬만 체크하세요."); return; }
+    sceneOp("split", { sceneNumber: ns[0] });
+  });
+  on("sa-merge", function () {
+    var ns = _needChecked(1, "병합(1개만 — 다음 씬과 합쳐짐)"); if (!ns) return;
+    if (ns.length > 1) { alert("병합은 한 씬만 체크하세요(그 씬과 다음 씬이 합쳐집니다)."); return; }
+    sceneOp("merge", { sceneNumber: ns[0] });
+  });
+  on("sa-del", function () {
+    var ns = _needChecked(1, "삭제"); if (!ns) return;
+    if (!confirm("체크된 씬 " + ns.join(", ") + " 을 삭제할까요? (이미지/레이어 파일은 보존됩니다)")) return;
+    SEL_SCENES = {};
+    _runSeq(ns.slice().reverse(), function (n) {           // 높은 번호부터(재번호 영향 회피)
+      return fetch(BACKEND + "/api/scenes/delete", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: n }),
+      }).then(function (r) { return r.json(); });
+    }).then(function () { loadSheet(); });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", bindSheetToolbar);
 
 /* 단일 씬 행만 갱신 — 전체 loadSheet의 포커스 손실/스크롤 점프 방지.
    행 수가 변하는 구조 편집(add/del/split/merge)은 loadSheet 사용. */
@@ -256,7 +304,7 @@ function refreshRow(n) {
 /* 씬 모션 플랜(LLM) — 동기 호출, 완료 시 상태줄 안내 */
 function planMotion(n) {
   _rowStatus(n, "모션 설계 중... (LLM)");
-  fetch(BACKEND + "/api/scenes/motion", {
+  return fetch(BACKEND + "/api/scenes/motion", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
   }).then(function (r) { return r.json(); })
@@ -290,7 +338,7 @@ function saveNarration(n) {
 
 function genSceneImage(n) {
   _rowStatus(n, "씬 이미지 생성 중... (codex, 수십 초)" + (SELECTED_CHARACTER ? " [" + SELECTED_CHARACTER + "]" : ""));
-  fetch(BACKEND + "/api/scenes/image", {
+  return fetch(BACKEND + "/api/scenes/image", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10),
                            character: SELECTED_CHARACTER || "" }),
@@ -402,12 +450,6 @@ function dropOnScene(ev, n) {
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
 
-function _bindOp(cls, fn, scope) {
-  var els = (scope || $("sheet")).querySelectorAll("button." + cls);
-  for (var i = 0; i < els.length; i++) {
-    els[i].addEventListener("click", function () { fn(this.getAttribute("data-scene")); });
-  }
-}
 
 function sceneOp(op, extra) {
   var b = { project_id: SELECTED_PROJECT };
@@ -423,8 +465,8 @@ function sceneOp(op, extra) {
 }
 
 function genTts(n) {
-  _rowStatus(n, "TTS 생성 중... (say)");
-  fetch(BACKEND + "/api/scenes/tts", {
+  _rowStatus(n, "TTS 생성 중... (ElevenLabs)");
+  return fetch(BACKEND + "/api/scenes/tts", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
   }).then(function (r) { return r.json(); })

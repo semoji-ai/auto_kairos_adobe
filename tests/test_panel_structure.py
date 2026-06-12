@@ -140,7 +140,7 @@ def test_genmodal_present():
 
 def test_storyboard_js_has_scene_ops():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "function sceneOp" in js and "op-split" in js and "op-merge" in js
+    assert "function sceneOp" in js and "sa-split" in js and "sa-merge" in js   # 도구상자
     assert "work-dots" in js     # 진행 점(뱃지 대체)
 
 
@@ -195,7 +195,7 @@ def test_first_screen_auto_health_and_projects():
 def test_tts_custom_player_and_scene_comp():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "tts-player" in js and "function _bindTtsPlayer" in js and "tts-dur" in js
-    assert "scene-comp" in js                          # 씬별 컴프 버튼
+    assert "sa-comp" in js                             # 도구상자 컴프 버튼
     main = MAIN.read_text(encoding="utf-8")
     assert "function buildSceneComp" in main and "function _assemble" in main
 
@@ -304,9 +304,9 @@ def test_jsx_has_motion():
 
 def test_panel_motion_button():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "scene-motion" in js and "function planMotion" in js and "/api/scenes/motion" in js
+    assert "sa-motion" in js and "function planMotion" in js and "/api/scenes/motion" in js
     html = HTML.read_text(encoding="utf-8")
-    assert ".col-work .work-actions" in html
+    assert 'id="sa-motion"' in html
 
 
 def test_render_queue_wired():
@@ -334,35 +334,36 @@ def test_pipeline_button_wired():
     assert "function runPipeline" in pl and "/api/pipeline/run" in pl and "_pollJob" in pl
 
 
-def test_work_column_hover_actions():
-    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "col-work" in js and "work-actions" in js
-    assert "col-asset" not in js and "col-tts" not in js      # 구 칸 제거
+def test_sheet_toolbar_and_checkboxes():
     html = HTML.read_text(encoding="utf-8")
-    assert ".sheet-row:hover .col-work .work-actions" in html  # 호버 시 표시
-    assert ".sheet-row:hover .scene-ops" in html               # 씬 편집도 호버 시
+    for bid in ['id="sheet-actionbar"', 'id="sa-img"', 'id="sa-layer"', 'id="sa-tts"',
+                'id="sa-motion"', 'id="sa-comp"', 'id="sa-del"']:
+        assert bid in html, bid
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "scene-sel" in js and "SEL_SCENES" in js and "selAllScenes" in js
+    assert "function bindSheetToolbar" in js and "_runSeq" in js
+    assert "col-asset" not in js and "work-actions" not in js   # 구 구조 제거
 
 
-def test_render_row_work_bar_states():
-    """renderRow 실행 — 액션 5종 존재 + 이미지/레이어 없을 때 disabled."""
+def test_render_row_checkbox_and_dots():
+    """renderRow 실행 — 체크박스 + 진행 점 4개 + 버튼 없음(도구상자로 이동)."""
     import subprocess, json
     sb = str(PANEL / "js" / "storyboard.js")
     script = (
         "global.window={localStorage:{getItem:function(){return null;},setItem:function(){}}};"
         "global.document={getElementById:function(){return null;},addEventListener:function(){}};"
         "eval(require('fs').readFileSync(" + json.dumps(sb) + ",'utf8'));"
-        "var bare={sceneNumber:1,sceneId:'x',title:'t',narration:'n',_image:null,_layers:[],"
-        "_audio:null,_audio_dur:0,_status:{},characters:[]};"
-        "var h=renderRow(bare,'/p');"
-        "var full={sceneNumber:2,sceneId:'y',title:'t',narration:'n',_image:'storyboard/a.png',"
-        "_layers:['layers/y__0.png'],_audio:'audio/tts_y.mp3',_audio_dur:5,_status:{},characters:['지오']};"
-        "var h2=renderRow(full,'/p');"
+        "var s={sceneNumber:3,sceneId:'y',title:'t',narration:'n',_image:'storyboard/a.png',"
+        "_layers:['layers/y__0.png'],_audio:'audio/tts_y.mp3',_audio_dur:5,"
+        "_status:{image:true,layers:true,tts:false,motion:false},characters:[]};"
+        "var h=renderRow(s,'/p');"
         "process.stdout.write(JSON.stringify({"
-        "acts:['gen-img','layer-img','gen-tts','scene-motion','scene-comp'].every(function(c){return h.indexOf(c)>=0;}),"
-        "bareDisabled:(h.match(/disabled/g)||[]).length===2,"  # 레이어·모션 비활성
-        "fullEnabled:h2.indexOf('disabled')<0,"
-        "player:h2.indexOf('tts-player')>=0&&h2.indexOf('NaN')<0}));"
+        "chk:h.indexOf('scene-sel')>=0,"
+        "dots:(h.match(/dot (on|off)/g)||[]).length===4,"
+        "on:(h.match(/dot on/g)||[]).length===2,"
+        "noBtn:h.indexOf('gen-img')<0&&h.indexOf('scene-comp')<0,"
+        "player:h.indexOf('tts-player')>=0&&h.indexOf('NaN')<0}));"
     )
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
     res = json.loads(out.stdout)
-    assert res["acts"] and res["bareDisabled"] and res["fullEnabled"] and res["player"], out.stdout
+    assert res["chk"] and res["dots"] and res["on"] and res["noBtn"] and res["player"], out.stdout

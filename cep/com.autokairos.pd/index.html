@@ -63,27 +63,23 @@
       overflow:hidden; resize:none; min-height:42px; }
     .sheet-row .row-status { font-size:11px; color:#9aa0a6; }
     .sheet-row button { margin:4px 0; padding:6px; font-size:12px; }
-    /* 씬 구조 편집(＋✂⤵🗑) — 행 호버 시에만 표시 */
-    .scene-ops { display:none; flex-wrap:wrap; gap:2px; margin-top:4px; }
-    .sheet-row:hover .scene-ops { display:flex; }
-    .scene-ops button { font-size:11px; padding:1px 4px; width:auto; margin:0;
-      background:rgba(255,255,255,0.08); border:none; color:#bbb; cursor:pointer; border-radius:3px; }
-    .scene-ops button:hover { background:rgba(255,255,255,0.2); color:#fff; }
-    /* 작업 칸 — 평소엔 진행 점(●=완료), 행 호버 시 같은 자리가 실행 버튼으로 교체.
-       점과 버튼은 같은 단계를 가리킴: 이미지→레이어→음성→모션(+컴프 버튼) */
-    .col-work .work-dots { display:flex; gap:7px; align-items:center; height:28px; padding-left:6px; }
+    /* 시트 도구상자 — 체크된 씬에 일괄 실행 */
+    #sheet-actionbar { display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+      padding:6px 0; border-bottom:1px solid #2c2f36; margin-bottom:4px; }
+    #sheet-actionbar .sab-hint { font-size:11px; color:#9aa0a6; margin-right:2px; }
+    #sheet-actionbar .sab-div { width:1px; height:18px; background:#33363c; margin:0 4px; }
+    #sheet-actionbar button { width:auto; margin:0; padding:5px 9px; font-size:12px;
+      background:#2c2f36; border:1px solid #33363c; border-radius:5px; }
+    #sheet-actionbar button:hover { background:#3a6df0; }
+    /* 씬 선택 체크박스 */
+    .scene-sel-wrap { display:flex; align-items:center; gap:4px; cursor:pointer; }
+    .scene-sel-wrap input { width:14px; height:14px; margin:0; }
+    .sheet-head input { width:13px; height:13px; margin:0 4px 0 0; vertical-align:middle; }
+    /* 작업 칸 — 진행 점(●=완료: 이미지·레이어·음성·모션) + 플레이어 + 상태 */
+    .col-work .work-dots { display:flex; gap:7px; align-items:center; height:20px; padding-left:6px; }
     .col-work .work-dots .dot { width:9px; height:9px; border-radius:50%; }
     .col-work .work-dots .dot.on { background:#2ecc71; }
     .col-work .work-dots .dot.off { background:#3a3e46; border:1px solid #555; }
-    .col-work .work-actions { display:none; gap:3px; flex-wrap:wrap; }
-    .sheet-row:hover .col-work .work-dots { display:none; }
-    .sheet-row:hover .col-work .work-actions { display:flex; }
-    .col-work .work-actions button { width:30px; height:28px; margin:0; padding:0;
-      font-size:14px; background:#2c2f36; border:1px solid #33363c; border-radius:5px; }
-    .col-work .work-actions button.done { border-color:#2ecc71; box-shadow:inset 0 -2px 0 #2ecc71; }
-    .col-work .work-actions button:hover { background:#3a6df0; }
-    .col-work .work-actions button[disabled] { opacity:0.35; cursor:default; }
-    .col-work .work-actions button[disabled]:hover { background:#2c2f36; }
     .col-work .work-chars { font-size:11px; color:#c5c8cc; margin-top:4px; }
     .sheet-head > div { position:relative; }
     .col-resize { position:absolute; right:-4px; top:0; width:8px; height:100%;
@@ -259,6 +255,19 @@
           <div id="sb-left">
             <div class="label">프로덕션 시트
               <button id="btnLoadSheet" class="mini">시트 불러오기</button>
+            </div>
+            <div id="sheet-actionbar" title="씬을 체크한 뒤 버튼을 누르면 체크된 씬에 일괄 실행됩니다">
+              <span class="sab-hint">체크한 씬에:</span>
+              <button id="sa-img" title="씬 이미지 생성">🖼 이미지</button>
+              <button id="sa-layer" title="레이어 분리(1개 씬만)">⧉ 레이어</button>
+              <button id="sa-tts" title="TTS 생성">🔊 TTS</button>
+              <button id="sa-motion" title="모션 플랜(LLM)">🎞 모션</button>
+              <button id="sa-comp" title="AE 컴프로">🎬 컴프</button>
+              <span class="sab-div"></span>
+              <button id="sa-add" title="체크한 씬 아래(없으면 맨 끝)에 씬 추가">＋</button>
+              <button id="sa-split" title="씬 분할(1개만)">✂</button>
+              <button id="sa-merge" title="다음 씬과 병합(1개만)">⤵</button>
+              <button id="sa-del" title="체크한 씬 삭제(파일 보존)">🗑</button>
             </div>
             <div id="sheet">—</div>
           </div>
