@@ -54,6 +54,21 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
         size = _img_size(proj_dir / s["_image"]) if s.get("_image") else None
         sw, sh = size if size else (W, H)
         layers = _scene_layers(proj_dir, s.get("_layers") or [])
+        cam = None
+        mp = proj_dir / f"motion_{sid}.json"
+        if mp.is_file():
+            try:
+                mo = json.loads(mp.read_text(encoding="utf-8"))
+                moves_by = {L.get("layer"): L.get("moves", []) for L in mo.get("layers", [])}
+                for entry in layers:
+                    mv = moves_by.get(entry["name"])
+                    if mv:
+                        entry["moves"] = mv
+                c = mo.get("camera") or {}
+                if c.get("type") and c["type"] != "none":
+                    cam = c
+            except Exception:
+                cam = None
         out_scenes.append({
             "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
             "width": sw, "height": sh,
@@ -62,6 +77,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             "audio": audio,
             "subtitle": s.get("narration", "") or "",
             "duration": dur,
+            **({"camera": cam} if cam else {}),
         })
     mf = {"width": W, "height": H, "fps": FPS, "scenes": out_scenes}
     out = proj_dir / (f"manifest_scene_{only_scene}.json" if only_scene is not None else "manifest.json")

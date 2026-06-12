@@ -63,3 +63,31 @@ def test_build_manifest_only_scene(tmp_path):
     assert len(mf["scenes"]) == 1 and "_b" in mf["scenes"][0]["ae_comp_name"]
     # 전체 manifest.json은 건드리지 않음
     assert not (d / "manifest.json").exists()
+
+
+def test_manifest_merges_motion(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "mo", "imageRef": "storyboard/sb.png"}])
+    (d / "storyboard").mkdir()
+    from PIL import Image
+    Image.new("RGB", (100, 100)).save(d / "storyboard" / "sb.png")
+    lay = d / "layers"; lay.mkdir()
+    Image.new("RGBA", (100, 100)).save(lay / "mo__0_차.png")
+    Image.new("RGBA", (100, 100)).save(lay / "mo__bg.png")
+    (d / "motion_mo.json").write_text(json.dumps({
+        "layers": [{"layer": "mo__0_차", "moves": [
+            {"type": "pop", "start": 0.2, "duration": 0.6}]}],
+        "camera": {"type": "pan_left", "amount": 40}}), encoding="utf-8")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    car = next(L for L in sc["layers"] if "차" in L["name"])
+    assert car["moves"][0]["type"] == "pop"
+    bg = next(L for L in sc["layers"] if L["kind"] == "bg")
+    assert "moves" not in bg
+    assert sc["camera"]["type"] == "pan_left"
+
+
+def test_manifest_no_motion_file_ok(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "nm"}])
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert "camera" not in sc                          # 모션 없으면 필드 자체 없음(하위호환)
