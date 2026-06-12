@@ -8,16 +8,16 @@ function _badge(label, on) {
   return '<span class="badge ' + (on ? "on" : "off") + '">' + label + '</span>';
 }
 
-/* 컬럼 너비(px) — 5컬럼(씬#·이미지·스크립트·에셋·TTS) 전부 드래그 조절 + localStorage 저장 */
+/* 컬럼 너비(px) — 4컬럼(씬#·이미지·스크립트·작업) 드래그 조절 + localStorage 저장 */
 var COL_KEY = "ak_sheet_cols";
 var COLW = _loadCols();
 
 function _loadCols() {
   try {
     var s = window.localStorage.getItem(COL_KEY);
-    if (s) { var a = JSON.parse(s); if (a && a.length === 5) return a; }
+    if (s) { var a = JSON.parse(s); if (a && a.length === 4) return a; }
   } catch (e) {}
-  return [30, 200, 280, 120, 140];
+  return [30, 200, 300, 150];
 }
 
 function _persistCols() {
@@ -78,8 +78,7 @@ function loadSheet() {
         + '<div>#<span class="col-resize" data-col="0"></span></div>'
         + '<div>이미지<span class="col-resize" data-col="1"></span></div>'
         + '<div>스크립트<span class="col-resize" data-col="2"></span></div>'
-        + '<div>에셋<span class="col-resize" data-col="3"></span></div>'
-        + '<div>TTS<span class="col-resize" data-col="4"></span></div>'
+        + '<div>작업<span class="col-resize" data-col="3"></span></div>'
         + '</div>';
       $("sheet").innerHTML = head + list.map(function (s) { return renderRow(s, dir); }).join("");
       _applyCols();
@@ -120,24 +119,23 @@ function renderRow(s, dir) {
     // 이미지 미리보기 + 레이어 썸네일
     + '  <div class="col-img">'
     +      (s._image ? '<button class="unlink-img" data-scene="' + n + '" title="씬 이미지 링크 해제">✕</button>' : '')
-    +      (s._image ? '<button class="layer-img" data-scene="' + n + '" title="레이어 분리(LLM 분석)">⧉</button>' : '')
     +      media + (layers ? '<div>' + layers + '</div>' : '')
     + '  </div>'
     // 스크립트(나레이션)
     + '  <div class="col-script">'
     + '    <div class="row-title">' + _esc(s.title || "") + '</div>'
     + '    <textarea class="nar" data-scene="' + n + '" rows="3">' + _esc(s.narration || "") + '</textarea>'
-    + '    <div class="row-status" data-scene="' + n + '"></div>'
     + '  </div>'
-    // 에셋(캐릭터 + 씬 이미지 생성)
-    + '  <div class="col-asset">'
-    + (chars ? '<div style="font-size:11px">👤 ' + _esc(chars) + '</div>' : '<div style="font-size:11px;color:#666">인물 없음</div>')
-    + '    <button class="gen-img alt" data-scene="' + n + '">씬 이미지 생성</button>'
-    + '    <div style="font-size:10px;color:#666;margin-top:2px">소스 드래그로 교체</div>'
-    + '  </div>'
-    // TTS(씬별 생성 + 재생) + 씬 컴프
-    + '  <div class="col-tts">'
-    +      '<button class="gen-tts alt" data-scene="' + n + '">TTS 생성</button>'
+    // 작업 — 평소엔 결과(캐릭터·플레이어·상태)만, 행 호버 시 액션 바 표시
+    + '  <div class="col-work">'
+    +      '<div class="work-actions">'
+    +        '<button class="gen-img" data-scene="' + n + '" title="씬 이미지 생성">🖼</button>'
+    +        '<button class="layer-img" data-scene="' + n + '" title="레이어 분리(LLM 분석)"' + (s._image ? '' : ' disabled') + '>⧉</button>'
+    +        '<button class="gen-tts" data-scene="' + n + '" title="TTS 생성">🔊</button>'
+    +        '<button class="scene-motion" data-scene="' + n + '" title="모션 플랜(LLM)"' + ((s._layers || []).length ? '' : ' disabled') + '>🎞</button>'
+    +        '<button class="scene-comp" data-scene="' + n + '" title="이 씬을 AE 컴프로">🎬</button>'
+    +      '</div>'
+    + (chars ? '<div class="work-chars">👤 ' + _esc(chars) + '</div>' : '')
     +      (s._audio
         ? ('<div class="tts-player">'
            + '<button class="tts-play" title="재생/정지">▶</button>'
@@ -145,9 +143,7 @@ function renderRow(s, dir) {
            + '<audio class="tts-audio" preload="none" src="file://' + dir + '/' + s._audio + '"></audio>'
            + '</div>')
         : '')
-    +      '<button class="scene-motion" data-scene="' + n + '" title="모션 플랜(LLM)">🎞 모션</button>'
-    +      '<button class="scene-comp" data-scene="' + n + '" title="이 씬을 AE 컴프로">🎬 컴프</button>'
-    +      '<div class="row-status" data-scene="' + n + '"></div>'
+    + '    <div class="row-status" data-scene="' + n + '"></div>'
     + '  </div>'
     + '</div>';
 }

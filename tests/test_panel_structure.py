@@ -306,7 +306,7 @@ def test_panel_motion_button():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "scene-motion" in js and "function planMotion" in js and "/api/scenes/motion" in js
     html = HTML.read_text(encoding="utf-8")
-    assert ".col-tts .scene-motion" in html
+    assert ".col-work .work-actions" in html
 
 
 def test_render_queue_wired():
@@ -332,3 +332,37 @@ def test_pipeline_button_wired():
     assert 'id="btnRunPipeline"' in html and 'id="pipelineStatus"' in html
     pl = (PANEL / "js" / "planning.js").read_text(encoding="utf-8")
     assert "function runPipeline" in pl and "/api/pipeline/run" in pl and "_pollJob" in pl
+
+
+def test_work_column_hover_actions():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "col-work" in js and "work-actions" in js
+    assert "col-asset" not in js and "col-tts" not in js      # 구 칸 제거
+    html = HTML.read_text(encoding="utf-8")
+    assert ".sheet-row:hover .col-work .work-actions" in html  # 호버 시 표시
+    assert ".sheet-row:hover .scene-ops" in html               # 씬 편집도 호버 시
+
+
+def test_render_row_work_bar_states():
+    """renderRow 실행 — 액션 5종 존재 + 이미지/레이어 없을 때 disabled."""
+    import subprocess, json
+    sb = str(PANEL / "js" / "storyboard.js")
+    script = (
+        "global.window={localStorage:{getItem:function(){return null;},setItem:function(){}}};"
+        "global.document={getElementById:function(){return null;},addEventListener:function(){}};"
+        "eval(require('fs').readFileSync(" + json.dumps(sb) + ",'utf8'));"
+        "var bare={sceneNumber:1,sceneId:'x',title:'t',narration:'n',_image:null,_layers:[],"
+        "_audio:null,_audio_dur:0,_status:{},characters:[]};"
+        "var h=renderRow(bare,'/p');"
+        "var full={sceneNumber:2,sceneId:'y',title:'t',narration:'n',_image:'storyboard/a.png',"
+        "_layers:['layers/y__0.png'],_audio:'audio/tts_y.mp3',_audio_dur:5,_status:{},characters:['지오']};"
+        "var h2=renderRow(full,'/p');"
+        "process.stdout.write(JSON.stringify({"
+        "acts:['gen-img','layer-img','gen-tts','scene-motion','scene-comp'].every(function(c){return h.indexOf(c)>=0;}),"
+        "bareDisabled:(h.match(/disabled/g)||[]).length===2,"  # 레이어·모션 비활성
+        "fullEnabled:h2.indexOf('disabled')<0,"
+        "player:h2.indexOf('tts-player')>=0&&h2.indexOf('NaN')<0}));"
+    )
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    res = json.loads(out.stdout)
+    assert res["acts"] and res["bareDisabled"] and res["fullEnabled"] and res["player"], out.stdout

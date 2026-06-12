@@ -63,15 +63,25 @@
       overflow:hidden; resize:none; min-height:42px; }
     .sheet-row .row-status { font-size:11px; color:#9aa0a6; }
     .sheet-row button { margin:4px 0; padding:6px; font-size:12px; }
-    .col-tts .gen-tts { width:auto; }
     .scene-badges { display:flex; gap:2px; margin-top:4px; }
     .scene-badges .badge { font-size:9px; padding:1px 3px; border-radius:3px; }
     .scene-badges .badge.on { background:#2d7d46; color:#fff; }
     .scene-badges .badge.off { background:#333; color:#777; }
-    .scene-ops { display:flex; flex-wrap:wrap; gap:2px; margin-top:4px; }
+    /* 씬 구조 편집(＋✂⤵🗑) — 행 호버 시에만 표시 */
+    .scene-ops { display:none; flex-wrap:wrap; gap:2px; margin-top:4px; }
+    .sheet-row:hover .scene-ops { display:flex; }
     .scene-ops button { font-size:11px; padding:1px 4px; width:auto; margin:0;
       background:rgba(255,255,255,0.08); border:none; color:#bbb; cursor:pointer; border-radius:3px; }
     .scene-ops button:hover { background:rgba(255,255,255,0.2); color:#fff; }
+    /* 작업 칸 — 평소엔 결과만, 행 호버 시 액션 바(작업 순서: 이미지→레이어→TTS→모션→컴프) */
+    .col-work .work-actions { display:none; gap:3px; flex-wrap:wrap; }
+    .sheet-row:hover .col-work .work-actions { display:flex; }
+    .col-work .work-actions button { width:30px; height:28px; margin:0; padding:0;
+      font-size:14px; background:#2c2f36; border:1px solid #33363c; border-radius:5px; }
+    .col-work .work-actions button:hover { background:#3a6df0; }
+    .col-work .work-actions button[disabled] { opacity:0.35; cursor:default; }
+    .col-work .work-actions button[disabled]:hover { background:#2c2f36; }
+    .col-work .work-chars { font-size:11px; color:#c5c8cc; margin-top:4px; }
     .sheet-head > div { position:relative; }
     .col-resize { position:absolute; right:-4px; top:0; width:8px; height:100%;
       cursor:col-resize; }
@@ -142,11 +152,9 @@
     #projects .proj-item .st { color:#9aa0a6; font-size:11px; margin-left:6px; }
 
     /* TTS 커스텀 플레이어(좁은 칸에서도 재생·길이 표시) */
-    .col-tts .tts-player { display:flex; align-items:center; gap:5px; margin-top:4px; }
-    .col-tts .tts-play { width:auto; margin:0; padding:3px 9px; font-size:13px; }
-    .col-tts .tts-dur { font-size:11px; color:#c5c8cc; font-family:ui-monospace,monospace; }
-    .col-tts .scene-comp { width:auto; margin-top:6px; padding:4px 8px; font-size:11px; background:#444; }
-    .col-tts .scene-motion { width:auto; margin-top:6px; padding:4px 8px; font-size:11px; background:#444; }
+    .col-work .tts-player { display:flex; align-items:center; gap:5px; margin-top:4px; }
+    .col-work .tts-play { width:auto; margin:0; padding:3px 9px; font-size:13px; }
+    .col-work .tts-dur { font-size:11px; color:#c5c8cc; font-family:ui-monospace,monospace; }
 
     /* 모달(이미지 생성 + 레이어 선택 공용) */
     #genModal, #layerModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
