@@ -343,11 +343,25 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         fb = _qc_feedback(ratio, pos) if res.get("status") == "completed" else None
         if fb:
             out2 = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(name)}.png")  # 새 파일(무삭제)
-            res2, ratio2, pos2 = _gen_element_once(out2, prompt + "\n[재시도 피드백] " + fb)
+            rel2 = out2.relative_to(proj_dir).as_posix()
+            # 재시도 프롬프트는 반드시 새 파일 경로로 다시 빌드 — 1차 경로가 들어가면
+            # codex가 1차본을 raw로 덮어쓰고 out2는 미생성(E2E에서 발견된 버그)
+            prompt2 = build_element_layer_prompt(name, loc, style, rel2, others=others)
+            res2, ratio2, pos2 = _gen_element_once(out2, prompt2 + "\n[재시도 피드백] " + fb)
             if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2) is None:
-                out, rel, res, qc = out2, out2.relative_to(proj_dir).as_posix(), res2, "retried_ok"
+                out, rel, res, qc, pos = out2, rel2, res2, "retried_ok", pos2
             else:
-                res = {"status": "completed_lowq", "path": str(out)}   # 1차본 유지, 저품질 표시
+                # 1차본 유지 + 저품질 표시. 최종 파일이 키잉 안 된 raw일 가능성 가드:
+                # 마젠타가 그대로면(투명비 ~0) chroma 재적용(멱등 — 이미 키잉된 파일엔 무해)
+                try:
+                    if out.exists():
+                        rr = chroma_key_magenta(out, out)
+                        if scene_size:
+                            normalize_layer_size(out, scene_size)
+                        ratio = rr.get("transparent_ratio", ratio)
+                except Exception:
+                    pass
+                res = {"status": "completed_lowq", "path": str(out)}
         r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc,
              "pos_score": pos}                                          # 풀프레임 레이어(크롭 안 함)
         if on_event:

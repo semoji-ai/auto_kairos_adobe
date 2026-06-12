@@ -456,3 +456,60 @@ def test_split_qc_retries_on_bad_position(tmp_path, monkeypatch):
     el = res["layers"][0]
     assert el["status"] == "completed" and el["qc"] == "retried_ok"
     assert calls["n"] >= 3                               # 요소 2회 + 배경 1회
+
+
+def test_split_retry_prompt_uses_new_file_path(tmp_path, monkeypatch):
+    """E2E 발견 버그 회귀: 재시도 프롬프트에 1차 경로가 들어가면 codex가 1차본을 raw로 덮어씀."""
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+    prompts = []
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        prompts.append(prompt)
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    pos_seq = iter([0.2, 0.9])                          # 1차 어긋남 → 재시도 OK
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
+    res = ig.split_scene_to_elements(proj, str(scene), "rp1",
+                                     [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    el = res["layers"][0]
+    assert el["qc"] == "retried_ok" and el["pos_score"] == 0.9     # 최종 pos 보고
+    retry_prompt = prompts[1]
+    assert "rp1__0_차_v2.png" in retry_prompt           # 재시도는 새 버전 파일 경로
+    assert el["rel"].endswith("_v2.png")
+
+
+def test_split_lowq_rekeys_final_file(tmp_path, monkeypatch):
+    """lowq 확정 시 최종 파일에 chroma 재적용 가드(키잉 안 된 raw 잔존 방지)."""
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+    keyed = []
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    def fake_chroma(a, b):
+        keyed.append(Path(a).name)
+        return {"transparent_ratio": 0.5}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", fake_chroma)
+    monkeypatch.setattr(ig, "position_score", lambda L, S: 0.1)    # 항상 어긋남 → lowq
+    res = ig.split_scene_to_elements(proj, str(scene), "lq1",
+                                     [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    el = res["layers"][0]
+    assert el["status"] == "completed_lowq"
+    first = Path(el["rel"]).name
+    assert keyed.count(first) >= 2                       # post 1회 + lowq 가드 재적용 1회
