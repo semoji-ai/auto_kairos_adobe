@@ -329,18 +329,26 @@ function refreshRow(n) {
 
 /* 씬 모션 플랜(LLM) — 동기 호출, 완료 시 상태줄 안내 */
 function planMotion(n) {
-  _rowStatus(n, "모션 설계 중... (LLM)");
+  _rowStatus(n, "모션 설계 중... (LLM, 비동기)");
   return fetch(BACKEND + "/api/scenes/motion", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      if (j.plan) {
-        var nmoves = (j.plan.layers || []).reduce(function (a, L) { return a + (L.moves || []).length; }, 0);
-        _rowStatus(n, "모션 " + nmoves + "개 + 카메라 " + ((j.plan.camera || {}).type || "none") + " ✓ — 🎬 컴프로 적용");
-      } else {
-        _rowStatus(n, "실패: " + (j.error || JSON.stringify(j)));
-      }
+      if (j.status !== "running" || !j.job_id) { _rowStatus(n, "실패: " + (j.error || JSON.stringify(j))); return; }
+      return new Promise(function (resolve) {
+        _awaitJob(j.job_id, function (job) {
+          var plan = job.result && job.result.plan;
+          if (job.status === "completed" && plan) {
+            var nmoves = (plan.layers || []).reduce(function (a, L) { return a + (L.moves || []).length; }, 0);
+            _rowStatus(n, "모션 " + nmoves + "개 + 카메라 " + ((plan.camera || {}).type || "none") + " ✓ — 🎬 컴프로 적용");
+            refreshRow(n);                                 // 모션 점 갱신
+          } else {
+            _rowStatus(n, "실패: " + (job.error || JSON.stringify(job)));
+          }
+          resolve();
+        });
+      });
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }

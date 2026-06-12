@@ -660,7 +660,7 @@ def test_assembly_manifest_single_scene(tmp_path, monkeypatch):
 
 
 def test_scenes_motion(tmp_path, monkeypatch):
-    import backend.router as r
+    import time, backend.router as r
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text('{"scenes":[{"sceneNumber":1,"sceneId":"mt"}]}', encoding="utf-8")
     monkeypatch.setattr(r.motion, "plan_scene_motion",
@@ -668,18 +668,33 @@ def test_scenes_motion(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/scenes/motion", {},
                                 {"project_id": "p", "sceneNumber": 1}, ctx)
-    assert code == 200 and body["plan"]["camera"]["type"] == "none"
+    assert code == 200 and body["status"] == "running"          # 비동기 전환
+    jid = body["job_id"]
+    for _ in range(100):
+        _, jb = handle_request("GET", f"/api/jobs/{jid}", {}, None, ctx)
+        if jb["status"] != "running":
+            break
+        time.sleep(0.02)
+    assert jb["status"] == "completed"
+    assert jb["result"]["plan"]["camera"]["type"] == "none"
 
 
-def test_scenes_motion_error_422(tmp_path, monkeypatch):
-    import backend.router as r
+def test_scenes_motion_error_failed_job(tmp_path, monkeypatch):
+    import time, backend.router as r
     proj = tmp_path / "p"; proj.mkdir()
     monkeypatch.setattr(r.motion, "plan_scene_motion",
                         lambda proj_dir, sn, on_line=None: {"error": "레이어 없음"})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
-    code, _ = handle_request("POST", "/api/scenes/motion", {},
-                             {"project_id": "p", "sceneNumber": 1}, ctx)
-    assert code == 422
+    code, body = handle_request("POST", "/api/scenes/motion", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and body["status"] == "running"
+    jid = body["job_id"]
+    for _ in range(100):
+        _, jb = handle_request("GET", f"/api/jobs/{jid}", {}, None, ctx)
+        if jb["status"] != "running":
+            break
+        time.sleep(0.02)
+    assert jb["status"] == "failed" and "레이어 없음" in jb["error"]
 
 
 def test_assistant_endpoint(tmp_path, monkeypatch):

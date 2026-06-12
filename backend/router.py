@@ -220,16 +220,17 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 404, {"error": "프로젝트 없음"}
         jobs = ctx["jobs"]
         jid = jobs.create("motion", b.get("project_id", ""))
-        res = motion.plan_scene_motion(proj_dir, b.get("sceneNumber"),
-                                       on_line=lambda ln: jobs.append_log(jid, ln))
-        ok = "error" not in res
-        jobs.set_status(jid, "completed" if ok else "failed", result=res,
-                        error=None if ok else res.get("error"))
-        if ok:
+        def _do(proj_dir=proj_dir, sn=b.get("sceneNumber"), jid=jid):
+            res = motion.plan_scene_motion(proj_dir, sn,
+                                           on_line=lambda ln: jobs.append_log(jid, ln))
+            if "error" in res:
+                raise RuntimeError(res["error"])
             nmv = sum(len(L.get("moves", [])) for L in res.get("layers", []))
             vault.log_work(proj_dir, "plan_motion",
-                           f"씬{b.get('sceneNumber')} 모션 {nmv}개 + 카메라 {(res.get('camera') or {}).get('type')}")
-        return (200 if ok else 422), ({"job_id": jid, "plan": res} if ok else {"job_id": jid, **res})
+                           f"씬{sn} 모션 {nmv}개 + 카메라 {(res.get('camera') or {}).get('type')}")
+            return {"plan": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/assembly/manifest":
         b = body or {}
