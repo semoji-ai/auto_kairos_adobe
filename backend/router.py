@@ -5,7 +5,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -195,6 +195,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
                 if not any(x.get("status") == "completed" for x in results):
                     raise RuntimeError("TTS 전체 실패")
                 jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "audio")])
+                done = sum(1 for x in results if x.get("status") == "completed")
+                vault.log_work(proj_dir, "tts_all", f"TTS {done}/{len(results)}개 생성")
                 return {"results": results}
             run_async(jobs, jid, _do)
             return 200, {"job_id": jid, "status": "running"}
@@ -223,6 +225,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         ok = "error" not in res
         jobs.set_status(jid, "completed" if ok else "failed", result=res,
                         error=None if ok else res.get("error"))
+        if ok:
+            nmv = sum(len(L.get("moves", [])) for L in res.get("layers", []))
+            vault.log_work(proj_dir, "plan_motion",
+                           f"씬{b.get('sceneNumber')} 모션 {nmv}개 + 카메라 {(res.get('camera') or {}).get('type')}")
         return (200 if ok else 422), ({"job_id": jid, "plan": res} if ok else {"job_id": jid, **res})
 
     if method == "POST" and p == "/api/assembly/manifest":
@@ -230,7 +236,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         proj_dir = root / b.get("project_id", "")
         if not proj_dir.is_dir():
             return 404, {"error": "프로젝트 없음"}
-        return 200, manifest.build_manifest(proj_dir, only_scene=b.get("sceneNumber"))
+        mres = manifest.build_manifest(proj_dir, only_scene=b.get("sceneNumber"))
+        vault.log_work(proj_dir, "assemble",
+                       f"매니페스트 빌드(씬 {mres.get('scenes')}개{', 씬 ' + str(b.get('sceneNumber')) + '만' if b.get('sceneNumber') else ''})")
+        return 200, mres
 
     if p == "/api/tts/settings" and method in ("GET", "POST"):
         pid = (query.get("project_id") if method == "GET" else (body or {}).get("project_id")) or ""
@@ -378,6 +387,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             if not any(l.get("status") == "completed" for l in res.get("layers", [])):
                 raise RuntimeError("레이어 분리 전체 실패")
             jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers")])
+            okn = sum(1 for l in res.get("layers", []) if str(l.get("status", "")).startswith("completed"))
+            vault.log_work(proj_dir, "split_layers",
+                           f"씬{sc.get('sceneNumber')} 레이어 {okn}개 분리(요소 {len(elements)}+배경)")
             return {"result": res}
         run_async(jobs, jid, _do)
         return 200, {"job_id": jid, "status": "running"}

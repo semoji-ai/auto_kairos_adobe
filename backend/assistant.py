@@ -173,11 +173,45 @@ def _save_session(proj_dir: Path, engine: str, session_id: str) -> None:
         pass
 
 
+_DISTILL_MIN_TURNS = 6      # 이 이상 새 대화가 쌓였으면 새 세션 시작 전에 볼트로 증류
+
+
+def _distill_to_vault(proj_dir: Path, *, on_line=None) -> None:
+    """대화·작업을 context.md로 증류(증분) — 새 세션이 프로젝트를 다시 이해하는 브리핑.
+    실패해도 무해(기존 context 유지)."""
+    from backend import vault
+    new_turns = vault.undistilled_turns(proj_dir)
+    if len(new_turns) < _DISTILL_MIN_TURNS:
+        return
+    who = {"user": "사용자", "assistant": "비서"}
+    convo = "\n".join(f"{who.get(t.get('role'), '?')}: {t.get('text', '')}" for t in new_turns)
+    prev = vault.read_context(proj_dir)
+    prompt = (
+        "다음은 영상 제작 프로젝트의 기존 브리핑과 그 이후의 대화·작업 기록이다. "
+        "이를 통합해 '프로젝트 브리핑'을 갱신하라 — 새로 투입된 비서가 이것만 읽고 "
+        "맥락을 이어갈 수 있어야 한다.\n"
+        "포함: 결정된 연출 방향/규칙, 진행 상황, 미해결 문제, 사용자 선호. "
+        "마크다운, 600자 이내, 본문만 출력.\n\n"
+        f"## 기존 브리핑\n{prev or '(없음)'}\n\n"
+        f"## 새 대화\n{convo}\n\n"
+        f"## 최근 작업 이력\n{vault.worklog_text(proj_dir)}"
+    )
+    out = proj_dir / ".vault_distill.md"
+    res = llm.run_orchestrator(prompt, proj_dir, output_last=str(out), on_line=on_line)
+    if res.get("returncode") == 0 and out.is_file():
+        text = out.read_text(encoding="utf-8").strip()
+        if text:
+            vault.write_context(proj_dir, text)
+            vault.mark_distilled(proj_dir, vault.total_turns(proj_dir))
+
+
 def _full_prompt(proj_dir: Path, instruction: str) -> str:
-    """새 세션 시작 프롬프트 — 규칙·기준·상태 전체 + (세션 리셋 대비) 텍스트 이력."""
-    from backend import edits
+    """새 세션 시작 프롬프트 — 규칙·기준·상태 + 볼트 브리핑·작업 이력·최근 대화(맥락 복원)."""
+    from backend import edits, vault
     recent = edits.recent_edits_text(proj_dir, limit=2, max_chars=1500)
     hist = history_text(proj_dir)
+    ctx = vault.read_context(proj_dir)
+    work = vault.worklog_text(proj_dir)
     return (
         "너는 영상 제작 파트너(제작 비서)다. 사용자와 제작에 관해 자유롭게 상의하고, 필요할 때만 작업을 실행한다. "
         "이 세션은 계속 이어진다 — 이전 대화를 기억하고 맥락을 유지해라.\n\n"
@@ -193,7 +227,9 @@ def _full_prompt(proj_dir: Path, instruction: str) -> str:
         "- 모션: 현재 캐릭터만(bob 까딱임+선택 fade_in), 사물·배경 모션은 규칙 미정으로 금지\n"
         "- TTS: ElevenLabs(스타일별 voice), 워크플로우: 이미지→레이어→TTS→모션→컴프\n\n"
         f"## 가능한 액션\n{_CATALOG_DESC}\n## 현재 프로젝트 상태\n{project_status(proj_dir)}\n"
-        + (f"\n## 이전 대화(요약 이력)\n{hist}\n" if hist else "")
+        + (f"\n## 프로젝트 볼트 브리핑(이전 세션들의 결정·진행 요약)\n{ctx}\n" if ctx else "")
+        + (f"\n## 최근 작업 이력\n{work}\n" if work else "")
+        + (f"\n## 최근 대화(원문 일부)\n{hist}\n" if hist else "")
         + (f"\n{recent}\n" if recent else "")
         + f"\n## 사용자 입력\n{instruction}"
     )
@@ -225,10 +261,13 @@ def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> dict:
                                     output_schema=str(_PLAN_SCHEMA), output_last=str(out),
                                     on_line=on_line)
 
+    if not sid:
+        _distill_to_vault(proj_dir, on_line=on_line)    # 새 세션 — 쌓인 대화를 볼트 브리핑으로 증류
     res = _call(sid, _resume_prompt(proj_dir, instruction) if sid else _full_prompt(proj_dir, instruction))
     if sid and (res.get("returncode") != 0 or not out.is_file()):
-        # 세션 만료/유실 — 새 세션으로 1회 재시도(이력 텍스트가 맥락을 메움)
+        # 세션 만료/유실 — 볼트 증류 후 새 세션으로 1회 재시도(브리핑이 맥락 복원)
         sid = None
+        _distill_to_vault(proj_dir, on_line=on_line)
         res = _call(None, _full_prompt(proj_dir, instruction))
     if res.get("session_id"):
         _save_session(proj_dir, engine, res["session_id"])
@@ -271,6 +310,8 @@ def run_assistant(proj_dir: Path, instruction: str, *,
         except TypeError:
             r = h(proj_dir)
         results.append({"action": name, "reason": a.get("reason"), "result": r})
+        from backend import vault
+        vault.log_work(proj_dir, name, json.dumps(r, ensure_ascii=False)[:200])   # 볼트 작업 이력
     return {"plan": actions, "results": results, "reply": reply}
 
 

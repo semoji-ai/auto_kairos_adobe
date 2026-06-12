@@ -44,3 +44,5 @@ projects/*/.assistant_plan.json
 projects/*/.motion_plan_*.json
 projects/*/.layer_analysis.json
 projects/*/.assistant_session.json
+projects/*/vault/
+projects/*/.vault_distill.md
