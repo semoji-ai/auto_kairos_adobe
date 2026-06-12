@@ -258,3 +258,42 @@ def test_archive_prev_layers_moves_not_deletes(tmp_path):
     assert not (lay / "sid9__0_old.png").exists()        # 활성 폴더에서 빠짐
     assert (lay / "_prev" / "sid9__0_old.png").exists()  # 보존됨(무삭제)
     assert (lay / "other__0_x.png").exists()             # 다른 씬 그대로
+
+
+def test_normalize_layer_size_resizes(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    p = tmp_path / "L.png"
+    Image.new("RGBA", (1672, 941), (255, 0, 0, 255)).save(p)   # codex 변칙 크기
+    changed = ig.normalize_layer_size(p, (1536, 1024))
+    assert changed is True
+    assert Image.open(p).size == (1536, 1024)
+
+
+def test_normalize_layer_size_noop_when_match(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    p = tmp_path / "L.png"
+    Image.new("RGBA", (1536, 1024)).save(p)
+    assert ig.normalize_layer_size(p, (1536, 1024)) is False    # 이미 일치 → 무변경
+
+
+def test_split_normalizes_to_scene_size(tmp_path, monkeypatch):
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"
+    Image.new("RGB", (1536, 1024)).save(scene)                  # 씬 = 1536x1024
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", (1672, 941), (0, 255, 0, 255)).save(out)   # 변칙 크기로 생성
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    res = ig.split_scene_to_elements(proj, str(scene), "sz1",
+                                     [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    for r in res["layers"]:
+        assert Image.open(proj / r["rel"]).size == (1536, 1024)  # 요소+배경 모두 씬 크기

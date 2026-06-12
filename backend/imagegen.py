@@ -226,6 +226,19 @@ def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_ou
     )
 
 
+def normalize_layer_size(png_path: Path, target_size: tuple) -> bool:
+    """레이어 크기를 씬 크기로 강제(codex image_gen이 가끔 다른 크기로 출력 — 예: 1672×941).
+    리사이즈했으면 True. 크기가 다르면 풀프레임 겹침이 어긋나므로 생성 직후 호출."""
+    try:
+        im = Image.open(png_path)
+        if im.size == tuple(target_size):
+            return False
+        im.convert("RGBA").resize(tuple(target_size), Image.LANCZOS).save(png_path)
+        return True
+    except Exception:
+        return False
+
+
 def _layer_slug(name: str) -> str:
     s = re.sub(r"[^0-9A-Za-z가-힣]+", "_", name).strip("_")
     return s[:24] or "el"
@@ -259,6 +272,10 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     out_base.mkdir(parents=True, exist_ok=True)
     _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제: _prev로 이동)
     style = load_style()
+    try:                                    # 씬 크기 — 모든 레이어를 이 크기로 정규화(겹침 보장)
+        scene_size = Image.open(scene_image).size
+    except Exception:
+        scene_size = None
 
     all_names = [e.get("name", "") for e in elements]
 
@@ -271,6 +288,8 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image],
                                post=lambda o: chroma_key_magenta(o, o))
+        if res.get("status") == "completed" and scene_size:
+            normalize_layer_size(out, scene_size)       # 크기 변칙 가드
         r = {"name": name, "rel": rel, "status": res.get("status")}     # 풀프레임 레이어(크롭 안 함)
         if on_event:
             on_event(r)
@@ -286,6 +305,8 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
                   f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
                   f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
+        if res.get("status") == "completed" and scene_size:
+            normalize_layer_size(out, scene_size)       # 배경도 동일 크기 보장
         r = {"name": "배경", "rel": rel, "status": res.get("status")}
         if on_event:
             on_event(r)
