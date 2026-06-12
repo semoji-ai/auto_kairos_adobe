@@ -434,11 +434,16 @@ def test_build_scene_jsx_layout_renderers():
     assert "Anchor Point" in jsx                           # 막대 하단 고정 성장
 
 
-def test_storyboard_layout_badge():
+def test_storyboard_comp_preview():
+    """시트 미리보기 — 레이아웃 미러 렌더(_previewHTML) + 자막 오버레이 + 토큰 로드."""
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "layout-badge" in js and 's.layout !== "cinematic"' in js
+    assert "_previewHTML" in js and "pv-subtitle" in js
+    assert "/api/tokens" in js                                # AE 빌드와 동일 토큰 소스
+    for layout in ("headline_only", "items_list", "metric_spotlight", "bar", "quote"):
+        assert layout in js
     html = (PANEL / "index.html").read_text(encoding="utf-8")
-    assert ".layout-badge" in html
+    assert ".pv " in html or ".pv {" in html
+    assert ".pv-subtitle" in html and ".pv-quote" in html
 
 
 def test_subtitles_button_wired():

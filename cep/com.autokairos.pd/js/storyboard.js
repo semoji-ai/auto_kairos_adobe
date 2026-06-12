@@ -65,10 +65,85 @@ function _bindColResize() {
   }
 }
 
+// 디자인 토큰(ae_tokens) — 시트 미리보기가 색/크기를 AE 빌드와 동일 소스로 사용
+var TOKENS = null;
+function _loadTokens() {
+  if (TOKENS) return Promise.resolve(TOKENS);
+  return fetch(BACKEND + "/api/tokens").then(function (r) { return r.json(); })
+    .then(function (j) { TOKENS = j || {}; return TOKENS; })
+    .catch(function () { TOKENS = {}; return TOKENS; });
+}
+
+// 컴프 결과 미리보기 — jsx renderLayout(1920 기준)을 200px 폭으로 축소 미러링.
+// 이미지 씬=이미지+자막 오버레이, 레이아웃 씬=셰이프/텍스트 근사 렌더(동일 토큰).
+function _previewHTML(s, dir) {
+  var T = TOKENS || {}, c = T.colors || {}, t = T.type || {};
+  function px(v) { return (v * 200 / 1920).toFixed(1) + "px"; }      // 1920 디자인 px → 미리보기 px
+  function rgb(a, fb) { a = a || fb; return "rgb(" + a[0] + "," + a[1] + "," + a[2] + ")"; }
+  var BG = rgb(c.bgRgb, [35, 38, 43]), TX = rgb(c.textRgb, [232, 234, 237]),
+      MU = rgb(c.mutedRgb, [154, 160, 166]), AC = rgb(c.accentRgb, [74, 144, 217]);
+  // 자막 미리보기 — 나레이션 첫 ~20자(어절 경계), 하단 중앙
+  var nar = (s.narration || "").replace(/\s+/g, " ").trim(), sub1 = "";
+  if (nar) {
+    var ws = nar.split(" ");
+    for (var wi = 0; wi < ws.length; wi++) {
+      if (sub1 && (sub1 + " " + ws[wi]).length > 20) break;
+      sub1 = sub1 ? sub1 + " " + ws[wi] : ws[wi];
+    }
+  }
+  var subEl = sub1 ? '<div class="pv-subtitle" style="font-size:' + px(t.subtitle || 54) + '">' + _esc(sub1) + "</div>" : "";
+  var inner = "";
+  if (!s.layout || s.layout === "cinematic") {
+    if (!s._image) return '<div style="color:#666;font-size:11px">(없음)</div>';
+    return '<div class="pv" style="background:' + BG + '">'
+      + '<img class="main" src="file://' + dir + "/" + s._image + '">' + subEl + "</div>";
+  }
+  if (s.layout === "headline_only") {
+    inner = '<div class="pv-abs" style="left:50%;top:30%;width:' + px(120) + ";height:" + px(10) + ";background:" + AC + ';transform:translateX(-50%)"></div>'
+      + '<div class="pv-abs pv-headline" style="left:8%;width:84%;top:34%;font-size:' + px(t.headline || 110) + ";color:" + TX + ';text-align:center;line-height:1.25">' + _esc(s.headline || "") + "</div>"
+      + (s.sub ? '<div class="pv-abs pv-body" style="left:15%;width:70%;top:62%;font-size:' + px(t.sub || 48) + ";color:" + MU + ';text-align:center">' + _esc(s.sub) + "</div>" : "");
+  } else if (s.layout === "items_list") {
+    inner = '<div class="pv-abs pv-headline" style="left:0;width:100%;top:11%;font-size:' + px((t.sub || 48) * 1.5) + ";color:" + TX + ';text-align:center">' + _esc(s.headline || "") + "</div>"
+      + '<div class="pv-abs" style="left:16%;width:68%;top:23.5%;height:1px;background:' + AC + '"></div>';
+    var items = s.items || [], gpct = Math.min(12, 58 / Math.max(1, items.length));
+    for (var ii = 0; ii < items.length; ii++) {
+      var typ = 33 + ii * gpct;
+      inner += '<div class="pv-abs" style="left:16%;top:' + (typ - 1.8) + "%;width:" + px(12) + ";height:" + px(42) + ";background:" + AC + '"></div>'
+        + '<div class="pv-abs pv-body" style="left:20%;width:62%;top:' + (typ - 2.2) + "%;font-size:" + px(t.item || 52) + ";color:" + TX + ';text-align:left;white-space:nowrap;overflow:hidden">' + _esc(items[ii]) + "</div>";
+    }
+  } else if (s.layout === "metric_spotlight") {
+    inner = '<div class="pv-abs pv-number" style="left:0;width:100%;top:32%;font-size:' + px(t.metric || 220) + ";color:" + AC + ';text-align:center;line-height:1">' + _esc(s.value || "") + "</div>"
+      + '<div class="pv-abs" style="left:50%;top:58.5%;width:' + px(220) + ";height:" + px(5) + ";background:" + AC + ';transform:translateX(-50%)"></div>'
+      + '<div class="pv-abs pv-body" style="left:15%;width:70%;top:63%;font-size:' + px(t.metricLabel || 54) + ";color:" + TX + ';text-align:center">' + _esc(s.label || "") + "</div>";
+  } else if (s.layout === "bar") {
+    inner = '<div class="pv-abs pv-headline" style="left:0;width:100%;top:9%;font-size:' + px((t.sub || 48) * 1.4) + ";color:" + TX + ';text-align:center">' + _esc(s.headline || "") + "</div>"
+      + '<div class="pv-abs" style="left:13%;width:74%;top:76%;height:1px;background:' + MU + '"></div>';
+    var ch = s.chart || {}, vals = ch.values || [], labels = ch.labels || [];
+    var n2 = Math.max(1, vals.length), maxV = 0;
+    for (var vi = 0; vi < vals.length; vi++) if (vals[vi] > maxV) maxV = vals[vi];
+    for (var bi = 0; bi < vals.length; bi++) {
+      var bhPct = maxV ? (vals[bi] / maxV) * 42 : 0;                 // jsx maxH=H*0.42
+      var gw = 70 / n2, bxPct = 15 + gw * bi + gw * 0.225, bwPct = gw * 0.55;
+      inner += '<div class="pv-abs" style="left:' + bxPct + "%;width:" + bwPct + "%;top:" + (76 - bhPct) + "%;height:" + bhPct + "%;background:" + AC + '"></div>'
+        + '<div class="pv-abs pv-body" style="left:' + (bxPct - gw * 0.2) + "%;width:" + (bwPct + gw * 0.4) + "%;top:78.5%;font-size:" + px(t.barLabel || 36) + ";color:" + MU + ';text-align:center;white-space:nowrap;overflow:hidden">' + _esc(labels[bi] || "") + "</div>"
+        + '<div class="pv-abs pv-bold" style="left:' + (bxPct - gw * 0.2) + "%;width:" + (bwPct + gw * 0.4) + "%;top:" + (76 - bhPct - 4.5) + "%;font-size:" + px(t.barValue || 40) + ";color:" + TX + ';text-align:center">' + _esc(String(vals[bi]) + (ch.unit || "")) + "</div>";
+    }
+  } else if (s.layout === "quote") {
+    inner = '<div class="pv-abs pv-quote" style="left:12%;top:24%;font-size:' + px((t.quote || 64) * 2.2) + ";color:" + AC + ';line-height:1">“</div>'
+      + '<div class="pv-abs pv-quote" style="left:19%;width:62%;top:32%;font-size:' + px(t.quote || 64) + ";color:" + TX + ';text-align:center;line-height:1.5">' + _esc(s.quote_text || "") + "</div>"
+      + '<div class="pv-abs pv-quote" style="right:12%;top:58%;font-size:' + px((t.quote || 64) * 2.2) + ";color:" + AC + ';line-height:1">”</div>'
+      + '<div class="pv-abs pv-quote" style="left:19%;width:62%;top:72%;font-size:' + px(t.quoteWho || 40) + ";color:" + MU + ';text-align:right">— ' + _esc(s.quote_who || "") + "</div>";
+  } else {
+    return '<div class="layout-badge">' + _esc(s.layout) + "</div>";
+  }
+  return '<div class="pv" style="background:' + BG + '">' + inner + subEl + "</div>";
+}
+
 function loadSheet() {
   if (!SELECTED_PROJECT) { $("sheet").textContent = "프로젝트를 먼저 선택하세요."; return; }
   $("sheet").textContent = "불러오는 중...";
-  fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+  _loadTokens().then(function () {
+  return fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
     .then(function (r) { return r.json(); })
     .then(function (j) {
       var dir = j.dir || "", list = j.scenes || [];
@@ -97,17 +172,14 @@ function loadSheet() {
       });
       // 레이아웃 후 나레이션 높이 재계산(탭 표시 직후 scrollHeight=0 방지)
       if (window.requestAnimationFrame) requestAnimationFrame(_autosizeAll); else _autosizeAll();
-    })
+    });
+  })
     .catch(function (e) { $("sheet").textContent = "오류: " + e; });
 }
 
 function renderRow(s, dir) {
   var n = s.sceneNumber;
-  var media = s._image
-    ? '<img class="main" src="file://' + dir + '/' + s._image + '">'
-    : (s.layout && s.layout !== "cinematic"
-       ? '<div class="layout-badge">' + _esc(s.layout) + '</div>'
-       : '<div style="color:#666;font-size:11px">(없음)</div>');
+  var media = _previewHTML(s, dir);   // 컴프 결과 미리보기(배경+레이아웃+자막)
   var layers = (s._layers || []).map(function (lp) {
     return '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp)
       + ' — 클릭하면 씬 위에 위치 확인(빨간 윤곽선)">';

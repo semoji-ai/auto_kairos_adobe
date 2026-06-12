@@ -51,6 +51,17 @@
     .sheet-row .col-img { position:relative; }
     .sheet-row .col-img img.main { width:100%; border-radius:4px; display:block; }
     .sheet-row .col-img .lyr { width:32px; height:auto; margin:3px 3px 0 0; border-radius:3px; }
+    /* 컴프 미리보기 — 16:9 고정, jsx renderLayout 축소 미러 + 자막 오버레이 */
+    .pv { position:relative; width:100%; aspect-ratio:16/9; border-radius:4px; overflow:hidden; }
+    .pv img.main { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:0; }
+    .pv-abs { position:absolute; }
+    .pv-subtitle { position:absolute; left:5%; width:90%; bottom:5%; text-align:center; color:#fff;
+      font-family:'SB AggroOTF','OTSBAggroM',sans-serif;
+      text-shadow:0 0 3px #000, 0 1px 2px #000; pointer-events:none; }
+    .pv-headline, .pv-number { font-family:'Cafe24 Ssurround','Cafe24Ssurround','Cafe24 Ssurround Bold',sans-serif; }
+    .pv-body { font-family:'SB AggroOTF','OTSBAggroM',sans-serif; font-weight:500; }
+    .pv-bold { font-family:'SB AggroOTF','OTSBAggroB',sans-serif; font-weight:700; }
+    .pv-quote { font-family:'Gyeonggi Millennium Batang','GyeonggiBatangR',serif; }
     .col-img .layout-badge { padding:24px 8px; text-align:center; background:#2c2f36;
       border:1px dashed #4A90D9; border-radius:6px; color:#7ab0ff; font-size:12px; }
     .sheet-row .unlink-img { display:none; position:absolute; top:2px; right:2px;

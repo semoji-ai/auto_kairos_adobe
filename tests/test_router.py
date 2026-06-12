@@ -909,3 +909,12 @@ def test_subtitles_build_404():
     code, body = handle_request("POST", "/api/subtitles/build", {},
                                 {"project_id": "no_such"}, _ctx())
     assert code == 404
+
+
+def test_tokens_endpoint(tmp_path):
+    """GET /api/tokens — 디자인 토큰(시트 미리보기용) 반환."""
+    from backend import router
+    st, res = router.handle_request("GET", "/api/tokens", {}, None, {"root": tmp_path})
+    assert st == 200
+    assert res.get("fonts", {}).get("body") == "OTSBAggroM"
+    assert "colors" in res and "type" in res

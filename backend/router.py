@@ -1,6 +1,7 @@
 """순수 라우팅 — (method, path, query, body, ctx) -> (status, dict). 소켓 의존 없음."""
 from __future__ import annotations
 
+import json
 import shutil
 import uuid
 from pathlib import Path
@@ -144,6 +145,13 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 200, {"images": []}
         names = sorted(f.name for f in cd.glob("*.png"))
         return 200, {"images": names, "dir": str(cd)}
+
+    if method == "GET" and p == "/api/tokens":          # 디자인 토큰 — 시트 미리보기가 사용
+        tp = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
+        try:
+            return 200, json.loads(tp.read_text(encoding="utf-8"))
+        except Exception:
+            return 200, {}
 
     if method == "GET" and p == "/api/scenes":
         pid = query.get("project_id", "")
