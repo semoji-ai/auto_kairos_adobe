@@ -105,7 +105,9 @@ function renderRow(s, dir) {
   var n = s.sceneNumber;
   var media = s._image
     ? '<img class="main" src="file://' + dir + '/' + s._image + '">'
-    : '<div style="color:#666;font-size:11px">(없음)</div>';
+    : (s.layout && s.layout !== "cinematic"
+       ? '<div class="layout-badge">' + _esc(s.layout) + '</div>'
+       : '<div style="color:#666;font-size:11px">(없음)</div>');
   var layers = (s._layers || []).map(function (lp) {
     return '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp)
       + ' — 클릭하면 씬 위에 위치 확인(빨간 윤곽선)">';

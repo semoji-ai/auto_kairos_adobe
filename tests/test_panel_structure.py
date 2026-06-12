@@ -412,3 +412,10 @@ def test_build_scene_jsx_layout_renderers():
     assert "ae_tokens" in jsx                              # 토큰 로드
     assert 's.layout !== "cinematic"' in jsx               # 씬 루프 분기
     assert "Anchor Point" in jsx                           # 막대 하단 고정 성장
+
+
+def test_storyboard_layout_badge():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "layout-badge" in js and 's.layout !== "cinematic"' in js
+    html = (PANEL / "index.html").read_text(encoding="utf-8")
+    assert ".layout-badge" in html
