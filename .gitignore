@@ -46,3 +46,5 @@ projects/*/.layer_analysis.json
 projects/*/.assistant_session.json
 projects/*/vault/
 projects/*/.vault_distill.md
+projects/*/subtitles.json
+projects/*/subtitles.srt
