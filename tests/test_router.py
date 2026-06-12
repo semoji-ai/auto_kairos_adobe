@@ -945,11 +945,11 @@ def test_map_image_save(tmp_path):
 
 
 def test_tokens_has_map_theme():
-    """ae_tokens.map.defaultTheme — v3 semoji와 동일(warm_earth)."""
+    """ae_tokens.map.defaultTheme — 모던 클린(사용자 선택)."""
     from backend import router
     from pathlib import Path
     st, res = router.handle_request("GET", "/api/tokens", {}, None, {"root": Path(".")})
-    assert res.get("map", {}).get("defaultTheme") == "warm_earth"
+    assert res.get("map", {}).get("defaultTheme") == "clean_white"
 
 
 def test_map_image_save_with_geo(tmp_path):

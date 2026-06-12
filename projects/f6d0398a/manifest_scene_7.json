@@ -7,7 +7,7 @@
       "ae_comp_name": "S07_d435d7d3",
       "width": 1920,
       "height": 1080,
-      "image": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/storyboard/map_d435d7d3_4841d6.png",
+      "image": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/storyboard/map_d435d7d3_cf88f1.png",
       "layers": [],
       "audio": null,
       "subtitle": "수면 과학의 흐름은 세계 곳곳의 연구소를 따라 이어졌습니다. 시카고에서 렘수면이 발견됐고, 스탠퍼드에서 수면 클리닉이 시작됐으며, 취리히에서 수면 압력 모델이 완성됐죠.",
@@ -21,40 +21,39 @@
         "markers": [
           {
             "name": "시카고",
-            "x": 602,
-            "y": 531
+            "x": 781,
+            "y": 536
           },
           {
             "name": "스탠퍼드",
-            "x": 343,
-            "y": 575
+            "x": 652,
+            "y": 557
           },
           {
             "name": "취리히",
-            "x": 1324,
-            "y": 473
+            "x": 1142,
+            "y": 507
           }
         ],
         "route": [
           [
-            343,
-            575
+            652,
+            557
           ],
           [
-            602,
-            531
+            781,
+            536
           ],
           [
-            1324,
-            473
+            1142,
+            507
           ]
         ],
         "labelRgb": [
           26,
           26,
           26
-        ],
-        "warning": "캔버스가 비어 보임 — 결과 확인 필요"
+        ]
       }
     }
   ],
