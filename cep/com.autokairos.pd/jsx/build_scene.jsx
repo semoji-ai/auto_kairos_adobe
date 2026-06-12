@@ -3,6 +3,83 @@
 // JSON 파싱: json2.jsx 폴리필(JSON.parse) 우선, 없으면 eval 폴백.
 
 function akBuildScene(manifestPath) {
+    // 디자인 토큰(semoji) — manifest.ae_tokens 로드 실패 시 내장 기본값
+    var TK = { colors: { bgRgb: [35, 38, 43], textRgb: [232, 234, 237], mutedRgb: [154, 160, 166], accentRgb: [74, 144, 217] },
+               fonts: { headline: "", body: "", number: "" },
+               type: { headline: 110, sub: 48, item: 52, metric: 220, metricLabel: 54, quote: 64, quoteWho: 40, barLabel: 36, barValue: 40 } };
+
+    // 배경 솔리드 + 텍스트/셰이프 빌더 — 레이아웃 씬(JSON→결정적 렌더)
+    function addBgSolid(comp, W, H, rgb) {
+        return comp.layers.addSolid([rgb[0] / 255, rgb[1] / 255, rgb[2] / 255], "bg", W, H, 1.0);
+    }
+    function addTextL(comp, str, opts) {   // opts: {x,y,size,rgb,font,just,track}
+        var tl = comp.layers.addText(String(str));
+        var td = tl.property("Source Text").value;
+        td.fontSize = opts.size; td.fillColor = [opts.rgb[0] / 255, opts.rgb[1] / 255, opts.rgb[2] / 255];
+        try { if (opts.font) td.font = opts.font; } catch (e) { }
+        try { td.justification = opts.just || ParagraphJustification.CENTER_JUSTIFY; } catch (e) { }
+        try { if (opts.track) td.tracking = opts.track; } catch (e) { }
+        tl.property("Source Text").setValue(td);
+        tl.property("Position").setValue([opts.x, opts.y]);
+        return tl;
+    }
+    function addRectL(comp, name, x, y, w, h, rgb) {   // 좌상단 기준 사각형 셰이프
+        var sl = comp.layers.addShape(); sl.name = name;
+        var grp = sl.property("Contents").addProperty("ADBE Vector Group");
+        var rect = grp.property("Contents").addProperty("ADBE Vector Shape - Rect");
+        rect.property("Size").setValue([w, h]);
+        var fill = grp.property("Contents").addProperty("ADBE Vector Graphic - Fill");
+        fill.property("Color").setValue([rgb[0] / 255, rgb[1] / 255, rgb[2] / 255]);
+        sl.property("Position").setValue([x + w / 2, y + h / 2]);
+        return sl;
+    }
+    // 레이아웃 5종 결정적 렌더 — 막대 성장·아이템 순차 등장 포함
+    function renderLayout(comp, s, W, H) {
+        var c = TK.colors, t = TK.type;
+        addBgSolid(comp, W, H, c.bgRgb);
+        if (s.layout === "headline_only") {
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.5, size: t.headline, rgb: c.textRgb, font: TK.fonts.headline });
+            if (s.sub) addTextL(comp, s.sub, { x: W / 2, y: H * 0.62, size: t.sub, rgb: c.mutedRgb, font: TK.fonts.body });
+        } else if (s.layout === "items_list") {
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.18, size: t.sub * 1.4, rgb: c.textRgb, font: TK.fonts.headline });
+            var items = s.items || [], y0 = H * 0.34, gap = Math.min(110, (H * 0.55) / Math.max(1, items.length));
+            for (var ii = 0; ii < items.length; ii++) {
+                var bl = addRectL(comp, "bullet" + ii, W * 0.16, y0 + ii * gap - 14, 14, 42, c.accentRgb);
+                var il2 = addTextL(comp, items[ii], { x: W * 0.2, y: y0 + ii * gap + t.item * 0.35, size: t.item, rgb: c.textRgb, font: TK.fonts.body, just: ParagraphJustification.LEFT_JUSTIFY });
+                var op = il2.property("Opacity");                     // 순차 등장
+                op.setValueAtTime(0.2 + ii * 0.35, 0); op.setValueAtTime(0.5 + ii * 0.35, 100);
+                var opb = bl.property("Opacity");
+                opb.setValueAtTime(0.2 + ii * 0.35, 0); opb.setValueAtTime(0.5 + ii * 0.35, 100);
+            }
+        } else if (s.layout === "metric_spotlight") {
+            addTextL(comp, s.value || "", { x: W / 2, y: H * 0.48, size: t.metric, rgb: c.accentRgb, font: TK.fonts.number });
+            addTextL(comp, s.label || "", { x: W / 2, y: H * 0.66, size: t.metricLabel, rgb: c.textRgb, font: TK.fonts.body });
+        } else if (s.layout === "bar") {
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.14, size: t.sub * 1.3, rgb: c.textRgb, font: TK.fonts.headline });
+            var ch2 = s.chart || {}, labels = ch2.labels || [], vals = ch2.values || [];
+            var n = Math.max(1, vals.length), maxV = 0;
+            for (var vi = 0; vi < vals.length; vi++) if (vals[vi] > maxV) maxV = vals[vi];
+            var areaW = W * 0.7, baseY = H * 0.78, maxH = H * 0.45;
+            var bw = Math.min(140, areaW / n * 0.55), gap2 = areaW / n;
+            for (var bi = 0; bi < n; bi++) {
+                var bh = maxV ? (vals[bi] / maxV) * maxH : 0;
+                var bx = W * 0.15 + gap2 * bi + (gap2 - bw) / 2;
+                var bar = addRectL(comp, "bar" + bi, bx, baseY - bh, bw, bh, c.accentRgb);
+                // 하단 고정 성장: 사각형은 레이어 좌표 (-bw/2..bw/2, -bh/2..bh/2)에 그려짐
+                // → 하단 중앙 [0, bh/2]를 앵커로, 그 점을 컴프의 [bx+bw/2, baseY]에 고정
+                bar.property("Anchor Point").setValue([0, bh / 2]);
+                bar.property("Position").setValue([bx + bw / 2, baseY]);
+                var sc2 = bar.property("Scale");                       // 자라나는 막대
+                sc2.setValueAtTime(0.2 + bi * 0.15, [100, 0]); sc2.setValueAtTime(0.7 + bi * 0.15, [100, 100]);
+                addTextL(comp, labels[bi] || "", { x: bx + bw / 2, y: baseY + 50, size: t.barLabel, rgb: c.mutedRgb, font: TK.fonts.body });
+                addTextL(comp, String(vals[bi]) + (ch2.unit || ""), { x: bx + bw / 2, y: baseY - bh - 24, size: t.barValue, rgb: c.textRgb, font: TK.fonts.body });
+            }
+        } else if (s.layout === "quote") {
+            addTextL(comp, "“", { x: W * 0.2, y: H * 0.3, size: t.headline * 1.6, rgb: c.accentRgb, font: TK.fonts.headline });
+            addTextL(comp, s.quote_text || "", { x: W / 2, y: H * 0.5, size: t.quote, rgb: c.textRgb, font: TK.fonts.headline });
+            addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2, y: H * 0.68, size: t.quoteWho, rgb: c.mutedRgb, font: TK.fonts.body });
+        }
+    }
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
     // 자동 효과(페이드 등)는 넣지 않는다 — 모든 모션은 모션 플랜(applyMoves)에서만(규칙 기반).
     function addLayerObj(proj, comp, layer, W, H) {
@@ -135,6 +212,20 @@ function akBuildScene(manifestPath) {
         mf.open("r"); var raw = mf.read(); mf.close();
         var m = (typeof JSON === "object" && JSON.parse) ? JSON.parse(raw) : eval("(" + raw + ")");
 
+        // ae_tokens 로드(있으면 기본 토큰 덮어쓰기) — 실패해도 내장 기본값으로 진행
+        try {
+            if (m.ae_tokens) {
+                var tf = new File(m.ae_tokens);
+                if (tf.exists) {
+                    tf.open("r"); var tr = tf.read(); tf.close();
+                    var tj = (typeof JSON === "object" && JSON.parse) ? JSON.parse(tr) : eval("(" + tr + ")");
+                    if (tj.colors) TK.colors = tj.colors;
+                    if (tj.fonts) TK.fonts = tj.fonts;
+                    if (tj.type) TK.type = tj.type;
+                }
+            }
+        } catch (eTk) { }
+
         var W = m.width || 1920, H = m.height || 1080, FPS = m.fps || 30;
         var scenes = m.scenes || [];
         if (!scenes.length) { return "ERROR: scenes 비어있음"; }
@@ -151,8 +242,14 @@ function akBuildScene(manifestPath) {
             var cw = s.width || W, ch = s.height || H;
             var comp = proj.items.addComp(name, cw, ch, 1.0, dur, FPS);
 
+            // 레이아웃 씬(비이미지) — 셰이프/텍스트 결정적 렌더. 실패해도 빌드 지속.
+            var isLayoutScene = s.layout && s.layout !== "cinematic";
+            if (isLayoutScene) {
+                try { renderLayout(comp, s, cw, ch); }
+                catch (eL) { log.push(name + ": 레이아웃 렌더 실패 " + eL.toString()); }
+            }
             // 레이어 스택(있으면) — 배열 앞이 먼저 추가되어 최하단(배경). 없으면 단일 이미지.
-            if (s.layers && s.layers.length) {
+            else if (s.layers && s.layers.length) {
                 for (var li = 0; li < s.layers.length; li++) {
                     var ok = addLayerObj(proj, comp, s.layers[li], cw, ch);
                     if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);

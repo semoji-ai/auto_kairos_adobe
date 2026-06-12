@@ -401,3 +401,14 @@ def test_sse_push_wired():
     for f in ["storyboard.js", "assistant.js", "planning.js"]:
         js = (PANEL / "js" / f).read_text(encoding="utf-8")
         assert "_awaitJob(j.job_id" in js, f
+
+
+def test_build_scene_jsx_layout_renderers():
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "function renderLayout" in jsx
+    assert "function addBgSolid" in jsx and "function addTextL" in jsx and "function addRectL" in jsx
+    for l in ("headline_only", "items_list", "metric_spotlight", '"bar"', '"quote"'):
+        assert l in jsx, l
+    assert "ae_tokens" in jsx                              # 토큰 로드
+    assert 's.layout !== "cinematic"' in jsx               # 씬 루프 분기
+    assert "Anchor Point" in jsx                           # 막대 하단 고정 성장
