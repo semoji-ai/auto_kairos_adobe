@@ -610,3 +610,65 @@ def test_gen_semaphore_limits_concurrency(tmp_path, monkeypatch):
           for o in outs]
     [t.start() for t in ts]; [t.join() for t in ts]
     assert state["peak"] <= 2                              # 상한 준수
+
+
+def test_aspect_mismatch_detection(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    p = tmp_path / "a.png"
+    Image.new("RGBA", (1024, 1536)).save(p)               # 세로형
+    assert ig._aspect_mismatch(p, (1536, 1024)) is True
+    Image.new("RGBA", (1530, 1020)).save(p)               # 같은 비율, 약간 작음
+    assert ig._aspect_mismatch(p, (1536, 1024)) is False
+
+
+def test_split_aspect_mismatch_triggers_retry_not_stretch(tmp_path, monkeypatch):
+    """비율 다른 출력은 늘리지 않고(찌그러짐 방지) QC 재시도로 보냄."""
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (1536, 1024)).save(scene)
+    sizes = iter([(1024, 1536), (1536, 1024)])            # 1차 세로형(불량) → 재시도 정상
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", next(sizes, (1536, 1024))).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
+    res = ig.split_scene_to_elements(proj, str(scene), "ar1",
+                                     [{"name": "차", "location": "좌", "kind": "object"}], concurrency=1)
+    el = res["layers"][0]
+    assert el["qc"] == "retried_ok"                       # 재시도로 회복
+    assert Image.open(proj / el["rel"]).size == (1536, 1024)
+
+
+def test_bg_retries_once_on_failure(tmp_path, monkeypatch):
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+    calls = {"el": 0, "bg": 0}
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        if "__bg" in out.name:
+            calls["bg"] += 1
+            if calls["bg"] == 1:
+                return {"status": "failed", "error": "rate_limit"}     # 1차 실패
+        else:
+            calls["el"] += 1
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
+    res = ig.split_scene_to_elements(proj, str(scene), "bgr",
+                                     [{"name": "차", "location": "좌", "kind": "object"}], concurrency=1)
+    bg = res["layers"][-1]
+    assert calls["bg"] == 2 and bg["status"] == "completed"           # 재시도로 생성

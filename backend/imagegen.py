@@ -259,6 +259,17 @@ def position_score(layer_png: Path, scene_image) -> float | None:
         return None
 
 
+def _aspect_mismatch(png_path: Path, target_size: tuple, tol: float = 0.03) -> bool:
+    """가로세로 비율이 목표와 3% 이상 다르면 True — 이 경우 리사이즈는 찌그러짐을 만든다."""
+    try:
+        with Image.open(png_path) as im:
+            a = im.width / im.height
+        t = target_size[0] / target_size[1]
+        return abs(a - t) / t > tol
+    except Exception:
+        return False
+
+
 def normalize_layer_size(png_path: Path, target_size: tuple) -> bool:
     """레이어 크기를 씬 크기로 강제(codex image_gen이 가끔 다른 크기로 출력 — 예: 1672×941).
     리사이즈했으면 True. 크기가 다르면 풀프레임 겹침이 어긋나므로 생성 직후 호출."""
@@ -341,8 +352,11 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
         pos = None
         if res.get("status") == "completed":
+            if scene_size and _aspect_mismatch(out, scene_size):
+                # 비율 자체가 다르면 늘리면 찌그러짐 → 리사이즈하지 않고 QC 불합격(pos=0)으로 재시도 유도
+                return res, ratio_box.get("transparent_ratio"), 0.0
             if scene_size:
-                normalize_layer_size(out, scene_size)   # 크기 변칙 가드
+                normalize_layer_size(out, scene_size)   # 같은 비율의 크기 변칙만 보정
             pos = position_score(out, scene_image)      # 원위치 충실도
         return res, ratio_box.get("transparent_ratio"), pos
 
@@ -399,16 +413,22 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
 
     def _bg():
         names = ", ".join(e.get("name", "") for e in elements)
-        out = versioned_path(out_base, f"{sid}__bg.png")
-        rel = out.relative_to(proj_dir).as_posix()
-        prompt = (f"{style}\n\n## 레이어 분리 — 배경\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-                  f"다음 요소들과 '그 위에 얹혀 있거나 붙어 있는 것'까지 함께 제거한다: {names}.\n"
-                  f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
-                  f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
-                  f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
-        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
-        if res.get("status") == "completed" and scene_size:
-            normalize_layer_size(out, scene_size)       # 배경도 동일 크기 보장
+        res, out, rel = None, None, None
+        for bg_try in range(2):                          # 배경은 필수 — 실패 시 1회 재시도
+            out = versioned_path(out_base, f"{sid}__bg.png")
+            rel = out.relative_to(proj_dir).as_posix()
+            prompt = (f"{style}\n\n## 레이어 분리 — 배경\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
+                      f"다음 요소들과 '그 위에 얹혀 있거나 붙어 있는 것'까지 함께 제거한다: {names}.\n"
+                      f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
+                      f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
+                      f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
+            res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
+            if res.get("status") == "completed":
+                if scene_size:
+                    normalize_layer_size(out, scene_size)   # 배경도 동일 크기 보장
+                break
+            if on_event:
+                on_event({"name": "배경", "status": "재시도", "try": bg_try + 1})
         r = {"name": "배경", "rel": rel, "status": res.get("status")}
         if on_event:
             on_event(r)
