@@ -448,3 +448,16 @@ def test_subtitles_button_wired():
     assert "function buildSubtitles" in main and "/api/subtitles/build" in main
     assert "subtitle_layers.jsx" in main and "akBuildSubtitles" in main
     assert '$("btnSubtitles").addEventListener' in main
+
+
+def test_jsx_typography_upgrade():
+    """폰트 폴백 체인·줄바꿈 박스·해상도 스케일 적용."""
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "addBoxText" in jsx                            # 자동 줄바꿈
+    assert "td.font === chain[fi]" in jsx                 # 폰트 적용 검증(폴백 체인)
+    assert "var S = W / 1920" in jsx                      # 1080p 기준 해상도 배율
+    assert "leading" in jsx
+    import json
+    tk = json.loads((PANEL.parents[1] / "data" / "artstyle" / "ae_tokens.json").read_text(encoding="utf-8"))
+    assert tk["fonts"]["body"] == "OTSBAggroM"            # 실제 PostScript 이름
+    assert tk["fonts"]["headline"] == "Cafe24Ssurround"

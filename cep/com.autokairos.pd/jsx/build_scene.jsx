@@ -5,21 +5,39 @@
 function akBuildScene(manifestPath) {
     // 디자인 토큰(semoji) — manifest.ae_tokens 로드 실패 시 내장 기본값
     var TK = { colors: { bgRgb: [35, 38, 43], textRgb: [232, 234, 237], mutedRgb: [154, 160, 166], accentRgb: [74, 144, 217] },
-               fonts: { headline: "", body: "", number: "" },
+               fonts: { headline: "", body: "", number: "", fallback: "AppleSDGothicNeo-Bold" },
                type: { headline: 110, sub: 48, item: 52, metric: 220, metricLabel: 54, quote: 64, quoteWho: 40, barLabel: 36, barValue: 40 } };
 
     // 배경 솔리드 + 텍스트/셰이프 빌더 — 레이아웃 씬(JSON→결정적 렌더)
     function addBgSolid(comp, W, H, rgb) {
         return comp.layers.addSolid([rgb[0] / 255, rgb[1] / 255, rgb[2] / 255], "bg", W, H, 1.0);
     }
-    function addTextL(comp, str, opts) {   // opts: {x,y,size,rgb,font,just,track}
-        var tl = comp.layers.addText(String(str));
+    // 텍스트 레이어 — opts: {x,y,size,rgb,font,just,track,box:[w,h],leading}
+    // box 지정 시 박스 텍스트(자동 줄바꿈, x/y=박스 중심). 폰트는 폴백 체인 + 적용 검증.
+    function addTextL(comp, str, opts) {
+        var tl = opts.box
+            ? comp.layers.addBoxText([opts.box[0], opts.box[1]], String(str))
+            : comp.layers.addText(String(str));
         var td = tl.property("Source Text").value;
-        td.fontSize = opts.size; td.fillColor = [opts.rgb[0] / 255, opts.rgb[1] / 255, opts.rgb[2] / 255];
-        try { if (opts.font) td.font = opts.font; } catch (e) { }
+        td.fontSize = opts.size;
+        td.fillColor = [opts.rgb[0] / 255, opts.rgb[1] / 255, opts.rgb[2] / 255];
+        var chain = [opts.font, TK.fonts.fallback, "AppleSDGothicNeo-Bold"];
+        for (var fi = 0; fi < chain.length; fi++) {
+            if (!chain[fi]) continue;
+            try {
+                td.font = chain[fi];
+                tl.property("Source Text").setValue(td);
+                td = tl.property("Source Text").value;
+                if (td.font === chain[fi]) break;        // 실제 적용됐는지 되읽어 확인
+            } catch (e) { }
+        }
         try { td.justification = opts.just || ParagraphJustification.CENTER_JUSTIFY; } catch (e) { }
         try { if (opts.track) td.tracking = opts.track; } catch (e) { }
+        try { if (opts.leading) { td.autoLeading = false; td.leading = opts.size * opts.leading; } } catch (e) { }
         tl.property("Source Text").setValue(td);
+        if (opts.box) {
+            try { tl.property("Anchor Point").setValue([opts.box[0] / 2, opts.box[1] / 2]); } catch (e) { }
+        }
         tl.property("Position").setValue([opts.x, opts.y]);
         return tl;
     }
@@ -33,51 +51,68 @@ function akBuildScene(manifestPath) {
         sl.property("Position").setValue([x + w / 2, y + h / 2]);
         return sl;
     }
-    // 레이아웃 5종 결정적 렌더 — 막대 성장·아이템 순차 등장 포함
+    // 레이아웃 5종 결정적 렌더 — 1080p 기준 토큰을 S=W/1920 배율로 스케일(4K/720p 대응).
+    // 긴 텍스트는 박스 텍스트(자동 줄바꿈 + 행간 1.25). 세로 폼은 별도 템플릿 필요(추후).
     function renderLayout(comp, s, W, H) {
         var c = TK.colors, t = TK.type;
+        var S = W / 1920;                                  // 해상도 배율(1080p=1)
         addBgSolid(comp, W, H, c.bgRgb);
         if (s.layout === "headline_only") {
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.5, size: t.headline, rgb: c.textRgb, font: TK.fonts.headline });
-            if (s.sub) addTextL(comp, s.sub, { x: W / 2, y: H * 0.62, size: t.sub, rgb: c.mutedRgb, font: TK.fonts.body });
+            // 액센트 바(타이틀 위 포인트) + 줄바꿈 박스 헤드라인 + 서브
+            addRectL(comp, "accent", W / 2 - 60 * S, H * 0.30, 120 * S, 10 * S, c.accentRgb);
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.47, size: t.headline * S, rgb: c.textRgb,
+                                               font: TK.fonts.headline, box: [W * 0.84, H * 0.34], leading: 1.25 });
+            if (s.sub) addTextL(comp, s.sub, { x: W / 2, y: H * 0.67, size: t.sub * S, rgb: c.mutedRgb,
+                                               font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
         } else if (s.layout === "items_list") {
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.18, size: t.sub * 1.4, rgb: c.textRgb, font: TK.fonts.headline });
-            var items = s.items || [], y0 = H * 0.34, gap = Math.min(110, (H * 0.55) / Math.max(1, items.length));
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.16, size: t.sub * 1.5 * S, rgb: c.textRgb, font: TK.fonts.headline });
+            addRectL(comp, "rule", W * 0.16, H * 0.235, W * 0.68, 3 * S, c.accentRgb);   // 제목 밑줄
+            var items = s.items || [];
+            var y0 = H * 0.33, gap = Math.min(130 * S, (H * 0.58) / Math.max(1, items.length));
             for (var ii = 0; ii < items.length; ii++) {
-                var bl = addRectL(comp, "bullet" + ii, W * 0.16, y0 + ii * gap - 14, 14, 42, c.accentRgb);
-                var il2 = addTextL(comp, items[ii], { x: W * 0.2, y: y0 + ii * gap + t.item * 0.35, size: t.item, rgb: c.textRgb, font: TK.fonts.body, just: ParagraphJustification.LEFT_JUSTIFY });
+                var by = y0 + ii * gap;
+                var bl = addRectL(comp, "bullet" + ii, W * 0.16, by - 21 * S, 12 * S, 42 * S, c.accentRgb);
+                var boxW = W * 0.62;
+                var il2 = addTextL(comp, items[ii], { x: W * 0.2 + boxW / 2, y: by, size: t.item * S, rgb: c.textRgb,
+                                                      font: TK.fonts.body, just: ParagraphJustification.LEFT_JUSTIFY,
+                                                      box: [boxW, gap * 0.9], leading: 1.2 });
                 var op = il2.property("Opacity");                     // 순차 등장
                 op.setValueAtTime(0.2 + ii * 0.35, 0); op.setValueAtTime(0.5 + ii * 0.35, 100);
                 var opb = bl.property("Opacity");
                 opb.setValueAtTime(0.2 + ii * 0.35, 0); opb.setValueAtTime(0.5 + ii * 0.35, 100);
             }
         } else if (s.layout === "metric_spotlight") {
-            addTextL(comp, s.value || "", { x: W / 2, y: H * 0.48, size: t.metric, rgb: c.accentRgb, font: TK.fonts.number });
-            addTextL(comp, s.label || "", { x: W / 2, y: H * 0.66, size: t.metricLabel, rgb: c.textRgb, font: TK.fonts.body });
+            addTextL(comp, s.value || "", { x: W / 2, y: H * 0.46, size: t.metric * S, rgb: c.accentRgb, font: TK.fonts.number });
+            addRectL(comp, "rule", W / 2 - 110 * S, H * 0.585, 220 * S, 5 * S, c.accentRgb);
+            addTextL(comp, s.label || "", { x: W / 2, y: H * 0.68, size: t.metricLabel * S, rgb: c.textRgb,
+                                            font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
         } else if (s.layout === "bar") {
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.14, size: t.sub * 1.3, rgb: c.textRgb, font: TK.fonts.headline });
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.13, size: t.sub * 1.4 * S, rgb: c.textRgb, font: TK.fonts.headline });
             var ch2 = s.chart || {}, labels = ch2.labels || [], vals = ch2.values || [];
             var n = Math.max(1, vals.length), maxV = 0;
             for (var vi = 0; vi < vals.length; vi++) if (vals[vi] > maxV) maxV = vals[vi];
-            var areaW = W * 0.7, baseY = H * 0.78, maxH = H * 0.45;
-            var bw = Math.min(140, areaW / n * 0.55), gap2 = areaW / n;
+            var areaW = W * 0.7, baseY = H * 0.76, maxH = H * 0.42;
+            var bw = Math.min(150 * S, areaW / n * 0.55), gap2 = areaW / n;
+            addRectL(comp, "axis", W * 0.13, baseY, W * 0.74, 3 * S, c.mutedRgb);        // 기준선
             for (var bi = 0; bi < n; bi++) {
                 var bh = maxV ? (vals[bi] / maxV) * maxH : 0;
                 var bx = W * 0.15 + gap2 * bi + (gap2 - bw) / 2;
                 var bar = addRectL(comp, "bar" + bi, bx, baseY - bh, bw, bh, c.accentRgb);
-                // 하단 고정 성장: 사각형은 레이어 좌표 (-bw/2..bw/2, -bh/2..bh/2)에 그려짐
-                // → 하단 중앙 [0, bh/2]를 앵커로, 그 점을 컴프의 [bx+bw/2, baseY]에 고정
+                // 하단 고정 성장: 하단 중앙 [0, bh/2] 앵커 → 컴프 [bx+bw/2, baseY] 고정
                 bar.property("Anchor Point").setValue([0, bh / 2]);
                 bar.property("Position").setValue([bx + bw / 2, baseY]);
-                var sc2 = bar.property("Scale");                       // 자라나는 막대
+                var sc2 = bar.property("Scale");
                 sc2.setValueAtTime(0.2 + bi * 0.15, [100, 0]); sc2.setValueAtTime(0.7 + bi * 0.15, [100, 100]);
-                addTextL(comp, labels[bi] || "", { x: bx + bw / 2, y: baseY + 50, size: t.barLabel, rgb: c.mutedRgb, font: TK.fonts.body });
-                addTextL(comp, String(vals[bi]) + (ch2.unit || ""), { x: bx + bw / 2, y: baseY - bh - 24, size: t.barValue, rgb: c.textRgb, font: TK.fonts.body });
+                addTextL(comp, labels[bi] || "", { x: bx + bw / 2, y: baseY + 56 * S, size: t.barLabel * S, rgb: c.mutedRgb, font: TK.fonts.body });
+                var vt = addTextL(comp, String(vals[bi]) + (ch2.unit || ""), { x: bx + bw / 2, y: baseY - bh - 28 * S, size: t.barValue * S, rgb: c.textRgb, font: TK.fonts.bold || TK.fonts.body });
+                var vop = vt.property("Opacity");                     // 수치는 막대 완성 후 표시
+                vop.setValueAtTime(0.55 + bi * 0.15, 0); vop.setValueAtTime(0.8 + bi * 0.15, 100);
             }
         } else if (s.layout === "quote") {
-            addTextL(comp, "“", { x: W * 0.2, y: H * 0.3, size: t.headline * 1.6, rgb: c.accentRgb, font: TK.fonts.headline });
-            addTextL(comp, s.quote_text || "", { x: W / 2, y: H * 0.5, size: t.quote, rgb: c.textRgb, font: TK.fonts.headline });
-            addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2, y: H * 0.68, size: t.quoteWho, rgb: c.mutedRgb, font: TK.fonts.body });
+            addTextL(comp, "“", { x: W * 0.17, y: H * 0.28, size: t.headline * 1.8 * S, rgb: c.accentRgb, font: TK.fonts.headline });
+            addTextL(comp, s.quote_text || "", { x: W / 2, y: H * 0.48, size: t.quote * S, rgb: c.textRgb,
+                                                 font: TK.fonts.headline, box: [W * 0.66, H * 0.34], leading: 1.35 });
+            addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2, y: H * 0.7, size: t.quoteWho * S, rgb: c.mutedRgb, font: TK.fonts.body });
         }
     }
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
