@@ -8,6 +8,31 @@ function akBuildScene(manifestPath) {
                fonts: { headline: "", body: "", number: "", fallback: "AppleSDGothicNeo-Bold" },
                type: { headline: 110, sub: 48, item: 52, metric: 220, metricLabel: 54, quote: 64, quoteWho: 40, barLabel: 36, barValue: 40 } };
 
+    // 폰트 해석 — AE 폰트 DB(app.fonts)에서 PS명 검증, 실패 시 패밀리 키워드 검색으로 보정.
+    // AE가 못 찾으면 경고 수집(빌드 결과 문자열에 노출) — 조용한 폴백 금지.
+    var FONT_WARN = [];
+    function resolveFontPS(ps, famKey, styleHint) {
+        try {
+            if (!(app.fonts && app.fonts.allFonts)) return ps;   // 구버전 AE — 검증 불가, 그대로
+            var groups = app.fonts.allFonts, i, j, f;
+            for (i = 0; i < groups.length; i++) for (j = 0; j < groups[i].length; j++) {
+                if (groups[i][j].postScriptName === ps) return ps;   // 설치 확인됨
+            }
+            if (famKey) {                                        // PS명 불일치 → 패밀리로 탐색
+                var best = null, key = String(famKey).toLowerCase();
+                for (i = 0; i < groups.length && !best; i++) for (j = 0; j < groups[i].length; j++) {
+                    f = groups[i][j];
+                    if (String(f.familyName).toLowerCase().indexOf(key) < 0) continue;
+                    if (!best) best = f;
+                    if (styleHint && String(f.styleName).toLowerCase().indexOf(String(styleHint).toLowerCase()) >= 0) { best = f; break; }
+                }
+                if (best) { FONT_WARN.push(ps + "→" + best.postScriptName); return best.postScriptName; }
+            }
+            FONT_WARN.push(ps + " 미설치(AE 재시작 필요)");
+        } catch (e) { }
+        return ps;
+    }
+
     // 배경 솔리드 + 텍스트/셰이프 빌더 — 레이아웃 씬(JSON→결정적 렌더)
     function addBgSolid(comp, W, H, rgb) {
         return comp.layers.addSolid([rgb[0] / 255, rgb[1] / 255, rgb[2] / 255], "bg", W, H, 1.0);
@@ -257,9 +282,20 @@ function akBuildScene(manifestPath) {
                     if (tj.colors) TK.colors = tj.colors;
                     if (tj.fonts) TK.fonts = tj.fonts;
                     if (tj.type) TK.type = tj.type;
+                    if (tj.families) TK.families = tj.families;
                 }
             }
         } catch (eTk) { }
+
+        // 폰트 PS명을 AE 폰트 DB 기준으로 검증/보정(패밀리 키워드 + 굵기 힌트)
+        try {
+            var FAM = TK.families || {};
+            var HINT = { body: "Medium", subtitle: "Medium", bold: "Bold" };
+            for (var fk in TK.fonts) {
+                if (fk === "fallback" || !TK.fonts[fk]) continue;
+                TK.fonts[fk] = resolveFontPS(TK.fonts[fk], FAM[fk], HINT[fk]);
+            }
+        } catch (eF) { }
 
         var W = m.width || 1920, H = m.height || 1080, FPS = m.fps || 30;
         var scenes = m.scenes || [];
@@ -318,7 +354,8 @@ function akBuildScene(manifestPath) {
         app.endUndoGroup();
 
         return "OK: 씬 컴프 " + comps.length + "개 + Final(" + totalDur + "s)" +
-               (log.length ? " | " + log.join(", ") : "");
+               (log.length ? " | " + log.join(", ") : "") +
+               (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "");
     } catch (e) {
         return "ERROR: " + e.toString();
     }

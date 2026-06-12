@@ -54,5 +54,12 @@
     "margin": 160,
     "maxTextW": 1600,
     "leading": 1.25
+  },
+  "families": {
+    "headline": "Ssurround",
+    "body": "Aggro",
+    "bold": "Aggro",
+    "number": "Ssurround",
+    "subtitle": "Aggro"
   }
 }
