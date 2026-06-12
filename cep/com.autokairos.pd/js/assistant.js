@@ -22,7 +22,7 @@ function sendChat() {
       if (j.status !== "running" || !j.job_id) { _chatAppend("실패: " + _esc(JSON.stringify(j))); return; }
       _chatAppend("🤖 실행 중…");
       var seenLogs = 0;
-      _pollJob(j.job_id, function (job) {
+      _awaitJob(j.job_id, function (job) {
         if (job.status !== "completed") { _chatAppend("실패: " + _esc(job.error || JSON.stringify(job))); return; }
         var out = job.result || {};
         if (out.reply) {                                 // 질문/상담 → 답변 모드

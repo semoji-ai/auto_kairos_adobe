@@ -72,7 +72,7 @@ function runPipeline() {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j.status !== "running" || !j.job_id) { $("pipelineStatus").textContent = "시작 실패: " + JSON.stringify(j); return; }
-      _pollJob(j.job_id, function (job) {
+      _awaitJob(j.job_id, function (job) {
         if (job.status === "completed") {
           $("pipelineStatus").textContent = "✅ 완료 — final_manuscript.md 생성. 스토리보드 탭에서 씬 분해를 진행하세요.";
           loadPlanningFiles();

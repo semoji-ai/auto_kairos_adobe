@@ -39,8 +39,35 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def do_GET(self):   self._route("GET")    # noqa: E704,N802
+    def do_GET(self):   # noqa: N802
+        if urlparse(self.path).path == "/api/events":
+            self._sse()
+            return
+        self._route("GET")
+
     def do_POST(self):  self._route("POST")   # noqa: E704,N802
+
+    def _sse(self) -> None:
+        """SSE 스트림 — 잡 로그/완료를 푸시(패널은 폴링 대신 이벤트 수신). 15s 핑으로 연결 유지."""
+        import queue as _q
+        q = CTX["jobs"].subscribe()
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            while True:
+                try:
+                    ev = q.get(timeout=15)
+                    self.wfile.write(("data: " + json.dumps(ev, ensure_ascii=False) + "\n\n").encode("utf-8"))
+                except _q.Empty:
+                    self.wfile.write(b": ping\n\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass                                # 패널 닫힘/재연결 — 정상 종료
+        finally:
+            CTX["jobs"].unsubscribe(q)
 
     def do_OPTIONS(self):  # noqa: N802
         self.send_response(204)

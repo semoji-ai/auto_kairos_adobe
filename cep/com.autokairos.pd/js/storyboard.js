@@ -506,7 +506,7 @@ function splitLayers(n, els) {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j.status !== "running" || !j.job_id) { _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
-      _pollJob(j.job_id, function (job) {
+      _awaitJob(j.job_id, function (job) {
         var res = (job.result && job.result.result) || {};
         var done = (res.layers || []).filter(function (l) { return l.status === "completed"; }).length;
         _rowStatus(n, done ? ("레이어 " + done + "개 생성 ✓") : ("실패: " + JSON.stringify(job.error || job)));

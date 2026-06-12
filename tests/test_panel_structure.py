@@ -249,11 +249,11 @@ def test_layer_select_modal():
 
 def test_poll_job_helper_and_async_callers():
     main = MAIN.read_text(encoding="utf-8")
-    assert "function _pollJob" in main and "/api/jobs/" in main
+    assert "function _pollJob" in main and "/api/jobs/" in main   # 폴백 유지
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "_pollJob" in js                      # splitLayers 폴링 전환
+    assert "_awaitJob" in js                     # splitLayers SSE 대기
     a = (PANEL / "js" / "assistant.js").read_text(encoding="utf-8")
-    assert "_pollJob" in a
+    assert "_awaitJob" in a
 
 
 def test_jsx_subtitle_uses_comp_size():
@@ -332,7 +332,7 @@ def test_pipeline_button_wired():
     html = HTML.read_text(encoding="utf-8")
     assert 'id="btnRunPipeline"' in html and 'id="pipelineStatus"' in html
     pl = (PANEL / "js" / "planning.js").read_text(encoding="utf-8")
-    assert "function runPipeline" in pl and "/api/pipeline/run" in pl and "_pollJob" in pl
+    assert "function runPipeline" in pl and "/api/pipeline/run" in pl and "_awaitJob" in pl
 
 
 def test_sheet_toolbar_and_checkboxes():
@@ -390,3 +390,14 @@ def test_jsx_no_auto_fade():
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
     assert "li === 0" not in jsx
     assert "function addLayerObj(proj, comp, layer, W, H)" in jsx   # fade 파라미터 제거
+
+
+def test_sse_push_wired():
+    main = MAIN.read_text(encoding="utf-8")
+    assert "EventSource" in main and "/api/events" in main
+    assert "function _awaitJob" in main and "function connectEvents" in main
+    assert "connectEvents();" in main                      # 연결 시 SSE 구독
+    # 호출부는 _awaitJob 사용(폴링은 폴백)
+    for f in ["storyboard.js", "assistant.js", "planning.js"]:
+        js = (PANEL / "js" / f).read_text(encoding="utf-8")
+        assert "_awaitJob(j.job_id" in js, f

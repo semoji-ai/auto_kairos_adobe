@@ -8,7 +8,55 @@ var PROJECTS_ROOT = "";   // /health 응답의 root — 머신 경로 하드코�
 
 function $(id) { return document.getElementById(id); }
 
-/* 잡 폴링 — 1.5s 간격, onLog(logs)/onDone(job). 기본 5분 한도(maxTries로 연장 가능). */
+/* ===== 잡 완료 통지 — SSE 푸시(기본) + 폴링(폴백) =====
+   백엔드 /api/events 가 잡 로그·완료를 밀어줌 → 한도 없음. SSE 불가 시에만 _pollJob. */
+var _SSE = null;
+var _JOB_WAITERS = {};   // {job_id: {onDone, onLog, logs[]}}
+
+function connectEvents() {
+  if (_SSE) return;
+  try {
+    _SSE = new EventSource(BACKEND + "/api/events");
+    _SSE.onmessage = function (e) {
+      var ev; try { ev = JSON.parse(e.data); } catch (_) { return; }
+      var w = _JOB_WAITERS[ev.job_id];
+      if (!w) return;
+      if (ev.type === "log") {
+        w.logs.push(ev.line);
+        if (w.onLog) w.onLog(w.logs);          // 폴링과 동일하게 누적 배열 전달
+      } else if (ev.type === "status" && ev.status !== "running") {
+        delete _JOB_WAITERS[ev.job_id];
+        fetch(BACKEND + "/api/jobs/" + ev.job_id)
+          .then(function (r) { return r.json(); })
+          .then(w.onDone)
+          .catch(function () { w.onDone({ status: ev.status, error: ev.error }); });
+      }
+    };
+    _SSE.onerror = function () {                // 연결 끊김 — 닫고 다음 잡부터 폴링 폴백
+      try { _SSE.close(); } catch (_) {}
+      _SSE = null;
+    };
+  } catch (e) { _SSE = null; }
+}
+
+/* 잡 완료 대기 — SSE 연결돼 있으면 푸시, 아니면 폴링. 시그니처는 _pollJob과 동일. */
+function _awaitJob(jid, onDone, onLog, maxTries) {
+  if (_SSE && _SSE.readyState !== 2) {
+    _JOB_WAITERS[jid] = { onDone: onDone, onLog: onLog, logs: [] };
+    // 레이스 가드: 등록 전에 이미 끝난 잡이면 즉시 처리
+    fetch(BACKEND + "/api/jobs/" + jid).then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j.status && j.status !== "running" && _JOB_WAITERS[jid]) {
+          delete _JOB_WAITERS[jid];
+          onDone(j);
+        }
+      }).catch(function () {});
+    return;
+  }
+  _pollJob(jid, onDone, onLog, maxTries);
+}
+
+/* 잡 폴링(폴백) — 1.5s 간격, onLog(logs)/onDone(job). 기본 5분 한도(maxTries로 연장 가능). */
 function _pollJob(jid, onDone, onLog, maxTries) {
   maxTries = maxTries || 200;
   var tries = 0;
@@ -52,6 +100,7 @@ function checkBackend() {
     .then(function (j) {
       _setHealth(true, "백엔드 연결됨 · codex " + j.codex_status + " · v" + j.version);
       PROJECTS_ROOT = j.root || "";
+      connectEvents();                                    // SSE 푸시 연결(잡 완료·로그 실시간)
       loadProjects();                                     // 연결되면 목록 자동 로드
       loadLlmSetting();                                   // 오케스트레이터 LLM 선택값 로드
     })
@@ -242,7 +291,7 @@ function genImages() {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j.status !== "running" || !j.job_id) { $("gallery").textContent = "실패: " + JSON.stringify(j); return; }
-      _pollJob(j.job_id, function (job) {
+      _awaitJob(j.job_id, function (job) {
         if (job.status !== "completed") { $("gallery").textContent = "실패: " + JSON.stringify(job.error || job); return; }
         showGallery();
       }, function (logs) {
@@ -284,7 +333,7 @@ function genStoryboard() {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j.status !== "running" || !j.job_id) { $("storyboard").textContent = "실패: " + JSON.stringify(j); return; }
-      _pollJob(j.job_id, function (job) {
+      _awaitJob(j.job_id, function (job) {
         if (job.status !== "completed") { $("storyboard").textContent = "실패/일부: " + JSON.stringify(job.error || job); }
         showStoryboard();
       }, function (logs) {
@@ -325,7 +374,7 @@ function genLayers() {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j.status !== "running" || !j.job_id) { $("layers").textContent = "실패: " + JSON.stringify(j); return; }
-      _pollJob(j.job_id, function (job) {
+      _awaitJob(j.job_id, function (job) {
         if (job.status !== "completed") { $("layers").textContent = "실패/일부: " + JSON.stringify(job.error || job); }
         showLayers();
       }, function (logs) {
