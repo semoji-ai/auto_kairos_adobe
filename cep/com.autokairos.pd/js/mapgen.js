@@ -89,11 +89,14 @@ function renderMapScene(s) {
     var done = false;
     function finish(err, dataUrl) {
       if (done) return; done = true;
+      stopRepaint();
       try { map.remove(); } catch (e) { }
       host.remove();
       if (err) reject(err); else resolve(dataUrl);
     }
-    var map;
+    var map, stage = "init", lastErr = "";
+    var repaint = null;                          // 숨김 패널 rAF 스로틀 대응 — 강제 리페인트
+    function stopRepaint() { if (repaint) { clearInterval(repaint); repaint = null; } }
     try {
       var theme = _mapTheme();
       map = new maplibregl.Map({
@@ -104,15 +107,28 @@ function renderMapScene(s) {
         fadeDuration: 0,
       });
     } catch (e) { finish("지도 초기화 실패: " + e); return; }
+    repaint = setInterval(function () { try { map.triggerRepaint(); } catch (e) { } }, 400);
     map.on("error", function (e) {
-      // 타일 일부 실패는 무시(렌더 지속) — 스타일 로드 실패만 치명
-      if (e && e.error && /style/i.test(String(e.error.message || ""))) finish("스타일 로드 실패: " + e.error.message);
+      // 타일 일부 실패는 무시(렌더 지속) — 마지막 에러는 타임아웃 진단에 사용
+      lastErr = String((e && e.error && e.error.message) || e || "");
+      if (/style/i.test(lastErr) && stage === "init") finish("스타일 로드 실패: " + lastErr);
     });
     map.on("load", function () {
+      stage = "load";
       _applyOverrides(map, theme.overrides);               // 아트스타일 맵 테마 적용
+      // idle(타일 완전 로드)을 기다리되, 못 받으면 18초 후 현재 상태로 캡처(베스트에포트)
+      var bestEffort = setTimeout(function () { capture(); }, 18000);
+      function capture() {
+        clearTimeout(bestEffort); stopRepaint();
+        captureNow();
+      }
       map.once("idle", function () {                       // 타일 렌더 완료 시점
-        // 마커/경로는 지도에 굽지 않는다 — AE 셰이프/텍스트 레이어로 만들 수 있게
-        // map.project()로 위경도→캡처 픽셀 좌표(geo 사이드카)만 추출
+        stage = "idle";
+        capture();
+      });
+      // 마커/경로는 지도에 굽지 않는다 — captureNow가 map.project()로
+      // 위경도→캡처 픽셀 좌표(geo 사이드카)만 추출(AE 셰이프/텍스트 재료)
+      function captureNow() {
         try {
           var dark = theme.url === MAP_DARK_URL;
           var geo = { markers: [], route: [],
@@ -127,9 +143,12 @@ function renderMapScene(s) {
           });
           finish(null, { dataUrl: map.getCanvas().toDataURL("image/png"), geo: geo });
         } catch (e) { finish("캡처 실패: " + e); }
-      });
+      }
     });
-    setTimeout(function () { finish("지도 렌더 타임아웃(45s)"); }, 45000);
+    setTimeout(function () {
+      stopRepaint();
+      finish("지도 렌더 타임아웃(45s) — 단계: " + stage + (lastErr ? ", 마지막 에러: " + lastErr : ""));
+    }, 45000);
   });
 }
 
