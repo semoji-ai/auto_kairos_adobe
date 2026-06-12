@@ -8,6 +8,20 @@ var MANIFEST = "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/poc/samp
 
 function $(id) { return document.getElementById(id); }
 
+/* 잡 폴링 — 1.5s 간격, onLog(logs)/onDone(job). 5분 한도. */
+function _pollJob(jid, onDone, onLog) {
+  var tries = 0;
+  var t = setInterval(function () {
+    if (++tries > 200) { clearInterval(t); onDone({ status: "failed", error: "타임아웃" }); return; }
+    fetch(BACKEND + "/api/jobs/" + jid).then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (onLog && j.logs) onLog(j.logs);
+        if (j.status !== "running") { clearInterval(t); onDone(j); }
+      })
+      .catch(function () { /* 일시 오류 — 다음 틱 */ });
+  }, 1500);
+}
+
 function evalScript(script) {
   return new Promise(function (resolve) {
     window.__adobe_cep__.evalScript(script, function (r) { resolve(r); });
@@ -209,8 +223,13 @@ function genImages() {
     body: JSON.stringify({ project_id: SELECTED_PROJECT }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      if (j.status !== "completed") { $("gallery").textContent = "실패: " + JSON.stringify(j); return; }
-      return showGallery();
+      if (j.status !== "running" || !j.job_id) { $("gallery").textContent = "실패: " + JSON.stringify(j); return; }
+      _pollJob(j.job_id, function (job) {
+        if (job.status !== "completed") { $("gallery").textContent = "실패: " + JSON.stringify(job.error || job); return; }
+        showGallery();
+      }, function (logs) {
+        if (logs.length) $("gallery").textContent = "이미지 생성 중... " + logs[logs.length - 1];
+      });
     })
     .catch(function (e) { $("gallery").textContent = "오류: " + e; });
 }
@@ -246,8 +265,13 @@ function genStoryboard() {
     body: JSON.stringify({ project_id: SELECTED_PROJECT, character: SELECTED_CHARACTER || "" }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      if (j.status !== "completed") { $("storyboard").textContent = "실패/일부: " + JSON.stringify(j); }
-      return showStoryboard();
+      if (j.status !== "running" || !j.job_id) { $("storyboard").textContent = "실패: " + JSON.stringify(j); return; }
+      _pollJob(j.job_id, function (job) {
+        if (job.status !== "completed") { $("storyboard").textContent = "실패/일부: " + JSON.stringify(job.error || job); }
+        showStoryboard();
+      }, function (logs) {
+        if (logs.length) $("storyboard").textContent = "스토리보드 생성 중... " + logs[logs.length - 1];
+      });
     })
     .catch(function (e) { $("storyboard").textContent = "오류: " + e; });
 }
@@ -282,8 +306,13 @@ function genLayers() {
     body: JSON.stringify({ project_id: SELECTED_PROJECT }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      if (j.status !== "completed") { $("layers").textContent = "실패/일부: " + JSON.stringify(j); }
-      return showLayers();
+      if (j.status !== "running" || !j.job_id) { $("layers").textContent = "실패: " + JSON.stringify(j); return; }
+      _pollJob(j.job_id, function (job) {
+        if (job.status !== "completed") { $("layers").textContent = "실패/일부: " + JSON.stringify(job.error || job); }
+        showLayers();
+      }, function (logs) {
+        if (logs.length) $("layers").textContent = "레이어 생성 중... " + logs[logs.length - 1];
+      });
     })
     .catch(function (e) { $("layers").textContent = "오류: " + e; });
 }

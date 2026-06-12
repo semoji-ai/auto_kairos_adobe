@@ -61,7 +61,7 @@ function akBuildScene(manifestPath) {
                 var td = tl.property("Source Text").value;
                 td.fontSize = 60; td.fillColor = [1, 1, 1];
                 tl.property("Source Text").setValue(td);
-                tl.property("Position").setValue([W / 2, H * 0.88]);
+                tl.property("Position").setValue([cw / 2, ch * 0.88]);
             }
 
             // 오디오 (있으면)

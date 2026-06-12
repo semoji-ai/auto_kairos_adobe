@@ -19,13 +19,22 @@ function sendChat() {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j.error) { _chatAppend("실패: " + _esc(j.error)); return; }
-      var plan = (j.plan || []).map(function (a) { return "• " + a.action + " — " + _esc(a.reason || ""); }).join("<br>");
-      _chatAppend("📋 계획:<br>" + (plan || "(없음)"));
-      (j.results || []).forEach(function (res) {
-        _chatAppend("✓ " + res.action + ": " + _esc(JSON.stringify(res.result)));
+      if (j.status !== "running" || !j.job_id) { _chatAppend("실패: " + _esc(JSON.stringify(j))); return; }
+      _chatAppend("🤖 실행 중…");
+      var seenLogs = 0;
+      _pollJob(j.job_id, function (job) {
+        if (job.status !== "completed") { _chatAppend("실패: " + _esc(job.error || JSON.stringify(job))); return; }
+        var out = job.result || {};
+        var plan = (out.plan || []).map(function (a) { return "• " + a.action + " — " + _esc(a.reason || ""); }).join("<br>");
+        _chatAppend("📋 계획:<br>" + (plan || "(없음)"));
+        (out.results || []).forEach(function (res) {
+          _chatAppend("✓ " + res.action + ": " + _esc(JSON.stringify(res.result)));
+        });
+        _chatAppend("완료. 시트/AE를 확인하세요.");
+        if (typeof loadSheet === "function") loadSheet();
+      }, function (logs) {
+        for (; seenLogs < logs.length; seenLogs++) _chatAppend("… " + _esc(logs[seenLogs]));
       });
-      _chatAppend("완료. 시트/AE를 확인하세요.");
-      if (typeof loadSheet === "function") loadSheet();
     })
     .catch(function (e) { _chatAppend("오류: " + _esc(String(e))); });
 }

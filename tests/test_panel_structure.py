@@ -244,3 +244,18 @@ def test_layer_select_modal():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "_openLayerModal" in js and "_submitLayerSplit" in js
     assert "confirm(" not in js.split("function analyzeLayers")[1].split("function ")[1]  # confirm 제거됨
+
+
+def test_poll_job_helper_and_async_callers():
+    main = MAIN.read_text(encoding="utf-8")
+    assert "function _pollJob" in main and "/api/jobs/" in main
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "_pollJob" in js                      # splitLayers 폴링 전환
+    a = (PANEL / "js" / "assistant.js").read_text(encoding="utf-8")
+    assert "_pollJob" in a
+
+
+def test_jsx_subtitle_uses_comp_size():
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "[cw / 2, ch * 0.88]" in jsx
+    assert "[W / 2, H * 0.88]" not in jsx

@@ -331,9 +331,15 @@ function splitLayers(n, els) {
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), elements: els }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      var done = (j.result && j.result.layers) ? j.result.layers.filter(function (l) { return l.status === "completed"; }).length : 0;
-      _rowStatus(n, done ? ("레이어 " + done + "개 생성 ✓") : ("실패: " + JSON.stringify(j)));
-      if (done) loadSheet();   // 레이어 썸네일 갱신
+      if (j.status !== "running" || !j.job_id) { _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
+      _pollJob(j.job_id, function (job) {
+        var res = (job.result && job.result.result) || {};
+        var done = (res.layers || []).filter(function (l) { return l.status === "completed"; }).length;
+        _rowStatus(n, done ? ("레이어 " + done + "개 생성 ✓") : ("실패: " + JSON.stringify(job.error || job)));
+        if (done) loadSheet();   // 레이어 썸네일 갱신
+      }, function (logs) {
+        if (logs.length) _rowStatus(n, "레이어 분리 중... " + logs[logs.length - 1]);
+      });
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
