@@ -113,6 +113,7 @@ def load_scenes(proj_dir: Path) -> dict:
             "image": s["_image"] is not None,
             "layers": len(s["_layers"]) > 0,
             "tts": bool(sid and aud.is_dir() and any(aud.glob(f"*{sid}*"))),
+            "motion": bool(sid and (proj_dir / f"motion_{sid}.json").is_file()),
         }
     data["dir"] = str(proj_dir)
     return data

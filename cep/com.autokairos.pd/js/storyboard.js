@@ -4,8 +4,9 @@ function _esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function _badge(label, on) {
-  return '<span class="badge ' + (on ? "on" : "off") + '">' + label + '</span>';
+/* 진행 점 — 작업 칸에서 완료 상태 표시(●=완료, ○=미완) */
+function _dot(label, on) {
+  return '<span class="dot ' + (on ? "on" : "off") + '" title="' + label + (on ? " 완료" : " 미완") + '"></span>';
 }
 
 /* 컬럼 너비(px) — 4컬럼(씬#·이미지·스크립트·작업) 드래그 조절 + localStorage 저장 */
@@ -99,16 +100,11 @@ function renderRow(s, dir) {
     return '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp) + '">';
   }).join("");
   var chars = (s.characters || []).join(", ");
+  var st = s._status || {};
   return ''
     + '<div class="sheet-row" data-scene="' + n + '" ondragover="event.preventDefault()" ondrop="dropOnScene(event,' + n + ')">'
     // 씬#
     + '  <div class="col-num">' + n
-    +      '<div class="scene-badges">'
-    +        _badge("나", s._status && s._status.narration)
-    +        _badge("이", s._status && s._status.image)
-    +        _badge("레", s._status && s._status.layers)
-    +        _badge("음", s._status && s._status.tts)
-    +      '</div>'
     +      '<div class="scene-ops">'
     +        '<button class="op-add" data-scene="' + n + '" title="아래에 씬 추가">＋</button>'
     +        '<button class="op-split" data-scene="' + n + '" title="이 씬 분할">✂</button>'
@@ -126,13 +122,16 @@ function renderRow(s, dir) {
     + '    <div class="row-title">' + _esc(s.title || "") + '</div>'
     + '    <textarea class="nar" data-scene="' + n + '" rows="3">' + _esc(s.narration || "") + '</textarea>'
     + '  </div>'
-    // 작업 — 평소엔 결과(캐릭터·플레이어·상태)만, 행 호버 시 액션 바 표시
+    // 작업 — 평소엔 진행 점(●=완료), 행 호버 시 같은 자리가 실행 버튼으로 바뀜(완료=초록)
     + '  <div class="col-work">'
+    +      '<div class="work-dots" title="이미지·레이어·음성·모션 진행 상태">'
+    +        _dot("이미지", st.image) + _dot("레이어", st.layers) + _dot("음성", st.tts) + _dot("모션", st.motion)
+    +      '</div>'
     +      '<div class="work-actions">'
-    +        '<button class="gen-img" data-scene="' + n + '" title="씬 이미지 생성">🖼</button>'
-    +        '<button class="layer-img" data-scene="' + n + '" title="레이어 분리(LLM 분석)"' + (s._image ? '' : ' disabled') + '>⧉</button>'
-    +        '<button class="gen-tts" data-scene="' + n + '" title="TTS 생성">🔊</button>'
-    +        '<button class="scene-motion" data-scene="' + n + '" title="모션 플랜(LLM)"' + ((s._layers || []).length ? '' : ' disabled') + '>🎞</button>'
+    +        '<button class="gen-img' + (st.image ? " done" : "") + '" data-scene="' + n + '" title="씬 이미지 생성' + (st.image ? " (완료됨 — 다시 생성)" : "") + '">🖼</button>'
+    +        '<button class="layer-img' + (st.layers ? " done" : "") + '" data-scene="' + n + '" title="레이어 분리(LLM 분석)' + (st.layers ? " (완료됨 — 재분리)" : "") + '"' + (s._image ? '' : ' disabled') + '>⧉</button>'
+    +        '<button class="gen-tts' + (st.tts ? " done" : "") + '" data-scene="' + n + '" title="TTS 생성' + (st.tts ? " (완료됨 — 다시 생성)" : "") + '">🔊</button>'
+    +        '<button class="scene-motion' + (st.motion ? " done" : "") + '" data-scene="' + n + '" title="모션 플랜(LLM)' + (st.motion ? " (완료됨 — 다시 설계)" : "") + '"' + ((s._layers || []).length ? '' : ' disabled') + '>🎞</button>'
     +        '<button class="scene-comp" data-scene="' + n + '" title="이 씬을 AE 컴프로">🎬</button>'
     +      '</div>'
     + (chars ? '<div class="work-chars">👤 ' + _esc(chars) + '</div>' : '')

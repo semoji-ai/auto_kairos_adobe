@@ -141,7 +141,7 @@ def test_genmodal_present():
 def test_storyboard_js_has_scene_ops():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "function sceneOp" in js and "op-split" in js and "op-merge" in js
-    assert "scene-badges" in js
+    assert "work-dots" in js     # 진행 점(뱃지 대체)
 
 
 def test_build_scene_jsx_handles_layers():

@@ -63,21 +63,24 @@
       overflow:hidden; resize:none; min-height:42px; }
     .sheet-row .row-status { font-size:11px; color:#9aa0a6; }
     .sheet-row button { margin:4px 0; padding:6px; font-size:12px; }
-    .scene-badges { display:flex; gap:2px; margin-top:4px; }
-    .scene-badges .badge { font-size:9px; padding:1px 3px; border-radius:3px; }
-    .scene-badges .badge.on { background:#2d7d46; color:#fff; }
-    .scene-badges .badge.off { background:#333; color:#777; }
     /* 씬 구조 편집(＋✂⤵🗑) — 행 호버 시에만 표시 */
     .scene-ops { display:none; flex-wrap:wrap; gap:2px; margin-top:4px; }
     .sheet-row:hover .scene-ops { display:flex; }
     .scene-ops button { font-size:11px; padding:1px 4px; width:auto; margin:0;
       background:rgba(255,255,255,0.08); border:none; color:#bbb; cursor:pointer; border-radius:3px; }
     .scene-ops button:hover { background:rgba(255,255,255,0.2); color:#fff; }
-    /* 작업 칸 — 평소엔 결과만, 행 호버 시 액션 바(작업 순서: 이미지→레이어→TTS→모션→컴프) */
+    /* 작업 칸 — 평소엔 진행 점(●=완료), 행 호버 시 같은 자리가 실행 버튼으로 교체.
+       점과 버튼은 같은 단계를 가리킴: 이미지→레이어→음성→모션(+컴프 버튼) */
+    .col-work .work-dots { display:flex; gap:7px; align-items:center; height:28px; padding-left:6px; }
+    .col-work .work-dots .dot { width:9px; height:9px; border-radius:50%; }
+    .col-work .work-dots .dot.on { background:#2ecc71; }
+    .col-work .work-dots .dot.off { background:#3a3e46; border:1px solid #555; }
     .col-work .work-actions { display:none; gap:3px; flex-wrap:wrap; }
+    .sheet-row:hover .col-work .work-dots { display:none; }
     .sheet-row:hover .col-work .work-actions { display:flex; }
     .col-work .work-actions button { width:30px; height:28px; margin:0; padding:0;
       font-size:14px; background:#2c2f36; border:1px solid #33363c; border-radius:5px; }
+    .col-work .work-actions button.done { border-color:#2ecc71; box-shadow:inset 0 -2px 0 #2ecc71; }
     .col-work .work-actions button:hover { background:#3a6df0; }
     .col-work .work-actions button[disabled] { opacity:0.35; cursor:default; }
     .col-work .work-actions button[disabled]:hover { background:#2c2f36; }
