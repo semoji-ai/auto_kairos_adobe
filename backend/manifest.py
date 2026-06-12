@@ -25,15 +25,35 @@ def _img_size(path: Path):
 
 
 def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
-    """[{name, path(abs), kind}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
-    레이어는 풀프레임(요소가 제 위치에 그려진 투명 PNG) — 컴프 크기를 이미지에 맞추면 1:1·중앙으로 정확히 겹침."""
+    """[{name, path(abs), kind, foot?}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
+    레이어는 풀프레임(요소가 제 위치에 그려진 투명 PNG) — 컴프 크기를 이미지에 맞추면 1:1·중앙으로 정확히 겹침.
+    foot = 알파(불투명) 영역의 하단 중앙 [x, y] — 까딱 모션의 피벗(전신=발, 상반신=절단점)."""
     out = []
     bg = [r for r in layer_rels if "__bg" in Path(r).name]
     el = [r for r in layer_rels if "__bg" not in Path(r).name]
     for r in bg + el:
-        out.append({"name": Path(r).stem, "path": _abs(proj_dir, r),
-                    "kind": "bg" if "__bg" in Path(r).name else "element"})
+        entry = {"name": Path(r).stem, "path": _abs(proj_dir, r),
+                 "kind": "bg" if "__bg" in Path(r).name else "element"}
+        if entry["kind"] == "element":
+            foot = _alpha_foot(proj_dir / r)
+            if foot:
+                entry["foot"] = foot
+        out.append(entry)
     return out
+
+
+def _alpha_foot(path: Path) -> list | None:
+    """불투명 영역 bbox의 하단 중앙 [x, y](레이어=컴프 좌표). 전부 투명/실패 시 None."""
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            bbox = im.convert("RGBA").getchannel("A").getbbox()
+        if not bbox:
+            return None
+        l, t, r, b = bbox
+        return [round((l + r) / 2, 1), float(b)]
+    except Exception:
+        return None
 
 
 def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:

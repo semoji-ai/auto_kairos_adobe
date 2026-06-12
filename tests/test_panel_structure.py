@@ -375,3 +375,10 @@ def test_layer_overlay_and_text_buttons():
     html = HTML.read_text(encoding="utf-8")
     assert "drop-shadow" in html                       # 알파 윤곽 빨간 테두리
     assert ">씬 추가<" in html and ">병합<" in html and ">삭제<" in html   # 구조 버튼은 텍스트
+
+
+def test_jsx_bob_null_pivot():
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "function addBobNull" in jsx and "addNull" in jsx
+    assert 'loopOut("pingpong")' in jsx and "KeyframeEase" in jsx
+    assert "il.parent = nl" in jsx and "layer.foot" in jsx

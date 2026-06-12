@@ -24,7 +24,28 @@ function akBuildScene(manifestPath) {
         return il;
     }
     // 프리셋 모션 → 키프레임(결정적). 실패해도 빌드는 계속(try/catch).
-    function applyMoves(il, moves, sceneDur, cw, ch) {
+    // 발밑(불투명 하단 중앙) 피벗 null 생성 + 페어런팅 + 세로 스케일 100↔(100+amt) 이지이즈 핑퐁 루프.
+    // foot = manifest가 계산한 알파 bbox 하단 중앙(전신=발, 상반신=절단점) — 까딱까딱 idle.
+    function addBobNull(comp, il, layer, t0, amt, sceneDur) {
+        var nl = comp.layers.addNull(sceneDur);
+        nl.name = (layer.name || "el") + "_피벗";
+        nl.property("Position").setValue([layer.foot[0], layer.foot[1]]);
+        il.parent = nl;                                   // AE가 월드 변환 보존하며 페어런팅
+        var sp = nl.property("Scale");
+        var half = 0.6;                                   // 반주기 0.6s
+        sp.setValueAtTime(t0, [100, 100]);
+        sp.setValueAtTime(Math.min(sceneDur, t0 + half), [100, 100 + amt]);
+        try {                                             // easy ease 양 키
+            var ez = new KeyframeEase(0, 33.34);
+            sp.setTemporalEaseAtKey(1, [ez, ez], [ez, ez]);
+            sp.setTemporalEaseAtKey(2, [ez, ez], [ez, ez]);
+        } catch (e) { }
+        try { sp.expression = 'loopOut("pingpong")'; } catch (e) { }
+        return nl;
+    }
+
+    function applyMoves(comp, il, layer, sceneDur, cw, ch) {
+        var moves = layer.moves;
         if (!moves || !moves.length) return;
         var P = il.property("Position").value;
         var S = il.property("Scale").value;
@@ -66,11 +87,15 @@ function akBuildScene(manifestPath) {
                     pd.setValueAtTime(t0, [P[0], P[1]]);
                     pd.setValueAtTime(t1, [P[0] + d2, P[1] - d2 * 0.4]);
                 } else if (mv.type === "bob") {
-                    var b2 = amt || 8, pb = il.property("Position");
-                    var steps = Math.max(2, Math.floor((t1 - t0) / 0.6));
-                    for (var bi = 0; bi <= steps; bi++) {
-                        var tb = t0 + (t1 - t0) * bi / steps;
-                        pb.setValueAtTime(tb, [P[0], P[1] + ((bi % 2) ? -b2 : 0)]);
+                    if (layer.foot) {                     // 발밑 피벗 null 스쿼시 루프(우월 경로)
+                        addBobNull(comp, il, layer, t0, (amt && amt <= 5 ? amt : 1), sceneDur);
+                    } else {                              // foot 없으면 구식 y 진동 폴백
+                        var b2 = amt || 8, pb = il.property("Position");
+                        var steps = Math.max(2, Math.floor((t1 - t0) / 0.6));
+                        for (var bi = 0; bi <= steps; bi++) {
+                            var tb = t0 + (t1 - t0) * bi / steps;
+                            pb.setValueAtTime(tb, [P[0], P[1] + ((bi % 2) ? -b2 : 0)]);
+                        }
                     }
                 } else if (mv.type === "shake") {
                     var s2 = amt || 10, ps = il.property("Position");
@@ -131,7 +156,7 @@ function akBuildScene(manifestPath) {
                 for (var li = 0; li < s.layers.length; li++) {
                     var ok = addLayerObj(proj, comp, s.layers[li], cw, ch, li === 0);
                     if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);
-                    else if (s.layers[li].moves) applyMoves(ok, s.layers[li].moves, dur, cw, ch);
+                    else if (s.layers[li].moves) applyMoves(comp, ok, s.layers[li], dur, cw, ch);
                 }
             } else if (s.image) {
                 if (!addLayerObj(proj, comp, { path: s.image }, cw, ch, true)) log.push(name + ": image 누락");

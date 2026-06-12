@@ -91,3 +91,23 @@ def test_manifest_no_motion_file_ok(tmp_path):
     manifest.build_manifest(d)
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     assert "camera" not in sc                          # 모션 없으면 필드 자체 없음(하위호환)
+
+
+def test_manifest_element_foot_point(tmp_path):
+    """요소 레이어의 foot = 불투명 영역 하단 중앙(까딱 피벗)."""
+    from PIL import Image
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ft", "imageRef": "storyboard/sb.png"}])
+    (d / "storyboard").mkdir(); Image.new("RGB", (200, 200)).save(d / "storyboard" / "sb.png")
+    lay = d / "layers"; lay.mkdir()
+    im = Image.new("RGBA", (200, 200), (0, 0, 0, 0))
+    for y in range(40, 160):                              # 인물: x 60~120, y 40~160
+        for x in range(60, 120):
+            im.putpixel((x, y), (200, 30, 40, 255))
+    im.save(lay / "ft__0_인물.png")
+    Image.new("RGBA", (200, 200), (10, 10, 10, 255)).save(lay / "ft__bg.png")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    el = next(L for L in sc["layers"] if L["kind"] == "element")
+    assert el["foot"] == [90.0, 160.0]                    # bbox(60,40,120,160) 하단 중앙
+    bg = next(L for L in sc["layers"] if L["kind"] == "bg")
+    assert "foot" not in bg
