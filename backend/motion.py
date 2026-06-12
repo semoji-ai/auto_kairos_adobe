@@ -37,8 +37,8 @@ def _clamp_plan(plan: dict, dur: float) -> dict:
     """start/duration을 씬 길이 안으로 클램프. 알 수 없는 레이어/타입은 스키마가 차단."""
     for L in plan.get("layers", []):
         for mv in L.get("moves", []):
-            mv["start"] = max(0.0, min(float(mv.get("start", 0)), dur))
-            mv["duration"] = max(0.1, min(float(mv.get("duration", 0.5)), dur - mv["start"]))
+            mv["start"] = max(0.0, min(float(mv.get("start") or 0), dur))
+            mv["duration"] = max(0.1, min(float(mv.get("duration") or 0.5), dur - mv["start"]))
     return plan
 
 
