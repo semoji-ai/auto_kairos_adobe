@@ -702,3 +702,12 @@ def test_llm_settings_post(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/llm/settings", {}, {"orchestrator": "codex"}, ctx)
     assert code == 200 and body["orchestrator"] == "codex"
+
+
+def test_handler_exception_returns_500(tmp_path, monkeypatch):
+    import backend.router as r
+    def boom(root): raise RuntimeError("내부 오류")
+    monkeypatch.setattr(r.projects, "scan_projects", boom)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/api/projects", {}, None, ctx)
+    assert code == 500 and "error" in body

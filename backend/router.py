@@ -20,6 +20,13 @@ def _codex_status() -> str:
 
 
 def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: dict):
+    try:
+        return _dispatch(method, path, query, body, ctx)
+    except Exception as e:
+        return 500, {"error": f"내부 오류: {e}"}
+
+
+def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict):
     root: Path = ctx["root"]
     p = path.rstrip("/") or "/"
 
