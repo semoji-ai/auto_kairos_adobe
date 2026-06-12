@@ -796,3 +796,56 @@ def test_assistant_async(tmp_path, monkeypatch):
     assert code == 200 and body["status"] == "running"
     jb = _poll(ctx, body)
     assert jb["status"] == "completed" and jb["result"] == {"plan": [], "results": []}
+
+
+def test_scenes_tts_prefers_narration_tts(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"nt","narration":"원문","narration_tts":"교정본"}]}',
+        encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(r.tts, "generate_scene_tts",
+                        lambda proj_dir, sid, text, voice=None: seen.update(text=text) or
+                        {"status": "completed", "rel": "audio/x.mp3", "duration": 1.0})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    handle_request("POST", "/api/scenes/tts", {}, {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert seen["text"] == "교정본"
+
+
+def test_tts_all_prefers_narration_tts(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"nt","narration":"원문","narration_tts":"교정본"}]}',
+        encoding="utf-8")
+    seen = []
+    monkeypatch.setattr(r.tts, "generate_scene_tts",
+                        lambda proj_dir, sid, text, voice=None: seen.append(text) or
+                        {"status": "completed", "rel": "audio/x.mp3", "duration": 1.0})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    _, body = handle_request("POST", "/api/tts/all", {}, {"project_id": "p"}, ctx)
+    _poll(ctx, body)
+    assert seen == ["교정본"]
+
+
+def test_import_v3_route(tmp_path):
+    v3 = tmp_path / "uuidabcd_topic"; v3.mkdir()
+    (v3 / "scene_specs.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"title":"t","narration":"n"}]}', encoding="utf-8")
+    ctx = {"root": tmp_path / "root", "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/projects/import-v3", {}, {"path": str(v3)}, ctx)
+    assert code == 200 and body["project_id"] and body["scenes"] == 1
+
+
+def test_import_v3_route_no_path_400(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/projects/import-v3", {}, {}, ctx)
+    assert code == 400
+
+
+def test_import_v3_route_bad_dir_422(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/projects/import-v3", {},
+                                {"path": str(tmp_path / "nope")}, ctx)
+    assert code == 422 and "error" in body

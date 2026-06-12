@@ -415,8 +415,25 @@ function createProject() {
     .catch(function (e) { $("current").textContent = "오류: " + e; });
 }
 
+function importV3() {
+  var path = ($("v3Path").value || "").trim();
+  if (!path) { $("v3Status").textContent = "경로를 입력하세요."; return; }
+  $("v3Status").textContent = "가져오는 중...";
+  fetch(BACKEND + "/api/projects/import-v3", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: path }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.error) { $("v3Status").textContent = "실패: " + j.error; return; }
+      $("v3Status").textContent = "완료 — 씬 " + j.scenes + "개, 이미지 " + j.images + "개";
+      loadProjects();
+    })
+    .catch(function (e) { $("v3Status").textContent = "오류: " + e; });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   $("btnCreate").addEventListener("click", createProject);
+  $("btnImportV3").addEventListener("click", importV3);
   $("btnReconnect").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
   $("btnBuildAll").addEventListener("click", buildComp);

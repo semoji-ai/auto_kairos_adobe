@@ -317,3 +317,11 @@ def test_render_queue_wired():
     assert 'id="btnQueueRender"' in html
     main = MAIN.read_text(encoding="utf-8")
     assert "function queueRender" in main and "render_queue.jsx" in main
+
+
+def test_v3_import_ui_wired():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="btnImportV3"' in html and 'id="v3Path"' in html and 'id="v3Status"' in html
+    main = MAIN.read_text(encoding="utf-8")
+    assert "function importV3" in main and "/api/projects/import-v3" in main
+    assert '$("btnImportV3").addEventListener' in main

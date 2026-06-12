@@ -56,9 +56,10 @@ def _h_tts_all(proj_dir: Path, on_event=None) -> dict:
     data = scenes.load_scenes(proj_dir)
     n = 0
     for s in data["scenes"]:
-        if not (s.get("narration") or "").strip():
+        text = (s.get("narration_tts") or s.get("narration") or "")
+        if not text.strip():
             continue
-        res = tts.generate_scene_tts(proj_dir, s.get("sceneId"), s.get("narration", ""))
+        res = tts.generate_scene_tts(proj_dir, s.get("sceneId"), text)
         if res.get("status") == "completed":
             n += 1
         if on_event:

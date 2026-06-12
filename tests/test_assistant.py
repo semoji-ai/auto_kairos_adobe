@@ -119,3 +119,15 @@ def test_assemble_handler(tmp_path, monkeypatch):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a"}])
     monkeypatch.setattr(manifest, "build_manifest", lambda proj_dir: {"path": "m.json", "scenes": 1})
     assert assistant.ACTION_HANDLERS["assemble"](d)["scenes"] == 1
+
+
+def test_tts_all_handler_prefers_narration_tts(tmp_path, monkeypatch):
+    from backend import tts as _tts
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "narration": "원문",
+                          "narration_tts": "교정본"}])
+    seen = []
+    monkeypatch.setattr(_tts, "generate_scene_tts",
+                        lambda proj_dir, sid, text, voice=None: seen.append(text) or
+                        {"status": "completed"})
+    res = assistant.ACTION_HANDLERS["tts_all"](d)
+    assert res["generated"] == 1 and seen == ["교정본"]
