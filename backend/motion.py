@@ -66,17 +66,32 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
     elements = [Path(r).stem for r in (s.get("_layers") or []) if "__bg" not in Path(r).name]
     if not elements:
         return {"error": "레이어 없음 — 먼저 레이어 분리 필요"}
+    # kind 사이드카(분리 시 저장) — 현재 규칙: 캐릭터만 모션, 사물은 모션 금지(규칙 추후 별도 설계)
+    kinds = {}
+    kp = proj_dir / "layers" / f"{sid}__kinds.json"
+    if kp.is_file():
+        try:
+            kinds = json.loads(kp.read_text(encoding="utf-8"))
+        except Exception:
+            kinds = {}
+    if kinds:
+        chars = [e for e in elements if kinds.get(e) == "character"]
+    else:   # 사이드카 없는 구버전 분리 — 이름으로 LLM이 판단(프롬프트에서 인물만 지시)
+        chars = elements
+    if not chars:
+        return {"error": "캐릭터 레이어 없음 — 현재 모션 규칙은 캐릭터(bob)만"}
     dur = _scene_duration(proj_dir, s)
     prompt = (
-        "너는 모션그래픽 연출가다. 아래 씬의 레이어들에 모션을 설계해라.\n\n"
+        "너는 모션그래픽 연출가다. 아래 씬의 '캐릭터(인물)' 레이어에만 idle 모션을 설계해라.\n\n"
         f"## 내레이션(씬 길이 {dur:.1f}초)\n{s.get('narration', '') or '(없음)'}\n\n"
-        f"## 레이어(이 이름을 정확히 그대로 사용)\n" + "\n".join(f"- {e}" for e in elements) + "\n\n"
+        f"## 레이어(이 이름을 정확히 그대로 사용)\n" + "\n".join(f"- {e}" for e in chars) + "\n\n"
         f"## 사용 가능한 모션 프리셋\n{_PRESET_GUIDE}\n"
-        "## 연출 원칙\n"
-        "1) 캐릭터(인물) 레이어는 bob 또는 drift로 idle 생동감을 기본으로 준다.\n"
-        "2) 내레이션이 강조하는 사물은 등장(slide_in/pop) 또는 zoom_emphasis.\n"
-        "3) 배경 레이어는 목록에 없다 — 카메라(camera)로만 표현.\n"
-        "4) 모든 start+duration은 씬 길이 이내. 과하지 않게 — 레이어당 1~2개 모션.\n"
+        "## 연출 원칙(현행 규칙 — 엄수)\n"
+        "1) 인물(사람·캐릭터) 레이어에만 모션을 준다. 사물·가구·차량 등 오브젝트로 보이는 레이어는 "
+        "모션을 주지 말고 목록에서 제외한다.\n"
+        "2) 인물 기본은 bob(까딱임 idle) 1개. 씬 시작에 등장 연출이 어울리면 fade_in을 앞에 추가해도 된다.\n"
+        "3) slide_in/pop/drift/shake/zoom_emphasis 는 인물에 쓰지 않는다(현행 규칙).\n"
+        "4) 모든 start+duration은 씬 길이 이내.\n"
         "5) camera는 씬 분위기에 맞게 none/slow_zoom_in/slow_zoom_out/pan_left/pan_right 중 선택."
     )
     out = proj_dir / f".motion_plan_{sid}.json"
@@ -88,8 +103,17 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
         plan = json.loads(out.read_text(encoding="utf-8"))
     except Exception:
         return {"error": "모션 플랜 파싱 실패"}
-    valid = {e for e in elements}
-    plan["layers"] = [L for L in plan.get("layers", []) if L.get("layer") in valid]
+    # 결정적 강제: 캐릭터 레이어만 + 허용 프리셋(bob/fade_in)만 — 사물 모션 규칙은 추후 별도
+    valid = set(chars)
+    allowed = {"bob", "fade_in"}
+    filtered = []
+    for L in plan.get("layers", []):
+        if L.get("layer") not in valid:
+            continue
+        mvs = [m for m in L.get("moves", []) if m.get("type") in allowed]
+        if mvs:
+            filtered.append({"layer": L["layer"], "moves": mvs})
+    plan["layers"] = filtered
     plan = _clamp_plan(plan, dur)
     motion_path(proj_dir, sid).write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     return plan

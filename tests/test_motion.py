@@ -71,3 +71,41 @@ def test_clamp_camera_pan_range():
     plan = {"layers": [], "camera": {"type": "pan_left", "amount": 500}}
     out = motion._clamp_plan(plan, 5.0)
     assert out["camera"]["amount"] == 160.0        # 팬 상한
+
+
+def test_plan_filters_to_characters_and_allowed_moves(tmp_path, monkeypatch):
+    """kinds 사이드카 있으면 캐릭터만 + bob/fade_in만(사물 모션 금지 — 현행 규칙)."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ch", "narration": "n"}])
+    lay = d / "layers"; lay.mkdir()
+    (lay / "ch__0_남자.png").write_bytes(b"x")
+    (lay / "ch__1_책상.png").write_bytes(b"x")
+    (lay / "ch__kinds.json").write_text(
+        '{"ch__0_남자":"character","ch__1_책상":"object"}', encoding="utf-8")
+    cap = {}
+
+    def fake_run(prompt, cwd, **kw):
+        cap["prompt"] = prompt
+        Path(kw["output_last"]).write_text(json.dumps({
+            "layers": [
+                {"layer": "ch__0_남자", "moves": [
+                    {"type": "bob", "start": 0, "duration": 5},
+                    {"type": "shake", "start": 1, "duration": 1}]},      # 비허용 → 제거
+                {"layer": "ch__1_책상", "moves": [
+                    {"type": "pop", "start": 0, "duration": 1}]}],       # 사물 → 제거
+            "camera": {"type": "none"}}), encoding="utf-8")
+        return {"returncode": 0}
+
+    monkeypatch.setattr(motion.llm, "run_orchestrator", fake_run)
+    res = motion.plan_scene_motion(d, 1)
+    assert "ch__1_책상" not in cap["prompt"]               # 사물은 LLM에 제시도 안 함
+    assert len(res["layers"]) == 1 and res["layers"][0]["layer"] == "ch__0_남자"
+    assert [m["type"] for m in res["layers"][0]["moves"]] == ["bob"]
+
+
+def test_plan_error_when_no_characters(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ob", "narration": "n"}])
+    lay = d / "layers"; lay.mkdir()
+    (lay / "ob__0_책상.png").write_bytes(b"x")
+    (lay / "ob__kinds.json").write_text('{"ob__0_책상":"object"}', encoding="utf-8")
+    res = motion.plan_scene_motion(d, 1)
+    assert "error" in res and "캐릭터" in res["error"]

@@ -410,6 +410,14 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     with ThreadPoolExecutor(max_workers=max(1, int(concurrency))) as ex:
         layers = list(ex.map(_element, tasks))
     layers.append(_bg())
+    # 레이어별 kind(인물/사물) 사이드카 — 모션 규칙(캐릭터만 bob)에 사용
+    kinds = {}
+    for i, el in enumerate(elements):
+        match = [r for r in layers if r.get("rel", "").split("/")[-1].startswith(f"{sid}__{i}_")]
+        if match:
+            kinds[Path(match[0]["rel"]).stem] = el.get("kind", "object")
+    (out_base / f"{sid}__kinds.json").write_text(
+        json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"layers": layers}
 
 

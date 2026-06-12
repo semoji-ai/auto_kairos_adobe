@@ -560,3 +560,26 @@ def test_split_lowq_retires_retry_file(tmp_path, monkeypatch):
     active = [p.name for p in (proj / "layers").glob("dd2__0*.png")]
     assert active == ["dd2__0_차.png"]                  # 활성엔 1차본(lowq)만
     assert res["layers"][0]["status"] == "completed_lowq"
+
+
+def test_split_writes_kinds_sidecar(tmp_path, monkeypatch):
+    from PIL import Image
+    from backend import imagegen as ig
+    import json as _j
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
+    ig.split_scene_to_elements(proj, str(scene), "kd",
+                               [{"name": "남자", "location": "좌", "kind": "character"},
+                                {"name": "책상", "location": "중앙", "kind": "object"}], concurrency=1)
+    kinds = _j.loads((proj / "layers" / "kd__kinds.json").read_text(encoding="utf-8"))
+    assert kinds == {"kd__0_남자": "character", "kd__1_책상": "object"}
