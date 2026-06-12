@@ -2,6 +2,35 @@
    백엔드에 PNG로 저장 → 씬 이미지로 링크. 타일: OpenFreeMap(키 불필요).
    좌표 규칙: scenes.json은 [위도, 경도] — MapLibre는 [경도, 위도]라서 여기서 swap. */
 
+/* CEP Chromium 폴리필 — maplibre v5가 쓰는 최신 API가 구버전 CEF에 없음 */
+(function () {
+  if (typeof AbortSignal !== "undefined") {
+    if (!AbortSignal.prototype.throwIfAborted) {           // Chrome 100+
+      AbortSignal.prototype.throwIfAborted = function () {
+        if (this.aborted) throw (this.reason !== undefined ? this.reason : new Error("Aborted"));
+      };
+    }
+    if (!AbortSignal.timeout) {                            // Chrome 103+
+      AbortSignal.timeout = function (ms) {
+        var c = new AbortController();
+        setTimeout(function () { c.abort(new Error("TimeoutError")); }, ms);
+        return c.signal;
+      };
+    }
+    if (!AbortSignal.abort) {                              // Chrome 93+
+      AbortSignal.abort = function (reason) {
+        var c = new AbortController(); c.abort(reason); return c.signal;
+      };
+    }
+  }
+  if (typeof structuredClone === "undefined") {            // Chrome 98+
+    window.structuredClone = function (v) { return JSON.parse(JSON.stringify(v)); };
+  }
+  if (!Array.prototype.at) {                               // Chrome 92+
+    Array.prototype.at = function (i) { return this[i < 0 ? this.length + i : i]; };
+  }
+})();
+
 var MAP_BRIGHT_URL = "https://tiles.openfreemap.org/styles/bright";
 var MAP_DARK_URL = "https://tiles.openfreemap.org/styles/dark";
 

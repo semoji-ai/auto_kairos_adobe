@@ -501,3 +501,9 @@ def test_webgl_enabled_for_map():
     assert "webgl" in mg                                     # 사전 점검(명확한 에러)
     html = HTML.read_text(encoding="utf-8")
     assert 'id="sa-status"' in html                          # 시트 도구상자 상태 표시
+
+
+def test_map_polyfills_for_cep():
+    """CEP 구버전 CEF — maplibre v5용 AbortSignal/structuredClone 폴리필."""
+    mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
+    assert "throwIfAborted" in mg and "AbortSignal.timeout" in mg and "structuredClone" in mg
