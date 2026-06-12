@@ -178,7 +178,7 @@ def test_history_roundtrip_and_prompt_inclusion(tmp_path, monkeypatch):
     out2 = assistant.run_assistant(d, "그럼 그 다음은?")
     assert "어떤 씬부터 작업할까?" in cap["prompt"]       # 이전 사용자 발화 포함
     assert "씬 1부터 보시죠." in cap["prompt"]            # 이전 비서 답변 포함
-    assert "최근 대화" in cap["prompt"]
+    assert "이전 대화" in cap["prompt"]
     assert out2["reply"] == "씬 1부터 보시죠."
 
 
@@ -197,3 +197,58 @@ def test_prompt_defaults_to_consult(tmp_path, monkeypatch):
     assert "기본은 '대화'" in cap["prompt"]
     assert "명확하게 실행을 지시" in cap["prompt"]
     assert "실행할까요?" in cap["prompt"]                  # 모호하면 제안만
+
+
+def test_session_persists_and_resumes(tmp_path, monkeypatch):
+    """첫 호출=풀 프롬프트+세션 저장, 둘째 호출=resume(짧은 프롬프트+session_id 전달)."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "s1"}])
+    calls = []
+
+    def fake_run(prompt, cwd, *, session_id=None, output_schema=None, output_last=None, on_line=None, **kw):
+        calls.append({"sid": session_id, "prompt": prompt})
+        Path(output_last).write_text('{"actions":[],"reply":"네."}', encoding="utf-8")
+        return {"returncode": 0, "session_id": "sess-abc"}
+
+    monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
+    monkeypatch.setattr(assistant.llm, "get_orchestrator", lambda: "codex")
+    assistant.plan_actions(d, "첫 질문")
+    assistant.plan_actions(d, "이어지는 질문")
+    assert calls[0]["sid"] is None and "응답 규칙" in calls[0]["prompt"]      # 새 세션=풀 프롬프트
+    assert calls[1]["sid"] == "sess-abc"                                     # resume
+    assert "응답 규칙" not in calls[1]["prompt"] and "이어지는 질문" in calls[1]["prompt"]
+
+
+def test_session_reset_on_engine_switch(tmp_path, monkeypatch):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "s2"}])
+    assistant._save_session(d, "claude", "old-claude-sess")
+    seen = {}
+
+    def fake_run(prompt, cwd, *, session_id=None, output_last=None, **kw):
+        seen["sid"] = session_id
+        Path(output_last).write_text('{"actions":[],"reply":"r"}', encoding="utf-8")
+        return {"returncode": 0, "session_id": "new"}
+
+    monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
+    monkeypatch.setattr(assistant.llm, "get_orchestrator", lambda: "codex")  # 엔진 변경
+    assistant.plan_actions(d, "q")
+    assert seen["sid"] is None                            # 다른 엔진 세션은 무시(새 세션)
+
+
+def test_stale_session_retries_fresh(tmp_path, monkeypatch):
+    """저장된 세션이 죽어 있으면(resume 실패) 새 세션으로 1회 재시도."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "s3"}])
+    assistant._save_session(d, "codex", "dead-sess")
+    calls = []
+
+    def fake_run(prompt, cwd, *, session_id=None, output_last=None, **kw):
+        calls.append(session_id)
+        if session_id == "dead-sess":
+            return {"returncode": 1, "session_id": None}   # resume 실패
+        Path(output_last).write_text('{"actions":[],"reply":"복구됨"}', encoding="utf-8")
+        return {"returncode": 0, "session_id": "fresh"}
+
+    monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
+    monkeypatch.setattr(assistant.llm, "get_orchestrator", lambda: "codex")
+    out = assistant.plan_actions(d, "q")
+    assert calls == ["dead-sess", None] and out["reply"] == "복구됨"
+    assert assistant._load_session(d)["session_id"] == "fresh"

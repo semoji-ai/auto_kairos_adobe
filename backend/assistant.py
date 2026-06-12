@@ -155,13 +155,32 @@ def history_text(proj_dir: Path, limit: int = 8, max_chars: int = 2500) -> str:
     return "\n".join(f"{who.get(t.get('role'), t.get('role'))}: {t.get('text', '')}" for t in turns)[:max_chars]
 
 
-def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> dict:
-    """NL 입력 → {actions, reply}. 기본은 상담(reply) — 명확한 명령일 때만 actions. 실패 시 둘 다 빈 값."""
+_SESSION_FILE = ".assistant_session.json"
+
+
+def _load_session(proj_dir: Path) -> dict:
+    try:
+        return json.loads((Path(proj_dir) / _SESSION_FILE).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_session(proj_dir: Path, engine: str, session_id: str) -> None:
+    try:
+        (Path(proj_dir) / _SESSION_FILE).write_text(
+            json.dumps({"engine": engine, "session_id": session_id}), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _full_prompt(proj_dir: Path, instruction: str) -> str:
+    """새 세션 시작 프롬프트 — 규칙·기준·상태 전체 + (세션 리셋 대비) 텍스트 이력."""
     from backend import edits
     recent = edits.recent_edits_text(proj_dir, limit=2, max_chars=1500)
     hist = history_text(proj_dir)
-    prompt = (
-        "너는 영상 제작 파트너(제작 비서)다. 사용자와 제작에 관해 자유롭게 상의하고, 필요할 때만 작업을 실행한다.\n\n"
+    return (
+        "너는 영상 제작 파트너(제작 비서)다. 사용자와 제작에 관해 자유롭게 상의하고, 필요할 때만 작업을 실행한다. "
+        "이 세션은 계속 이어진다 — 이전 대화를 기억하고 맥락을 유지해라.\n\n"
         "## 응답 규칙\n"
         "1) 기본은 '대화'다 — reply에 한국어 존댓말로 답한다(질문·고민·아이디어·평가 요청 모두). "
         "프로젝트 상태와 제작 기준을 근거로 구체적으로, 필요하면 다음 단계를 제안한다.\n"
@@ -174,12 +193,45 @@ def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> dict:
         "- 모션: 현재 캐릭터만(bob 까딱임+선택 fade_in), 사물·배경 모션은 규칙 미정으로 금지\n"
         "- TTS: ElevenLabs(스타일별 voice), 워크플로우: 이미지→레이어→TTS→모션→컴프\n\n"
         f"## 가능한 액션\n{_CATALOG_DESC}\n## 현재 프로젝트 상태\n{project_status(proj_dir)}\n"
-        + (f"\n## 최근 대화\n{hist}\n" if hist else "")
+        + (f"\n## 이전 대화(요약 이력)\n{hist}\n" if hist else "")
         + (f"\n{recent}\n" if recent else "")
         + f"\n## 사용자 입력\n{instruction}"
     )
+
+
+def _resume_prompt(proj_dir: Path, instruction: str) -> str:
+    """이어지는 세션 프롬프트 — 규칙은 세션이 기억하므로 상태 갱신 + 입력만(가볍게)."""
+    from backend import edits
+    recent = edits.recent_edits_text(proj_dir, limit=1, max_chars=800)
+    return (
+        f"## 현재 프로젝트 상태(갱신)\n{project_status(proj_dir)}\n"
+        + (f"\n{recent}\n" if recent else "")
+        + f"\n## 사용자 입력\n{instruction}\n"
+        "(규칙 동일: 기본은 reply 대화, 명확한 실행 지시만 actions.)"
+    )
+
+
+def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> dict:
+    """NL 입력 → {actions, reply}. 프로젝트별 지속 LLM 세션(resume)으로 대화 전체를 기억.
+    세션이 끊기거나 엔진이 바뀌면 새 세션(텍스트 이력으로 맥락 이어줌)."""
+    proj_dir = Path(proj_dir)
+    engine = llm.get_orchestrator()
+    sess = _load_session(proj_dir)
+    sid = sess.get("session_id") if sess.get("engine") == engine else None
     out = proj_dir / ".assistant_plan.json"
-    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_PLAN_SCHEMA), output_last=str(out), on_line=on_line)
+
+    def _call(session_id, prompt):
+        return llm.run_orchestrator(prompt, proj_dir, session_id=session_id,
+                                    output_schema=str(_PLAN_SCHEMA), output_last=str(out),
+                                    on_line=on_line)
+
+    res = _call(sid, _resume_prompt(proj_dir, instruction) if sid else _full_prompt(proj_dir, instruction))
+    if sid and (res.get("returncode") != 0 or not out.is_file()):
+        # 세션 만료/유실 — 새 세션으로 1회 재시도(이력 텍스트가 맥락을 메움)
+        sid = None
+        res = _call(None, _full_prompt(proj_dir, instruction))
+    if res.get("session_id"):
+        _save_session(proj_dir, engine, res["session_id"])
     if res.get("returncode") != 0 or not out.is_file():
         return {"actions": [], "reply": None}
     try:

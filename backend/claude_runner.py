@@ -20,10 +20,13 @@ def _clean_env() -> dict:
 
 def run_claude(prompt: str, cwd, *, session_id=None, output_schema=None, output_last=None,
                sandbox=None, images=None, model=None, on_line=None) -> dict:
-    """codex run_skill과 동일 시그니처/반환. images/sandbox/session_id는 무시(헤드리스 텍스트 전용)."""
+    """codex run_skill과 동일 시그니처/반환. session_id 있으면 --resume(대화 연속).
+    images/sandbox는 무시(헤드리스 텍스트 전용)."""
     if shutil.which("claude") is None:
         return {"returncode": 127, "session_id": None, "output_last": output_last}
     cmd = ["claude", "-p", "--output-format", "json"]
+    if session_id:
+        cmd += ["--resume", str(session_id)]
     if output_schema:
         cmd += ["--json-schema", str(output_schema)]
     if model:
@@ -36,12 +39,15 @@ def run_claude(prompt: str, cwd, *, session_id=None, output_schema=None, output_
     if on_line and r.stdout:
         on_line(r.stdout[:500])
     result_text = r.stdout
-    try:                        # --output-format json 엔벨로프면 result 추출
+    found_session = None
+    try:                        # --output-format json 엔벨로프면 result/session_id 추출
         env = json.loads(r.stdout)
-        if isinstance(env, dict) and "result" in env:
-            result_text = env["result"]
+        if isinstance(env, dict):
+            if "result" in env:
+                result_text = env["result"]
+            found_session = env.get("session_id") or env.get("sessionId")
     except Exception:
         pass
     if output_last and result_text:
         Path(output_last).write_text(result_text, encoding="utf-8")
-    return {"returncode": r.returncode, "session_id": None, "output_last": output_last}
+    return {"returncode": r.returncode, "session_id": found_session, "output_last": output_last}

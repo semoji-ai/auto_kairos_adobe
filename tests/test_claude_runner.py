@@ -45,3 +45,21 @@ def test_run_claude_plain_text_when_not_json(tmp_path, monkeypatch):
     out = tmp_path / "o.txt"
     claude_runner.run_claude("p", tmp_path, output_last=str(out))
     assert out.read_text(encoding="utf-8") == "그냥 텍스트"           # 엔벨로프 아니면 원문
+
+
+def test_run_claude_resume_and_session_extract(tmp_path, monkeypatch):
+    calls = {}
+
+    def fake_run(cmd, **kw):
+        calls["cmd"] = cmd
+        class R:
+            returncode = 0
+            stdout = json.dumps({"type": "result", "result": "ok", "session_id": "cl-sess-9"})
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(claude_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(claude_runner.shutil, "which", lambda n: "/usr/bin/claude")
+    res = claude_runner.run_claude("p", tmp_path, session_id="prev-1")
+    assert "--resume" in calls["cmd"] and "prev-1" in calls["cmd"]
+    assert res["session_id"] == "cl-sess-9"
