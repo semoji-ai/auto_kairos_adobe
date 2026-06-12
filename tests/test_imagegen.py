@@ -297,3 +297,37 @@ def test_split_normalizes_to_scene_size(tmp_path, monkeypatch):
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     for r in res["layers"]:
         assert Image.open(proj / r["rel"]).size == (1536, 1024)  # 요소+배경 모두 씬 크기
+
+
+def _mk_magenta_test_img(tmp_path):
+    """중앙 빨강 사각형 + 마젠타 배경 + 경계 혼합색 1px 띠."""
+    from PIL import Image
+    im = Image.new("RGB", (100, 100), (255, 0, 255))          # 순수 마젠타
+    for y in range(30, 70):
+        for x in range(30, 70):
+            im.putpixel((x, y), (200, 30, 40))                # 요소(빨강)
+    for x in range(29, 71):                                    # 경계 혼합(반쯤 마젠타)
+        im.putpixel((x, 29), (228, 15, 148)); im.putpixel((x, 70), (228, 15, 148))
+    p = tmp_path / "m.png"; im.save(p)
+    return p
+
+
+def test_soft_chroma_core_kept_bg_removed(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    p = _mk_magenta_test_img(tmp_path)
+    r = ig.chroma_key_magenta(p, p)
+    out = Image.open(p).convert("RGBA")
+    assert out.getpixel((50, 50))[3] == 255                   # 요소 중심 불투명
+    assert out.getpixel((5, 5))[3] == 0                       # 마젠타 배경 완전 투명
+    assert 0.5 < r["transparent_ratio"] < 0.95                # 비율 신호 유지
+
+
+def test_soft_chroma_edge_soft_alpha(tmp_path):
+    from PIL import Image
+    from backend import imagegen as ig
+    p = _mk_magenta_test_img(tmp_path)
+    ig.chroma_key_magenta(p, p)
+    out = Image.open(p).convert("RGBA")
+    a = out.getpixel((50, 29))[3]                              # 혼합 경계 픽셀
+    assert a < 255                                             # 이진(255)이 아니라 소프트

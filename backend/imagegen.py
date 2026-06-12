@@ -321,19 +321,29 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
 
 
 def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
-    """마젠타(#FF00FF) 근방을 투명으로. 가장자리 디스필(마젠타 성분 감쇠)."""
+    """마젠타(#FF00FF) 거리 기반 소프트 알파 + 가장자리 수축·페더.
+    반환 {"transparent_ratio": float} — QC 게이트 신호로 사용."""
     im = Image.open(src_png).convert("RGBA")
-    a = np.array(im).astype(int)
+    a = np.array(im).astype(float)
     r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
-    mask = (r > 150) & (g < 110) & (b > 150)
-    a[mask, 3] = 0
-    keep = ~mask
+    # 마젠타 유사도: r·b 높고 g 낮을수록 마젠타. dist 0=순수 마젠타.
+    dist = np.sqrt((255 - r) ** 2 + g ** 2 + (255 - b) ** 2) / 441.673
+    alpha = np.clip((dist - 0.18) / 0.22, 0.0, 1.0)           # 0.18 이하=투명, 0.40 이상=불투명
+    # 가장자리 수축(erode 1px) — 마젠타 프린지 제거
+    core = alpha >= 0.999
+    er = core.copy()
+    er[1:, :] &= core[:-1, :]; er[:-1, :] &= core[1:, :]
+    er[:, 1:] &= core[:, :-1]; er[:, :-1] &= core[:, 1:]
+    edge = core & ~er
+    alpha[edge] *= 0.8                                        # 경계 페더
+    # 디스필: 남은 픽셀의 마젠타 성분 감쇠(기존 로직 유지)
+    keep = alpha > 0
     over = keep & (g < np.minimum(r, b) - 40)
     a[over, 0] = np.minimum(a[over, 0], a[over, 1] + 40)
     a[over, 2] = np.minimum(a[over, 2], a[over, 1] + 40)
-    out = Image.fromarray(a.astype("uint8"), "RGBA")
-    out.save(out_png)
-    return {"transparent_ratio": float(mask.sum()) / mask.size}
+    a[:, :, 3] = alpha * 255
+    Image.fromarray(a.astype("uint8"), "RGBA").save(out_png)
+    return {"transparent_ratio": float((alpha < 0.5).sum()) / alpha.size}
 
 
 def build_layer_prompt(layer_kind: str, style_desc: str, rel_out: str) -> str:
