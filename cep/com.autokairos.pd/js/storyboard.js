@@ -264,8 +264,7 @@ function bindSheetToolbar() {
   });
   on("sa-layer", function () {
     var ns = _needChecked(1, "레이어 분리"); if (!ns) return;
-    if (ns.length > 1) { alert("레이어 분리는 요소 선택 창이 떠서 한 번에 한 씬만 가능합니다. 1개만 체크하세요."); return; }
-    analyzeLayers(ns[0]);
+    analyzeLayers(ns);            // 여러 씬이면 탭 모달 — 분석 병렬, 분리도 병렬 잡
   });
   on("sa-tts", function () {
     var ns = _needChecked(1, "TTS 생성"); if (ns) _runSeq(ns, genTts);
@@ -390,26 +389,60 @@ function unlinkScene(n) {
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
 
-function analyzeLayers(n) {
-  _rowStatus(n, "레이어 분석 중... (codex가 분할 요소 파악, 수십 초)");
-  fetch(BACKEND + "/api/scenes/analyze-layers", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
-  }).then(function (r) { return r.json(); })
-    .then(function (j) {
-      var els = j.elements || [];
-      if (!els.length) { _rowStatus(n, "분석 실패: " + (j.error || JSON.stringify(j))); return; }
-      _rowStatus(n, els.length + "개 요소 분석됨 — 선택 창에서 분리할 항목 고르기");
-      _openLayerModal(n, els);     // confirm 대신 체크박스 선택 모달
-    })
-    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+/* 레이어 분리 — 여러 씬 동시: 씬별 분석을 병렬로 돌리고 탭으로 확인·체크 후 일괄(병렬) 분리 */
+var _layerMulti = {};        // {n: {els: [...], done: bool}}
+
+function analyzeLayers(ns) {
+  if (!(ns instanceof Array)) ns = [ns];
+  _layerMulti = {};
+  $("layerTabs").innerHTML = ns.map(function (n, i) {
+    return '<button class="layer-tab' + (i === 0 ? " active" : "") + '" data-scene="' + n + '">씬 ' + n + '</button>';
+  }).join("");
+  $("layerList").innerHTML = "";
+  ns.forEach(function (n) {
+    var pane = document.createElement("div");
+    pane.className = "layer-pane";
+    pane.setAttribute("data-scene", n);
+    pane.innerHTML = '<div style="color:#9aa0a6;padding:8px">씬 ' + n + ' 분석 중... (codex, 수십 초)</div>';
+    pane.hidden = String(n) !== String(ns[0]);
+    $("layerList").appendChild(pane);
+  });
+  $("layerModalStatus").textContent = ns.length + "개 씬 분석 중 — 완료된 탭부터 확인하세요.";
+  $("layerModal").hidden = false;
+  var tabs = $("layerTabs").querySelectorAll(".layer-tab");
+  for (var t = 0; t < tabs.length; t++) {
+    tabs[t].addEventListener("click", function () { _switchLayerTab(this.getAttribute("data-scene")); });
+  }
+  // 씬별 분석 병렬 실행
+  ns.forEach(function (n) {
+    _rowStatus(n, "레이어 분석 중...");
+    fetch(BACKEND + "/api/scenes/analyze-layers", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
+    }).then(function (r) { return r.json(); })
+      .then(function (j) {
+        var els = j.elements || [];
+        _layerMulti[n] = { els: els, done: true };
+        _renderLayerPane(n, els, j.error);
+        _rowStatus(n, els.length ? (els.length + "개 요소 분석됨") : ("분석 실패: " + (j.error || "")));
+        _updateLayerModalStatus();
+      })
+      .catch(function (e) {
+        _layerMulti[n] = { els: [], done: true };
+        _renderLayerPane(n, [], String(e));
+        _updateLayerModalStatus();
+      });
+  });
 }
 
-var _layerScene = null, _layerEls = [];
-
-function _openLayerModal(n, els) {
-  _layerScene = n; _layerEls = els;
-  $("layerList").innerHTML = els.map(function (e, i) {
+function _renderLayerPane(n, els, err) {
+  var pane = $("layerList").querySelector('.layer-pane[data-scene="' + n + '"]');
+  if (!pane) return;
+  if (!els.length) {
+    pane.innerHTML = '<div style="color:#e74c3c;padding:8px">씬 ' + n + ' 분석 실패: ' + _esc(err || "") + '</div>';
+    return;
+  }
+  pane.innerHTML = els.map(function (e, i) {
     var tag = e.kind === "character" ? "👤 인물" : "📦 사물";
     return '<label class="layer-chk"><input type="checkbox" data-idx="' + i + '" checked>'
       + '<span><b>' + tag + '</b> ' + _esc(e.name)
@@ -417,21 +450,46 @@ function _openLayerModal(n, els) {
       + (e.reason ? '<br><span style="font-size:10px;color:#9aa0a6">' + _esc(e.reason) + '</span>' : '')
       + '</span></label>';
   }).join("");
-  $("layerModalStatus").textContent = els.length + "개 분석됨 — 체크된 것만 레이어로 분리";
-  $("layerModal").hidden = false;
+}
+
+function _switchLayerTab(n) {
+  var tabs = $("layerTabs").querySelectorAll(".layer-tab");
+  for (var t = 0; t < tabs.length; t++) {
+    tabs[t].classList.toggle("active", tabs[t].getAttribute("data-scene") === String(n));
+  }
+  var panes = $("layerList").querySelectorAll(".layer-pane");
+  for (var p = 0; p < panes.length; p++) {
+    panes[p].hidden = panes[p].getAttribute("data-scene") !== String(n);
+  }
+}
+
+function _updateLayerModalStatus() {
+  var total = Object.keys(_layerMulti).length;
+  var done = Object.keys(_layerMulti).filter(function (k) { return _layerMulti[k].done; }).length;
+  $("layerModalStatus").textContent = done < total
+    ? ("분석 " + done + "/" + total + " 완료 — 완료된 탭부터 확인 가능")
+    : "전체 분석 완료 — 탭별로 체크 확인 후 [선택 분리]를 누르세요(씬별 병렬 실행).";
 }
 
 function _closeLayerModal() { $("layerModal").hidden = true; }
 
 function _submitLayerSplit() {
-  var chks = $("layerList").querySelectorAll('input[type="checkbox"]');
-  var chosen = [];
-  for (var i = 0; i < chks.length; i++) {
-    if (chks[i].checked) chosen.push(_layerEls[parseInt(chks[i].getAttribute("data-idx"), 10)]);
+  var panes = $("layerList").querySelectorAll(".layer-pane");
+  var jobs = [];
+  for (var p = 0; p < panes.length; p++) {
+    var n = panes[p].getAttribute("data-scene");
+    var info = _layerMulti[n];
+    if (!info || !info.els.length) continue;
+    var chks = panes[p].querySelectorAll('input[type="checkbox"]');
+    var chosen = [];
+    for (var i = 0; i < chks.length; i++) {
+      if (chks[i].checked) chosen.push(info.els[parseInt(chks[i].getAttribute("data-idx"), 10)]);
+    }
+    if (chosen.length) jobs.push({ n: n, els: chosen });
   }
-  if (!chosen.length) { $("layerModalStatus").textContent = "분리할 요소를 1개 이상 체크하세요."; return; }
+  if (!jobs.length) { $("layerModalStatus").textContent = "분리할 요소를 1개 이상 체크하세요."; return; }
   _closeLayerModal();
-  splitLayers(_layerScene, chosen);
+  jobs.forEach(function (j) { splitLayers(j.n, j.els); });   // 씬별 병렬 잡(각자 폴링)
 }
 
 document.addEventListener("DOMContentLoaded", function () {

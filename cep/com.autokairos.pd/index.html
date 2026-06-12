@@ -171,7 +171,11 @@
     #genModal[hidden], #layerModal[hidden] { display:none; }
     #genModal .gen-box, #layerModal .gen-box { width:min(440px,92vw); max-height:88vh; overflow-y:auto;
       background:#23262b; border:1px solid #33363c; border-radius:10px; padding:16px; }
-    /* 레이어 선택 체크리스트 */
+    /* 레이어 선택 체크리스트 + 씬 탭 */
+    #layerTabs { display:flex; gap:3px; flex-wrap:wrap; margin:6px 0 0; }
+    #layerTabs .layer-tab { width:auto; margin:0; padding:5px 12px; font-size:12px;
+      background:#2c2f36; border:1px solid #33363c; border-radius:6px 6px 0 0; color:#c5c8cc; }
+    #layerTabs .layer-tab.active { background:#3a6df0; color:#fff; }
     #layerList { padding:4px; }
     #layerList .layer-chk { display:flex; gap:8px; align-items:flex-start; padding:7px 6px;
       border-bottom:1px solid #2c2f36; cursor:pointer; line-height:1.4; }
@@ -409,7 +413,8 @@
   <div id="layerModal" hidden>
     <div class="gen-box">
       <div class="gen-head">레이어 분리 — 요소 선택 <button id="layerClose" class="mini">✕</button></div>
-      <div class="label">분리할 요소만 체크하세요. 체크 안 한 요소는 배경에 그대로 남습니다.</div>
+      <div class="label">분리 기준: ① 캐릭터 전원 ② 캐릭터를 가리는 전경 ③ 내용상 필요한 요소 — 나머지는 배경에 남습니다.</div>
+      <div id="layerTabs"></div>
       <div id="layerList" class="box" style="max-height:50vh;overflow:auto">—</div>
       <div class="gen-actions">
         <button id="layerSubmit">선택 분리</button>

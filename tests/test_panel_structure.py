@@ -241,9 +241,10 @@ def test_storyboard_tts_player_renders_without_nan():
 def test_layer_select_modal():
     html = HTML.read_text(encoding="utf-8")
     assert 'id="layerModal"' in html and 'id="layerList"' in html and 'id="layerSubmit"' in html
+    assert 'id="layerTabs"' in html                       # 여러 씬 탭
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "_openLayerModal" in js and "_submitLayerSplit" in js
-    assert "confirm(" not in js.split("function analyzeLayers")[1].split("function ")[1]  # confirm 제거됨
+    assert "_submitLayerSplit" in js and "_switchLayerTab" in js and "_layerMulti" in js
+    assert "한 번에 한 씬만" not in js                      # 단일 제한 해제됨
 
 
 def test_poll_job_helper_and_async_callers():

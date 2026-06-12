@@ -204,8 +204,9 @@ def test_analyze_scene_layers_prompt_uses_narration(tmp_path, monkeypatch):
     monkeypatch.setattr(ig.llm, "run_orchestrator", fake_run)
     ig.analyze_scene_layers(proj, str(img), narration="아이가 전기차를 향해 달려간다", context="제목: 의미")
     assert "아이가 전기차를 향해 달려간다" in cap["prompt"]   # 내레이션 주입
-    assert "캐릭터" in cap["prompt"]                          # 캐릭터 항상 분리 원칙
-    assert "움직" in cap["prompt"]                            # 움직임 기반 선별
+    assert "캐릭터" in cap["prompt"]                          # 1순위: 캐릭터 전원
+    assert "가리는" in cap["prompt"]                           # 2순위: 전경 가림
+    assert "우선순위" in cap["prompt"]                         # 기준이 우선순위로 명시
 
 
 def test_split_scene_to_elements(tmp_path, monkeypatch):
