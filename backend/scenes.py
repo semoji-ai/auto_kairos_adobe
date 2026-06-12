@@ -99,7 +99,8 @@ def load_scenes(proj_dir: Path) -> dict:
         s["_layers"] = (sorted(f"layers/{p.name}" for p in lay_dir.glob(f"*{sid}*.png"))
                         if sid and lay_dir.is_dir() else [])
         aud_dir = proj_dir / "audio"
-        auds = list(aud_dir.glob(f"tts_{sid}.*")) if sid and aud_dir.is_dir() else []
+        auds = ([p for p in aud_dir.glob(f"tts_{sid}.*") if p.suffix != ".json"]
+                if sid and aud_dir.is_dir() else [])    # .timestamps.json 사이드카 제외
         s["_audio"] = (f"audio/{max(auds, key=lambda p: p.stat().st_mtime).name}"
                        if auds else None)      # 최신(mp3/wav 공존 시 방금 생성분)
         if s["_audio"]:                         # 길이는 백엔드(afinfo)에서 — 브라우저 메타 불안정(MP3 Infinity)

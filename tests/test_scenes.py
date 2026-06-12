@@ -237,6 +237,15 @@ def test_load_scenes_audio_ref(tmp_path):
     assert s["_audio"] == "audio/tts_aud1.wav" and s["_status"]["tts"] is True
 
 
+def test_load_scenes_audio_ignores_timestamp_sidecar(tmp_path):
+    # tts_{sid}.timestamps.json(사이드카)이 더 최신이어도 _audio로 선택되면 안 됨
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aud2", "narration": "n"}])
+    (d / "audio").mkdir(); (d / "audio" / "tts_aud2.mp3").write_bytes(b"x")
+    (d / "audio" / "tts_aud2.timestamps.json").write_text("{}", encoding="utf-8")
+    s = scenes.load_scenes(d)["scenes"][0]
+    assert s["_audio"] == "audio/tts_aud2.mp3"
+
+
 def test_load_scenes_status_flags(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa",
                           "narration": "내용", "imageRef": "storyboard/sb_aaa.png"}])
