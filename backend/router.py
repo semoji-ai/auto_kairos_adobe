@@ -356,6 +356,28 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
                         artifact_paths=[str(proj_dir / "images")])
         return 200, {"job_id": jid, "result": res}
 
+    if method == "POST" and p == "/api/scenes/map-image":
+        # 패널(MapLibre 캔버스 캡처)이 보낸 dataURL PNG 저장 → 씬 이미지로 링크(버전 파일명·무삭제)
+        import base64
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        sn = b.get("sceneNumber")
+        sid = scenes.scene_id_for(proj_dir, sn)
+        if not sid:
+            return 404, {"error": f"scene {sn} 없음"}
+        du = b.get("dataUrl", "")
+        if not du.startswith("data:image/png;base64,"):
+            return 400, {"error": "dataUrl 형식 오류(PNG base64 필요)"}
+        sb_dir = proj_dir / "storyboard"
+        sb_dir.mkdir(exist_ok=True)
+        name = f"map_{sid}_{uuid.uuid4().hex[:6]}.png"
+        (sb_dir / name).write_bytes(base64.b64decode(du.split(",", 1)[1]))
+        res = scenes.set_image_ref(proj_dir, sn, f"storyboard/{name}")
+        vault.log_work(proj_dir, "map_image", {"scene": sn, "file": name})
+        return (200, res) if res.get("ok") else (404, res)
+
     if method == "POST" and p == "/api/scenes/unlink-image":
         b = body or {}
         proj_dir = root / b.get("project_id", "")

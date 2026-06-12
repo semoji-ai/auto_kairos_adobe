@@ -918,3 +918,25 @@ def test_tokens_endpoint(tmp_path):
     assert st == 200
     assert res.get("fonts", {}).get("body") == "OTSBAggroM"
     assert "colors" in res and "type" in res
+
+
+def test_map_image_save(tmp_path):
+    """POST /api/scenes/map-image — dataURL PNG 저장(버전 파일명) + imageRef 링크."""
+    import base64, json as _json
+    from backend import router
+    from PIL import Image
+    import io
+    d = tmp_path / "p1"; d.mkdir()
+    (d / "scenes.json").write_text(_json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "mm", "narration": "x"}]}), encoding="utf-8")
+    buf = io.BytesIO(); Image.new("RGB", (4, 4)).save(buf, "PNG")
+    du = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    st, res = router.handle_request("POST", "/api/scenes/map-image", {},
+        {"project_id": "p1", "sceneNumber": 1, "dataUrl": du}, {"root": tmp_path})
+    assert st == 200 and res.get("ok")
+    assert res["imageRef"].startswith("storyboard/map_mm_")
+    assert (d / res["imageRef"]).is_file()
+    # 형식 오류 거부
+    st2, res2 = router.handle_request("POST", "/api/scenes/map-image", {},
+        {"project_id": "p1", "sceneNumber": 1, "dataUrl": "data:image/jpeg;base64,xx"}, {"root": tmp_path})
+    assert st2 == 400

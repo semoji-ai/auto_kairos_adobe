@@ -183,3 +183,25 @@ def test_manifest_layout_defaults_cinematic(tmp_path):
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["layout"] == "cinematic"
     assert sc["image"].endswith("sb_a.png")
+
+
+def test_map_scene_becomes_image_scene_with_default_camera(tmp_path):
+    """지도 씬 — 이미지 링크되면 cinematic 취급 + 기본 slow_zoom_in 카메라."""
+    from PIL import Image
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "mp", "layout": "map",
+                          "narration": "지도", "imageRef": "storyboard/map_mp_abc.png",
+                          "map_center": [37.5, 127.0]}])
+    (d / "storyboard").mkdir()
+    Image.new("RGB", (1920, 1080)).save(d / "storyboard" / "map_mp_abc.png")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["layout"] == "cinematic" and sc["image"]
+    assert sc["camera"] == {"type": "slow_zoom_in", "amount": 6}
+
+
+def test_map_scene_without_image_stays_layout(tmp_path):
+    """지도 씬 — 이미지 미생성 시 layout=map 유지(빈 컴프, 카메라 없음)."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "mp", "layout": "map", "narration": "지도"}])
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["layout"] == "map" and sc["image"] is None

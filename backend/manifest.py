@@ -71,6 +71,10 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
         else:
             dur = float(s.get("duration_estimate_sec") or DEFAULT_DUR)
         layout = s.get("layout") or "cinematic"
+        # 지도 씬 — 패널(MapLibre)이 렌더한 지도 이미지가 링크되면 일반 이미지 씬으로 취급
+        is_map = layout == "map"
+        if is_map and s.get("_image"):
+            layout = "cinematic"
         is_layout_scene = layout != "cinematic"
         # 씬 컴프 크기 = 씬 이미지 크기 → 풀프레임 레이어가 1:1·중앙으로 정확히 겹침(위치 보존)
         # 레이아웃 씬(비이미지)은 이미지/레이어를 쓰지 않음 — 기본 1920×1080 컴프
@@ -98,6 +102,8 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
                     cam = c
             except Exception:
                 cam = None
+        if is_map and cam is None:
+            cam = {"type": "slow_zoom_in", "amount": 6}   # 지도 씬 기본 — 천천히 푸시인
         # 결정적 규칙: 캐릭터 레이어(_char 접미사 또는 kinds 사이드카)는 LLM 플랜 없이도
         # 항상 발밑 피벗 bob(까딱임) — 모션 버튼은 부가 연출(fade_in/camera)용 옵션
         kinds = {}

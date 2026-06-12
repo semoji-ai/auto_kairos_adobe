@@ -93,7 +93,10 @@ function _previewHTML(s, dir) {
   }
   var subEl = sub1 ? '<div class="pv-subtitle" style="font-size:' + px(t.subtitle || 54) + '">' + _esc(sub1) + "</div>" : "";
   var inner = "";
-  if (!s.layout || s.layout === "cinematic") {
+  if (s.layout === "map" && !s._image) {
+    return '<div class="layout-badge">map — 🗺 지도 버튼으로 렌더</div>';
+  }
+  if (!s.layout || s.layout === "cinematic" || s.layout === "map") {
     if (!s._image) return '<div style="color:#666;font-size:11px">(없음)</div>';
     return '<div class="pv" style="background:' + BG + '">'
       + '<img class="main" src="file://' + dir + "/" + s._image + '">' + subEl + "</div>";
@@ -350,6 +353,19 @@ function bindSheetToolbar() {
     var ns = _needChecked(1, "AE 컴프"); if (ns) _runSeq(ns, function (n) {
       return Promise.resolve(buildSceneComp(n));
     });
+  });
+  on("sa-map", function () {
+    var ns = _needChecked(1, "지도 렌더"); if (!ns) return;
+    fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var by = {}; (j.scenes || []).forEach(function (s) { by[s.sceneNumber] = s; });
+        return _runSeq(ns, function (n) {
+          var s = by[n];
+          if (!s || s.layout !== "map") return Promise.resolve();   // 지도 씬만 대상
+          return genMapForScene(s).then(function () { refreshRow(n); });
+        });
+      });
   });
   on("sa-add", function () {
     var ns = _checkedScenes();

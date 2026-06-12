@@ -290,6 +290,7 @@
               <button id="sa-tts" title="TTS 생성">♪ 음성</button>
               <button id="sa-motion" title="모션 플랜(LLM)">◈ 모션</button>
               <button id="sa-comp" title="AE 컴프로 내보내기">▶ 컴프</button>
+              <button id="sa-map" title="지도 씬 렌더(MapLibre→씬 이미지)">🗺 지도</button>
               <span class="sab-div"></span>
               <button id="sa-add" class="sab-txt" title="체크한 씬 아래(없으면 맨 끝)에 새 씬">씬 추가</button>
               <button id="sa-split" class="sab-txt" title="체크한 씬을 둘로(1개만)">분할</button>
@@ -441,6 +442,9 @@
   <script src="js/main.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/planning.js"></script>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <script src="vendor/maplibre-gl.js"></script>
+  <script src="js/mapgen.js"></script>
   <script src="js/storyboard.js"></script>
   <script src="js/gallery.js"></script>
   <script src="js/genmodal.js"></script>

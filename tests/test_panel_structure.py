@@ -466,3 +466,15 @@ def test_jsx_typography_upgrade():
     tk = json.loads((PANEL.parents[1] / "data" / "artstyle" / "ae_tokens.json").read_text(encoding="utf-8"))
     assert tk["fonts"]["body"] == "OTSBAggroM"            # 실제 PostScript 이름
     assert tk["fonts"]["headline"] == "Cafe24Ssurround"
+
+
+def test_map_scene_wiring():
+    """지도 씬 — vendor maplibre 로드 + mapgen.js + 도구상자 버튼 + 좌표 swap."""
+    html = HTML.read_text(encoding="utf-8")
+    assert "vendor/maplibre-gl.js" in html and 'id="sa-map"' in html
+    mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
+    assert "preserveDrawingBuffer" in mg            # 캔버스 캡처 필수 옵션
+    assert "_swapLL" in mg                          # [위도,경도] → [경도,위도]
+    assert "/api/scenes/map-image" in mg
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "sa-map" in js and "genMapForScene" in js
