@@ -279,7 +279,7 @@ def test_ae_tokens_has_subtitle_keys():
     tk = json.loads((Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json")
                     .read_text(encoding="utf-8"))
     assert tk["type"]["subtitle"] == 54
-    assert tk["fonts"]["subtitle"] == "SBAggroM"
+    assert tk["fonts"]["subtitle"] == "OTSBAggroM"   # 실제 PS명
 
 
 def test_no_hardcoded_machine_paths_in_panel():
