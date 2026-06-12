@@ -145,6 +145,7 @@ function renderRow(s, dir) {
            + '<audio class="tts-audio" preload="none" src="file://' + dir + '/' + s._audio + '"></audio>'
            + '</div>')
         : '')
+    +      '<button class="scene-motion" data-scene="' + n + '" title="모션 플랜(LLM)">🎞 모션</button>'
     +      '<button class="scene-comp" data-scene="' + n + '" title="이 씬을 AE 컴프로">🎬 컴프</button>'
     +      '<div class="row-status" data-scene="' + n + '"></div>'
     + '  </div>'
@@ -217,6 +218,10 @@ function bindRows(scope) {
   }
   var players = scope.querySelectorAll(".tts-player");
   for (var pp = 0; pp < players.length; pp++) { _bindTtsPlayer(players[pp]); }
+  var sm = scope.querySelectorAll("button.scene-motion");
+  for (var m2 = 0; m2 < sm.length; m2++) {
+    sm[m2].addEventListener("click", function () { planMotion(this.getAttribute("data-scene")); });
+  }
   var sc = scope.querySelectorAll("button.scene-comp");
   for (var c = 0; c < sc.length; c++) {
     sc[c].addEventListener("click", function () {
@@ -251,6 +256,24 @@ function refreshRow(n) {
       if (ta) _autosize(ta);
     })
     .catch(function () { loadSheet(); });
+}
+
+/* 씬 모션 플랜(LLM) — 동기 호출, 완료 시 상태줄 안내 */
+function planMotion(n) {
+  _rowStatus(n, "모션 설계 중... (LLM)");
+  fetch(BACKEND + "/api/scenes/motion", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.plan) {
+        var nmoves = (j.plan.layers || []).reduce(function (a, L) { return a + (L.moves || []).length; }, 0);
+        _rowStatus(n, "모션 " + nmoves + "개 + 카메라 " + ((j.plan.camera || {}).type || "none") + " ✓ — 🎬 컴프로 적용");
+      } else {
+        _rowStatus(n, "실패: " + (j.error || JSON.stringify(j)));
+      }
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
 
 function _rowStatus(n, msg) {

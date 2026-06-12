@@ -11,7 +11,24 @@ def _proj(tmp_path, scenes_arr):
 
 def test_catalog_names():
     assert set(assistant.ACTION_HANDLERS) == {
-        "generate_missing_images", "split_layers", "tts_all", "assemble"}
+        "generate_missing_images", "split_layers", "tts_all", "plan_motion", "assemble"}
+
+
+def test_plan_motion_handler(tmp_path, monkeypatch):
+    d = _proj(tmp_path, [
+        {"sceneNumber": 1, "sceneId": "pa", "narration": "n"},          # 레이어 없음 → 스킵
+        {"sceneNumber": 2, "sceneId": "pb", "narration": "n"},          # 레이어 있음 → 대상
+        {"sceneNumber": 3, "sceneId": "pc", "narration": "n"},          # 모션 파일 이미 있음 → 스킵
+    ])
+    lay = d / "layers"; lay.mkdir()
+    (lay / "pb__0_a.png").write_bytes(b"x")
+    (lay / "pc__0_a.png").write_bytes(b"x")
+    (d / "motion_pc.json").write_text("{}", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(assistant.motion, "plan_scene_motion",
+                        lambda proj_dir, sn, **kw: (calls.append(sn) or {"layers": [], "camera": {"type": "none"}}))
+    res = assistant._h_plan_motion(d)
+    assert calls == [2] and res == {"planned": 1}
 
 
 def test_project_status_summary(tmp_path):

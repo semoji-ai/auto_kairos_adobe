@@ -659,6 +659,29 @@ def test_assembly_manifest_single_scene(tmp_path, monkeypatch):
     assert code == 200 and body["only_scene"] == 3
 
 
+def test_scenes_motion(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[{"sceneNumber":1,"sceneId":"mt"}]}', encoding="utf-8")
+    monkeypatch.setattr(r.motion, "plan_scene_motion",
+                        lambda proj_dir, sn, on_line=None: {"layers": [], "camera": {"type": "none"}})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/motion", {},
+                                {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200 and body["plan"]["camera"]["type"] == "none"
+
+
+def test_scenes_motion_error_422(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    monkeypatch.setattr(r.motion, "plan_scene_motion",
+                        lambda proj_dir, sn, on_line=None: {"error": "레이어 없음"})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/scenes/motion", {},
+                             {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 422
+
+
 def test_assistant_endpoint(tmp_path, monkeypatch):
     import backend.router as r
     proj = tmp_path / "p"; proj.mkdir()

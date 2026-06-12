@@ -5,7 +5,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -200,6 +200,20 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
                         artifact_paths=[str(proj_dir / "audio")])
         return 200, {"job_id": jid, "result": res}
+
+    if method == "POST" and p == "/api/scenes/motion":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("motion", b.get("project_id", ""))
+        res = motion.plan_scene_motion(proj_dir, b.get("sceneNumber"),
+                                       on_line=lambda ln: jobs.append_log(jid, ln))
+        ok = "error" not in res
+        jobs.set_status(jid, "completed" if ok else "failed", result=res,
+                        error=None if ok else res.get("error"))
+        return (200 if ok else 422), ({"job_id": jid, "plan": res} if ok else {"job_id": jid, **res})
 
     if method == "POST" and p == "/api/assembly/manifest":
         b = body or {}

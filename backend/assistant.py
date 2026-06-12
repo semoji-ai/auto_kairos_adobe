@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend import scenes, imagegen, tts, manifest, llm
+from backend import scenes, imagegen, tts, manifest, llm, motion
 from backend.codex_runner import run_skill
 
 _PLAN_SCHEMA = Path(__file__).resolve().parent / "schemas" / "assistant_plan.schema.json"
@@ -66,6 +66,22 @@ def _h_tts_all(proj_dir: Path, on_event=None) -> dict:
     return {"generated": n}
 
 
+def _h_plan_motion(proj_dir: Path, on_event=None) -> dict:
+    data = scenes.load_scenes(proj_dir)
+    n = 0
+    for s in data["scenes"]:
+        if not s.get("_layers"):
+            continue
+        if motion.motion_path(proj_dir, s.get("sceneId")).is_file():
+            continue
+        res = motion.plan_scene_motion(proj_dir, s.get("sceneNumber"))
+        if "error" not in res:
+            n += 1
+        if on_event:
+            on_event(f"S{s.get('sceneNumber')} 모션: {'완료' if 'error' not in res else res.get('error')}")
+    return {"planned": n}
+
+
 def _h_assemble(proj_dir: Path, on_event=None) -> dict:
     return manifest.build_manifest(proj_dir)
 
@@ -74,6 +90,7 @@ ACTION_HANDLERS = {
     "generate_missing_images": _h_generate_missing_images,
     "split_layers": _h_split_layers,
     "tts_all": _h_tts_all,
+    "plan_motion": _h_plan_motion,
     "assemble": _h_assemble,
 }
 
@@ -81,6 +98,7 @@ _CATALOG_DESC = (
     "- generate_missing_images: 이미지가 없는 씬에 씬 이미지를 생성한다.\n"
     "- split_layers: 이미지가 있고 레이어가 없는 씬을 캐릭터/움직임 기준으로 레이어 분리한다.\n"
     "- tts_all: 내레이션이 있는 모든 씬의 음성을 생성한다.\n"
+    "- plan_motion: 레이어가 분리된 씬에 모션 플랜을 설계한다.\n"
     "- assemble: 매니페스트를 빌드해 AE 조립을 준비한다(보통 마지막).\n"
 )
 

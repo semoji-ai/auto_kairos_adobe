@@ -11,7 +11,7 @@
         "required": ["action", "reason"],
         "properties": {
           "action": { "type": "string",
-            "enum": ["generate_missing_images", "split_layers", "tts_all", "assemble"] },
+            "enum": ["generate_missing_images", "split_layers", "tts_all", "plan_motion", "assemble"] },
           "reason": { "type": "string" }
         }
       }

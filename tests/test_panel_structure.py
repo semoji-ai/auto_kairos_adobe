@@ -300,3 +300,10 @@ def test_jsx_has_motion():
     assert "function applyMoves" in jsx and "function applyCamera" in jsx
     for t in ["slide_in", "pop", "bob", "zoom_emphasis", "slow_zoom_in"]:
         assert t in jsx
+
+
+def test_panel_motion_button():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "scene-motion" in js and "function planMotion" in js and "/api/scenes/motion" in js
+    html = HTML.read_text(encoding="utf-8")
+    assert ".col-tts .scene-motion" in html
