@@ -33,7 +33,7 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "GET" and p == "/health":
         return 200, {"backend_status": "connected", "codex_status": _codex_status(),
-                     "version": VERSION}
+                     "version": VERSION, "root": str(root)}
 
     if method == "GET" and p == "/api/projects":
         return 200, {"projects": projects.scan_projects(root)}

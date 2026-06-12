@@ -29,6 +29,12 @@ def test_health():
     assert body["backend_status"] == "connected"
 
 
+def test_health_includes_root(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("GET", "/health", {}, None, ctx)
+    assert code == 200 and body["root"] == str(tmp_path)
+
+
 def test_projects_list():
     code, body = handle_request("GET", "/api/projects", {}, None, _ctx())
     assert code == 200

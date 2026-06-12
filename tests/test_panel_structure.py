@@ -259,3 +259,8 @@ def test_jsx_subtitle_uses_comp_size():
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
     assert "[cw / 2, ch * 0.88]" in jsx
     assert "[W / 2, H * 0.88]" not in jsx
+
+
+def test_no_hardcoded_machine_paths_in_panel():
+    main = MAIN.read_text(encoding="utf-8")
+    assert "/Users/jleavens_macmini" not in main

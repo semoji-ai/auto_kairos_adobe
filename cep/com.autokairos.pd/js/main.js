@@ -4,7 +4,7 @@
    CSInterface 전체 라이브러리 대신 window.__adobe_cep__ 직접 사용(최소). */
 
 var BACKEND = "http://127.0.0.1:8765";
-var MANIFEST = "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/poc/sample_manifest.json";
+var PROJECTS_ROOT = "";   // /health 응답의 root — 머신 경로 하드코딩 대신 백엔드가 알려줌
 
 function $(id) { return document.getElementById(id); }
 
@@ -50,6 +50,7 @@ function checkBackend() {
     .then(function (r) { return r.json(); })
     .then(function (j) {
       _setHealth(true, "백엔드 연결됨 · codex " + j.codex_status + " · v" + j.version);
+      PROJECTS_ROOT = j.root || "";
       loadProjects();                                     // 연결되면 목록 자동 로드
       loadLlmSetting();                                   // 오케스트레이터 LLM 선택값 로드
     })
@@ -190,18 +191,15 @@ function decompose() {
 }
 
 function renderScenes() {
-  var path = "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/" + SELECTED_PROJECT + "/scenes.json";
-  evalScript('(function(){var f=new File(' + JSON.stringify(path) +
-    ');if(!f.exists)return "no scenes";f.open("r");var c=f.read();f.close();return c;})()')
-    .then(function (txt) {
-      try {
-        var doc = JSON.parse(txt);
-        $("scenes").innerHTML = (doc.scenes || []).map(function (s) {
-          return "<div>#" + s.sceneNumber + " <b>" + s.title + "</b> — " +
-            (s.narration || "").slice(0, 40) + "...</div>";
-        }).join("") || "(씬 없음)";
-      } catch (e) { $("scenes").textContent = txt; }
-    });
+  fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (doc) {
+      $("scenes").innerHTML = (doc.scenes || []).map(function (s) {
+        return "<div>#" + s.sceneNumber + " <b>" + _esc(s.title || "") + "</b> — " +
+          _esc((s.narration || "").slice(0, 40)) + "...</div>";
+      }).join("") || "(씬 없음)";
+    })
+    .catch(function (e) { $("scenes").textContent = "오류: " + e; });
 }
 
 function makeReferences() {
