@@ -7,6 +7,7 @@ from pathlib import Path
 
 from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm
 from backend.codex_runner import run_skill
+from backend.jobs import run_async
 
 VERSION = "0.2.0-m2"
 
@@ -98,14 +99,15 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 404, {"error": f"project not found: {pid}"}
         jobs = ctx["jobs"]
         jid = jobs.create("pipeline", pid)
-        res = pipeline.run_pipeline(SKILLS_DIR, proj_dir,
-                                    on_line=lambda ln: jobs.append_log(jid, ln))
-        if res["status"] == "completed":
-            jobs.set_status(jid, "completed", artifact_paths=[res["final"]])
-        else:
-            jobs.set_status(jid, "failed", error=f"{res.get('stage')}: {res.get('error')}")
-        return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
-                     "completed": res.get("completed", [])}
+        def _do(proj_dir=proj_dir, jid=jid):
+            res = pipeline.run_pipeline(SKILLS_DIR, proj_dir,
+                                        on_line=lambda ln: jobs.append_log(jid, ln))
+            if res["status"] != "completed":
+                raise RuntimeError(f"{res.get('stage')}: {res.get('error')}")
+            jobs.set_status(jid, "running", artifact_paths=[res["final"]])
+            return {"status": "completed", "completed": res.get("completed", [])}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/characters/generate":
         b = body or {}
@@ -175,14 +177,18 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         voice = b.get("voice")
         if p == "/api/tts/all":
             jid = jobs.create("tts-all", b.get("project_id", ""))
-            results = []
-            for s in data["scenes"]:
-                res = tts.generate_scene_tts(proj_dir, s.get("sceneId"), s.get("narration", ""), voice=voice)
-                results.append({"sceneNumber": s.get("sceneNumber"), **res})
-                jobs.append_log(jid, f"S{s.get('sceneNumber')}: {res.get('status')}")
-            ok = any(x.get("status") == "completed" for x in results)
-            jobs.set_status(jid, "completed" if ok else "failed", artifact_paths=[str(proj_dir / "audio")])
-            return 200, {"job_id": jid, "results": results}
+            def _do(proj_dir=proj_dir, data=data, voice=voice, jid=jid):
+                results = []
+                for s in data["scenes"]:
+                    res = tts.generate_scene_tts(proj_dir, s.get("sceneId"), s.get("narration", ""), voice=voice)
+                    results.append({"sceneNumber": s.get("sceneNumber"), **res})
+                    jobs.append_log(jid, f"S{s.get('sceneNumber')}: {res.get('status')}")
+                if not any(x.get("status") == "completed" for x in results):
+                    raise RuntimeError("TTS 전체 실패")
+                jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "audio")])
+                return {"results": results}
+            run_async(jobs, jid, _do)
+            return 200, {"job_id": jid, "status": "running"}
         sn = b.get("sceneNumber")
         sc = next((s for s in data["scenes"] if s.get("sceneNumber") == sn), None)
         if not sc:
@@ -228,10 +234,11 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 400, {"error": "instruction 필요"}
         jobs = ctx["jobs"]
         jid = jobs.create("assistant", b.get("project_id", ""))
-        out = assistant.run_assistant(proj_dir, instruction,
-                                      on_event=lambda ln: jobs.append_log(jid, ln))
-        jobs.set_status(jid, "completed")
-        return 200, {"job_id": jid, **out}
+        def _do(proj_dir=proj_dir, instruction=instruction, jid=jid):
+            return assistant.run_assistant(proj_dir, instruction,
+                                           on_event=lambda ln: jobs.append_log(jid, ln))
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/scenes/image":
         b = body or {}
@@ -340,12 +347,16 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jobs = ctx["jobs"]
         jid = jobs.create("split-layers", b.get("project_id", ""))
         conc = int(b.get("concurrency", 4))
-        res = imagegen.split_scene_to_elements(
-            proj_dir, str(proj_dir / sc["_image"]), sc.get("sceneId"), elements,
-            concurrency=conc, on_event=lambda r: jobs.append_log(jid, f"{r['name']}: {r['status']}"))
-        ok = any(l.get("status") == "completed" for l in res.get("layers", []))
-        jobs.set_status(jid, "completed" if ok else "failed", artifact_paths=[str(proj_dir / "layers")])
-        return 200, {"job_id": jid, "result": res}
+        def _do(proj_dir=proj_dir, sc=sc, elements=elements, conc=conc, jid=jid):
+            res = imagegen.split_scene_to_elements(
+                proj_dir, str(proj_dir / sc["_image"]), sc.get("sceneId"), elements,
+                concurrency=conc, on_event=lambda r: jobs.append_log(jid, f"{r['name']}: {r['status']}"))
+            if not any(l.get("status") == "completed" for l in res.get("layers", [])):
+                raise RuntimeError("레이어 분리 전체 실패")
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers")])
+            return {"result": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")
@@ -390,14 +401,17 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jid = jobs.create("images", pid)
         conc = int(b.get("concurrency", 4))
         items = [(f"{ref['id']}.png", ref["image_prompt"]) for ref in refs]
-        results = imagegen.generate_many(
-            proj_dir, items, subdir="images", concurrency=conc,
-            on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
-        done = sum(1 for r in results.values() if r["status"] == "completed")
-        jobs.set_status(jid, "completed" if done else "failed",
-                        artifact_paths=[str(proj_dir / "images")])
-        return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
-                     "generated": done, "total": len(refs)}
+        def _do(proj_dir=proj_dir, items=items, refs=refs, conc=conc, jid=jid):
+            results = imagegen.generate_many(
+                proj_dir, items, subdir="images", concurrency=conc,
+                on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
+            done = sum(1 for r in results.values() if r["status"] == "completed")
+            if not done:
+                raise RuntimeError("이미지 생성 전체 실패")
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "images")])
+            return {"generated": done, "total": len(refs)}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "GET" and p == "/api/images/list":
         pid = query.get("project_id", "")
@@ -430,14 +444,18 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             sid = sc.get("sceneId")
             prompt = sc.get("image_prompt") or sc.get("visual_summary") or sc.get("narration", "")
             items.append((f"sb_{sid}.png", prompt))
-        results = imagegen.generate_many(
-            proj_dir, items, subdir="storyboard", concurrency=conc, character_ref=character_ref,
-            on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
-        done = sum(1 for r in results.values() if r["status"] == "completed")
-        jobs.set_status(jid, "completed" if done else "failed",
-                        artifact_paths=[str(proj_dir / "storyboard")])
-        return 200, {"job_id": jid, "status": jobs.get(jid)["status"],
-                     "generated": done, "total": len(scene_list)}
+        def _do(proj_dir=proj_dir, items=items, scene_list=scene_list,
+                conc=conc, character_ref=character_ref, jid=jid):
+            results = imagegen.generate_many(
+                proj_dir, items, subdir="storyboard", concurrency=conc, character_ref=character_ref,
+                on_event=lambda rel, res: jobs.append_log(jid, f"{rel}: {res['status']}"))
+            done = sum(1 for r in results.values() if r["status"] == "completed")
+            if not done:
+                raise RuntimeError("스토리보드 생성 전체 실패")
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "storyboard")])
+            return {"generated": done, "total": len(scene_list)}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "GET" and p == "/api/storyboard/list":
         pid = query.get("project_id", "")
@@ -469,18 +487,23 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jobs = ctx["jobs"]
         jid = jobs.create("layers", pid)
         conc = int(b.get("concurrency", 4))
-        results = imagegen.generate_scene_layers(
-            proj_dir, items, concurrency=conc,
-            on_event=lambda key, kind, res: jobs.append_log(jid, f"{key}/{kind}: {res['status']}"))
-        ok = sum(1 for v in results.values()
-                 if v.get("background", {}).get("status") == "completed"
-                 and v.get("character", {}).get("status") == "completed")
-        layers = {"project_id": pid, "scenes": [
-            {"sceneNumber": sid_to_n[sid], "background": f"layers/bg_{sid}.png",
-             "character": f"layers/char_{sid}.png"} for sid in sid_to_n]}
-        (proj_dir / "layers.json").write_text(_json.dumps(layers, ensure_ascii=False, indent=2), encoding="utf-8")
-        jobs.set_status(jid, "completed" if ok else "failed", artifact_paths=[str(proj_dir / "layers.json")])
-        return 200, {"job_id": jid, "status": jobs.get(jid)["status"], "scenes": ok, "total": len(items)}
+        def _do(proj_dir=proj_dir, pid=pid, items=items, sid_to_n=sid_to_n, conc=conc, jid=jid):
+            results = imagegen.generate_scene_layers(
+                proj_dir, items, concurrency=conc,
+                on_event=lambda key, kind, res: jobs.append_log(jid, f"{key}/{kind}: {res['status']}"))
+            ok = sum(1 for v in results.values()
+                     if v.get("background", {}).get("status") == "completed"
+                     and v.get("character", {}).get("status") == "completed")
+            layers = {"project_id": pid, "scenes": [
+                {"sceneNumber": sid_to_n[sid], "background": f"layers/bg_{sid}.png",
+                 "character": f"layers/char_{sid}.png"} for sid in sid_to_n]}
+            (proj_dir / "layers.json").write_text(_json.dumps(layers, ensure_ascii=False, indent=2), encoding="utf-8")
+            if not ok:
+                raise RuntimeError("레이어 생성 전체 실패")
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers.json")])
+            return {"scenes": ok, "total": len(items)}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "GET" and p == "/api/layers/list":
         pid = query.get("project_id", "")

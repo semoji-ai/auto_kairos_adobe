@@ -10,6 +10,19 @@ def _ctx():
     return {"root": ROOT, "jobs": JobRegistry()}
 
 
+def _poll(ctx, body):
+    """비동기 응답 검증 + 잡 폴링 → 완료된 job dict 반환."""
+    import time
+    assert body["status"] == "running" and body["job_id"]
+    jid = body["job_id"]
+    for _ in range(200):
+        _, jb = handle_request("GET", f"/api/jobs/{jid}", {}, None, ctx)
+        if jb["status"] != "running":
+            return jb
+        time.sleep(0.02)
+    raise AssertionError("job timeout")
+
+
 def test_health():
     code, body = handle_request("GET", "/health", {}, None, _ctx())
     assert code == 200
@@ -122,7 +135,8 @@ def test_images_generate_from_references(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/images/generate", {},
                                 {"project_id": "p"}, ctx)
     assert code == 200
-    assert body["generated"] == 1
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed" and jb["result"]["generated"] == 1
 
 
 def test_characters_generate(tmp_path, monkeypatch):
@@ -179,6 +193,8 @@ def test_storyboard_passes_character_ref(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/storyboard/generate", {},
                                 {"project_id": "p", "character": "지오"}, ctx)
     assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed"
     assert seen["character_ref"] == str(proj / "characters" / "char_지오.png")
 
 
@@ -213,7 +229,8 @@ def test_storyboard_generate_from_scenes(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/storyboard/generate", {},
                                 {"project_id": "p"}, ctx)
     assert code == 200
-    assert body["generated"] == 2
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed" and jb["result"]["generated"] == 2
 
 
 def test_storyboard_generate_requires_scenes(tmp_path):
@@ -255,7 +272,8 @@ def test_layers_generate(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/layers/generate", {}, {"project_id": "p"}, ctx)
     assert code == 200
-    assert body["scenes"] == 1
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed" and jb["result"]["scenes"] == 1
 
 
 def test_layers_generate_requires_storyboard(tmp_path):
@@ -515,8 +533,11 @@ def test_scenes_split_layers(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/scenes/split-layers", {},
                                 {"project_id": "p", "sceneNumber": 1,
                                  "elements": [{"name": "차", "location": "왼쪽"}]}, ctx)
-    assert code == 200 and seen["sid"] == "sb1" and seen["n"] == 1
-    assert body["result"]["layers"][0]["rel"].startswith("layers/sb1__")
+    assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed"
+    assert seen["sid"] == "sb1" and seen["n"] == 1
+    assert jb["result"]["result"]["layers"][0]["rel"].startswith("layers/sb1__")
 
 
 def test_scenes_image_prompt_override(tmp_path, monkeypatch):
@@ -643,8 +664,11 @@ def test_assistant_endpoint(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assistant", {},
                                 {"project_id": "p", "instruction": "합쳐줘"}, ctx)
-    assert code == 200 and body["plan"][0]["action"] == "assemble"
-    assert body["results"][0]["result"]["scenes"] == 0
+    assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed"
+    assert jb["result"]["plan"][0]["action"] == "assemble"
+    assert jb["result"]["results"][0]["result"]["scenes"] == 0
 
 
 def test_assistant_requires_instruction(tmp_path):
@@ -711,3 +735,35 @@ def test_handler_exception_returns_500(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("GET", "/api/projects", {}, None, ctx)
     assert code == 500 and "error" in body
+
+
+def test_split_layers_returns_running_then_completes(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"as1","imageRef":"storyboard/sb.png"}]}', encoding="utf-8")
+    (proj / "storyboard").mkdir(); (proj / "storyboard" / "sb.png").write_bytes(b"\x89PNG")
+    monkeypatch.setattr(r.imagegen, "split_scene_to_elements",
+                        lambda *a, **k: {"layers": [{"rel": "layers/x.png", "status": "completed"}]})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/scenes/split-layers", {},
+                                {"project_id": "p", "sceneNumber": 1,
+                                 "elements": [{"name": "차", "location": "왼쪽"}]}, ctx)
+    assert code == 200 and body["status"] == "running" and body["job_id"]
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed"
+    assert jb["result"]["result"]["layers"][0]["status"] == "completed"
+
+
+def test_assistant_async(tmp_path, monkeypatch):
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
+    monkeypatch.setattr(r.assistant, "run_assistant",
+                        lambda proj_dir, instr, on_event=None: {"plan": [], "results": []})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assistant", {},
+                                {"project_id": "p", "instruction": "x"}, ctx)
+    assert code == 200 and body["status"] == "running"
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed" and jb["result"] == {"plan": [], "results": []}
