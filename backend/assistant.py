@@ -124,19 +124,57 @@ def project_status(proj_dir: Path) -> str:
     return "\n".join(lines)
 
 
+def _history_path(proj_dir: Path) -> Path:
+    return Path(proj_dir) / "assistant_chat.jsonl"
+
+
+def append_history(proj_dir: Path, role: str, text: str) -> None:
+    """대화 이력 적재(user/assistant) — 비서가 맥락을 이어가게."""
+    try:
+        with _history_path(proj_dir).open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"role": role, "text": (text or "")[:1000]}, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def history_text(proj_dir: Path, limit: int = 8, max_chars: int = 2500) -> str:
+    """최근 대화를 프롬프트용 텍스트로. 없으면 ''."""
+    p = _history_path(proj_dir)
+    if not p.is_file():
+        return ""
+    turns = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        try:
+            turns.append(json.loads(line))
+        except Exception:
+            continue
+    turns = turns[-limit:]
+    if not turns:
+        return ""
+    who = {"user": "사용자", "assistant": "비서"}
+    return "\n".join(f"{who.get(t.get('role'), t.get('role'))}: {t.get('text', '')}" for t in turns)[:max_chars]
+
+
 def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> dict:
-    """NL 지시 → {actions, reply}. 실행 요청이면 actions, 질문/상담이면 reply(한국어 답변). 실패 시 둘 다 빈 값."""
+    """NL 입력 → {actions, reply}. 기본은 상담(reply) — 명확한 명령일 때만 actions. 실패 시 둘 다 빈 값."""
     from backend import edits
     recent = edits.recent_edits_text(proj_dir, limit=2, max_chars=1500)
+    hist = history_text(proj_dir)
     prompt = (
-        "너는 영상 제작 파이프라인 비서다.\n"
-        "사용자의 입력이 '실행 요청'이면 아래 액션들의 순서 있는 목록(actions)으로 변환하고 reply는 null로 둔다. "
-        "목록 외 동작은 만들지 말고, 보통 assemble은 마지막에 둔다.\n"
-        "사용자의 입력이 '질문/상담'(예: 어떻게 할까?, 몇 개로 나눌까?, 상태 알려줘)이면 "
-        "actions는 빈 배열로 두고 reply에 한국어 존댓말로 간결하게 답한다 — "
-        "아래 프로젝트 상태와 레이어 분리 기준(1순위 캐릭터 전원, 2순위 캐릭터를 가리는 전경, "
-        "3순위 내용상 필요한 요소, 그 외 배경 잔류)을 근거로 구체적으로.\n\n"
+        "너는 영상 제작 파트너(제작 비서)다. 사용자와 제작에 관해 자유롭게 상의하고, 필요할 때만 작업을 실행한다.\n\n"
+        "## 응답 규칙\n"
+        "1) 기본은 '대화'다 — reply에 한국어 존댓말로 답한다(질문·고민·아이디어·평가 요청 모두). "
+        "프로젝트 상태와 제작 기준을 근거로 구체적으로, 필요하면 다음 단계를 제안한다.\n"
+        "2) actions는 사용자가 '명확하게 실행을 지시'했을 때만 채운다(예: ~해줘, ~실행해, 진행해, 돌려줘). "
+        "모호하면 실행하지 말고 reply로 '~를 실행할까요?'라고 제안만 한다.\n"
+        "3) 실행할 때도 reply에 무엇을 왜 하는지 한 줄 설명을 함께 담아라.\n"
+        "4) 목록 외 동작은 만들지 말고, 보통 assemble은 마지막.\n\n"
+        "## 제작 기준(상담 근거)\n"
+        "- 레이어 분리: 1순위 캐릭터 전원, 2순위 캐릭터를 가리는 전경, 3순위 내용상 필요 요소, 그 외 배경 잔류\n"
+        "- 모션: 현재 캐릭터만(bob 까딱임+선택 fade_in), 사물·배경 모션은 규칙 미정으로 금지\n"
+        "- TTS: ElevenLabs(스타일별 voice), 워크플로우: 이미지→레이어→TTS→모션→컴프\n\n"
         f"## 가능한 액션\n{_CATALOG_DESC}\n## 현재 프로젝트 상태\n{project_status(proj_dir)}\n"
+        + (f"\n## 최근 대화\n{hist}\n" if hist else "")
         + (f"\n{recent}\n" if recent else "")
         + f"\n## 사용자 입력\n{instruction}"
     )
@@ -157,11 +195,16 @@ def run_assistant(proj_dir: Path, instruction: str, *,
     proj_dir = Path(proj_dir)
     planner = planner or plan_actions
     handlers = handlers if handlers is not None else ACTION_HANDLERS
+    append_history(proj_dir, "user", instruction)       # 대화 이력 — 비서가 맥락 유지
     planned = planner(proj_dir, instruction, on_line=on_event) if _accepts_on_line(planner) else planner(proj_dir, instruction)
     if isinstance(planned, dict):                       # 신형 {actions, reply}
         actions, reply = planned.get("actions", []), planned.get("reply")
     else:                                               # 구형 list 플래너(테스트 주입) 호환
         actions, reply = planned, None
+    if reply:
+        append_history(proj_dir, "assistant", reply)
+    elif actions:
+        append_history(proj_dir, "assistant", "[실행] " + ", ".join(a.get("action", "") for a in actions))
     results = []
     for a in actions:
         name = a.get("action")

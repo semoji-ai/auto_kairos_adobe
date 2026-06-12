@@ -39,3 +39,7 @@ projects/*/motion_*.json
 projects/*/.motion_plan_*.json
 projects/*/_versions/
 projects/*/edits_log.jsonl
+projects/*/assistant_chat.jsonl
+projects/*/.assistant_plan.json
+projects/*/.motion_plan_*.json
+projects/*/.layer_analysis.json

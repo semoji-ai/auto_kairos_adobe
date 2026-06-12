@@ -161,3 +161,39 @@ def test_run_assistant_legacy_list_planner_compat(tmp_path):
         planner=lambda proj_dir, instr, on_line=None: [{"action": "assemble", "reason": "r"}],
         handlers={"assemble": lambda proj_dir, on_event=None: {"scenes": 0}})
     assert out["plan"][0]["action"] == "assemble" and out["reply"] is None
+
+
+def test_history_roundtrip_and_prompt_inclusion(tmp_path, monkeypatch):
+    """대화 이력이 저장되고 다음 플래닝 프롬프트에 포함 — 이어지는 상의 가능."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "h1", "narration": "n"}])
+    cap = {}
+
+    def fake_run(prompt, cwd, **kw):
+        cap["prompt"] = prompt
+        Path(kw["output_last"]).write_text('{"actions":[],"reply":"씬 1부터 보시죠."}', encoding="utf-8")
+        return {"returncode": 0}
+
+    monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
+    assistant.run_assistant(d, "어떤 씬부터 작업할까?")
+    out2 = assistant.run_assistant(d, "그럼 그 다음은?")
+    assert "어떤 씬부터 작업할까?" in cap["prompt"]       # 이전 사용자 발화 포함
+    assert "씬 1부터 보시죠." in cap["prompt"]            # 이전 비서 답변 포함
+    assert "최근 대화" in cap["prompt"]
+    assert out2["reply"] == "씬 1부터 보시죠."
+
+
+def test_prompt_defaults_to_consult(tmp_path, monkeypatch):
+    """프롬프트가 상담 기본 + 명확한 명령만 실행 원칙을 명시."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "c2"}])
+    cap = {}
+
+    def fake_run(prompt, cwd, **kw):
+        cap["prompt"] = prompt
+        Path(kw["output_last"]).write_text('{"actions":[],"reply":"r"}', encoding="utf-8")
+        return {"returncode": 0}
+
+    monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
+    assistant.plan_actions(d, "음")
+    assert "기본은 '대화'" in cap["prompt"]
+    assert "명확하게 실행을 지시" in cap["prompt"]
+    assert "실행할까요?" in cap["prompt"]                  # 모호하면 제안만
