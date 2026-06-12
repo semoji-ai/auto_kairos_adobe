@@ -4,7 +4,8 @@
 
 function akBuildScene(manifestPath) {
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
-    function addLayerObj(proj, comp, layer, W, H, fade) {
+    // 자동 효과(페이드 등)는 넣지 않는다 — 모든 모션은 모션 플랜(applyMoves)에서만(규칙 기반).
+    function addLayerObj(proj, comp, layer, W, H) {
         var f = new File(layer.path);
         if (!f.exists) return null;
         var foot = proj.importFile(new ImportOptions(f));
@@ -20,7 +21,6 @@ function akBuildScene(manifestPath) {
             var fs = Math.max(W / sw, H / sh) * 100;
             il.property("Scale").setValue([fs, fs]);
         }
-        if (fade) { var op = il.property("Opacity"); op.setValueAtTime(0, 0); op.setValueAtTime(0.5, 100); }
         return il;
     }
     // 프리셋 모션 → 키프레임(결정적). 실패해도 빌드는 계속(try/catch).
@@ -154,12 +154,12 @@ function akBuildScene(manifestPath) {
             // 레이어 스택(있으면) — 배열 앞이 먼저 추가되어 최하단(배경). 없으면 단일 이미지.
             if (s.layers && s.layers.length) {
                 for (var li = 0; li < s.layers.length; li++) {
-                    var ok = addLayerObj(proj, comp, s.layers[li], cw, ch, li === 0);
+                    var ok = addLayerObj(proj, comp, s.layers[li], cw, ch);
                     if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);
                     else if (s.layers[li].moves) applyMoves(comp, ok, s.layers[li], dur, cw, ch);
                 }
             } else if (s.image) {
-                if (!addLayerObj(proj, comp, { path: s.image }, cw, ch, true)) log.push(name + ": image 누락");
+                if (!addLayerObj(proj, comp, { path: s.image }, cw, ch)) log.push(name + ": image 누락");
             }
 
             // 자막 텍스트 레이어 (있으면)

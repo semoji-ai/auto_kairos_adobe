@@ -382,3 +382,10 @@ def test_jsx_bob_null_pivot():
     assert "function addBobNull" in jsx and "addNull" in jsx
     assert 'loopOut("pingpong")' in jsx and "KeyframeEase" in jsx
     assert "il.parent = nl" in jsx and "layer.foot" in jsx
+
+
+def test_jsx_no_auto_fade():
+    """자동 페이드(배경 오퍼시티 0→100) 금지 — 모든 모션은 모션 플랜에서만."""
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "li === 0" not in jsx
+    assert "function addLayerObj(proj, comp, layer, W, H)" in jsx   # fade 파라미터 제거
