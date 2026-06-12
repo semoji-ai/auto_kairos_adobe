@@ -331,3 +331,21 @@ def test_soft_chroma_edge_soft_alpha(tmp_path):
     out = Image.open(p).convert("RGBA")
     a = out.getpixel((50, 29))[3]                              # 혼합 경계 픽셀
     assert a < 255                                             # 이진(255)이 아니라 소프트
+
+
+def test_run_codex_image_classifies_rate_limit(tmp_path, monkeypatch):
+    from backend import imagegen as ig
+    def fake_run(prompt, cwd, **kw):
+        kw.get("on_line", lambda x: None)("image_gen rate limit exceeded")
+        return {"returncode": 1, "output_last": None}
+    monkeypatch.setattr(ig, "run_skill", fake_run)
+    monkeypatch.setattr(ig.time, "sleep", lambda s: None)
+    res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=1)
+    assert res["status"] == "failed" and res["error"] == "rate_limit"
+
+
+def test_run_codex_image_classifies_no_file(tmp_path, monkeypatch):
+    from backend import imagegen as ig
+    monkeypatch.setattr(ig, "run_skill", lambda *a, **k: {"returncode": 0, "output_last": None})
+    res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=0)
+    assert res["status"] == "failed" and res["error"] == "no_file"

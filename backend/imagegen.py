@@ -101,7 +101,8 @@ def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
             time.sleep(20 * (attempt + 1))
             continue
         break
-    return {"status": "failed", "error": "rate_limit_or_no_file", "log_tail": last[-200:]}
+    reason = "rate_limit" if is_rate_limited(last) else "no_file"
+    return {"status": "failed", "error": reason, "log_tail": last[-200:]}
 
 
 def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
