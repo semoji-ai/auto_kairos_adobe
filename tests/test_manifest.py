@@ -153,3 +153,31 @@ def test_char_auto_bob_not_duplicated_with_plan(tmp_path):
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     char = next(L for L in sc["layers"] if "_char" in L["name"])
     assert [m["type"] for m in char["moves"]] == ["fade_in", "bob"]   # 플랜 그대로(중복 없음)
+
+
+def test_manifest_layout_passthrough(tmp_path):
+    """layout+데이터 통과, 비이미지 레이아웃 씬은 1920x1080 기본 컴프 + image None."""
+    d = _proj(tmp_path, [
+        {"sceneNumber": 1, "sceneId": "h", "narration": "n1", "layout": "headline_only",
+         "headline": "큰 제목", "sub": "부제", "duration_estimate_sec": 4},
+        {"sceneNumber": 2, "sceneId": "b", "narration": "n2", "layout": "bar",
+         "headline": "비교", "chart": {"labels": ["A", "B"], "values": [10, 40], "unit": "%"}},
+    ])
+    manifest.build_manifest(d)
+    mf = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
+    s1, s2 = mf["scenes"]
+    assert s1["layout"] == "headline_only" and s1["headline"] == "큰 제목" and s1["sub"] == "부제"
+    assert s1["image"] is None and s1["layers"] == []
+    assert s1["width"] == 1920 and s1["height"] == 1080
+    assert s2["layout"] == "bar" and s2["chart"]["values"] == [10, 40]
+    assert "value" not in s2 and "quote_text" not in s2     # None 필드는 미포함
+    assert Path(mf["ae_tokens"]).name == "ae_tokens.json" and Path(mf["ae_tokens"]).is_absolute()
+
+
+def test_manifest_layout_defaults_cinematic(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "imageRef": "storyboard/sb_a.png"}])
+    (d / "storyboard").mkdir(); (d / "storyboard" / "sb_a.png").write_bytes(b"\x89PNG")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["layout"] == "cinematic"
+    assert sc["image"].endswith("sb_a.png")

@@ -70,10 +70,13 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             dur = tts.audio_duration(proj_dir / s["_audio"]) or DEFAULT_DUR
         else:
             dur = float(s.get("duration_estimate_sec") or DEFAULT_DUR)
+        layout = s.get("layout") or "cinematic"
+        is_layout_scene = layout != "cinematic"
         # 씬 컴프 크기 = 씬 이미지 크기 → 풀프레임 레이어가 1:1·중앙으로 정확히 겹침(위치 보존)
-        size = _img_size(proj_dir / s["_image"]) if s.get("_image") else None
+        # 레이아웃 씬(비이미지)은 이미지/레이어를 쓰지 않음 — 기본 1920×1080 컴프
+        size = None if is_layout_scene else (_img_size(proj_dir / s["_image"]) if s.get("_image") else None)
         sw, sh = size if size else (W, H)
-        layers = _scene_layers(proj_dir, s.get("_layers") or [])
+        layers = [] if is_layout_scene else _scene_layers(proj_dir, s.get("_layers") or [])
         cam = None
         mp = proj_dir / f"motion_{sid}.json"
         if mp.is_file():
@@ -104,17 +107,26 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             is_char = "_char" in entry["name"] or kinds.get(entry["name"]) == "character"
             if is_char:
                 entry["moves"] = [{"type": "bob", "start": 0, "duration": dur}]
+        # 레이아웃 데이터 필드 통과 (None 아닌 것만 — jsx renderLayout가 읽음)
+        data_fields = {k: s[k] for k in
+                       ("headline", "sub", "items", "value", "label", "chart", "quote_text", "quote_who")
+                       if s.get(k) is not None}
         out_scenes.append({
             "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
             "width": sw, "height": sh,
-            "image": _abs(proj_dir, s["_image"]) if s.get("_image") else None,
+            "image": None if is_layout_scene else (_abs(proj_dir, s["_image"]) if s.get("_image") else None),
             "layers": layers,
             "audio": audio,
             "subtitle": s.get("narration", "") or "",
             "duration": dur,
+            "layout": layout,
+            **data_fields,
             **({"camera": cam} if cam else {}),
         })
     mf = {"width": W, "height": H, "fps": FPS, "scenes": out_scenes}
+    tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
+    if tokens_path.is_file():
+        mf["ae_tokens"] = str(tokens_path)
     out = proj_dir / (f"manifest_scene_{only_scene}.json" if only_scene is not None else "manifest.json")
     out.write_text(json.dumps(mf, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"path": str(out), "scenes": len(out_scenes)}
