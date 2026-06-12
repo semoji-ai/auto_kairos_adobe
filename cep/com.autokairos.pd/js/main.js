@@ -8,11 +8,12 @@ var PROJECTS_ROOT = "";   // /health 응답의 root — 머신 경로 하드코�
 
 function $(id) { return document.getElementById(id); }
 
-/* 잡 폴링 — 1.5s 간격, onLog(logs)/onDone(job). 5분 한도. */
-function _pollJob(jid, onDone, onLog) {
+/* 잡 폴링 — 1.5s 간격, onLog(logs)/onDone(job). 기본 5분 한도(maxTries로 연장 가능). */
+function _pollJob(jid, onDone, onLog, maxTries) {
+  maxTries = maxTries || 200;
   var tries = 0;
   var t = setInterval(function () {
-    if (++tries > 200) { clearInterval(t); onDone({ status: "failed", error: "타임아웃" }); return; }
+    if (++tries > maxTries) { clearInterval(t); onDone({ status: "failed", error: "타임아웃" }); return; }
     fetch(BACKEND + "/api/jobs/" + jid).then(function (r) { return r.json(); })
       .then(function (j) {
         if (onLog && j.logs) onLog(j.logs);

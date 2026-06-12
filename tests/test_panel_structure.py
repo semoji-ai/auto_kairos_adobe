@@ -325,3 +325,10 @@ def test_v3_import_ui_wired():
     main = MAIN.read_text(encoding="utf-8")
     assert "function importV3" in main and "/api/projects/import-v3" in main
     assert '$("btnImportV3").addEventListener' in main
+
+
+def test_pipeline_button_wired():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="btnRunPipeline"' in html and 'id="pipelineStatus"' in html
+    pl = (PANEL / "js" / "planning.js").read_text(encoding="utf-8")
+    assert "function runPipeline" in pl and "/api/pipeline/run" in pl and "_pollJob" in pl

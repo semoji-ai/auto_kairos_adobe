@@ -37,6 +37,32 @@ function viewPlanningFile(name) {
     .catch(function (e) { $("planViewer").textContent = "오류: " + e; });
 }
 
+/* 기획→리서치→원고 6단계 파이프라인 — 비동기 잡 + 폴링(스테이지 로그 표시) */
+function runPipeline() {
+  if (!SELECTED_PROJECT) { $("pipelineStatus").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  if (!confirm("기획→리서치→원고 6단계를 자동 실행합니다(LLM, 수십 분 소요 가능). 진행할까요?")) return;
+  $("pipelineStatus").textContent = "파이프라인 시작…";
+  fetch(BACKEND + "/api/pipeline/run", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "running" || !j.job_id) { $("pipelineStatus").textContent = "시작 실패: " + JSON.stringify(j); return; }
+      _pollJob(j.job_id, function (job) {
+        if (job.status === "completed") {
+          $("pipelineStatus").textContent = "✅ 완료 — final_manuscript.md 생성. 스토리보드 탭에서 씬 분해를 진행하세요.";
+          loadPlanningFiles();
+        } else {
+          $("pipelineStatus").textContent = "실패: " + (job.error || JSON.stringify(job));
+        }
+      }, function (logs) {
+        if (logs && logs.length) $("pipelineStatus").textContent = logs[logs.length - 1];
+      }, 2400);   // 1시간 한도(파이프라인은 수십 분 소요 가능)
+    })
+    .catch(function (e) { $("pipelineStatus").textContent = "오류: " + e; });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   $("btnReloadFiles").addEventListener("click", loadPlanningFiles);
+  $("btnRunPipeline").addEventListener("click", runPipeline);
 });
