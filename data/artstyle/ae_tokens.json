@@ -36,7 +36,9 @@
     "bold": "OTSBAggroB",
     "number": "Cafe24Ssurround",
     "subtitle": "OTSBAggroM",
-    "fallback": "AppleSDGothicNeo-Bold"
+    "fallback": "AppleSDGothicNeo-Bold",
+    "quote": "GyeonggiBatangR",
+    "quoteBold": "GyeonggiBatangB"
   },
   "type": {
     "headline": 110,
@@ -60,6 +62,8 @@
     "body": "Aggro",
     "bold": "Aggro",
     "number": "Ssurround",
-    "subtitle": "Aggro"
+    "subtitle": "Aggro",
+    "quote": "Batang",
+    "quoteBold": "Batang"
   }
 }

@@ -86,7 +86,13 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
                 for entry in layers:
                     mv = moves_by.get(entry["name"])
                     if mv:
-                        entry["moves"] = mv
+                        # 캐릭터는 오퍼시티 키프레임 금지 — fade류 제거, slide는 noFade 플래그
+                        if "_char" in entry["name"]:
+                            mv = [m for m in mv if m.get("type") not in ("fade_in", "exit_fade")]
+                            for m in mv:
+                                m["noFade"] = True
+                        if mv:
+                            entry["moves"] = mv
                 c = mo.get("camera") or {}
                 if c.get("type") and c["type"] != "none":
                     cam = c

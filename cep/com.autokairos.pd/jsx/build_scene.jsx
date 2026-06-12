@@ -134,10 +134,18 @@ function akBuildScene(manifestPath) {
                 vop.setValueAtTime(0.55 + bi * 0.15, 0); vop.setValueAtTime(0.8 + bi * 0.15, 100);
             }
         } else if (s.layout === "quote") {
-            addTextL(comp, "“", { x: W * 0.17, y: H * 0.28, size: t.headline * 1.8 * S, rgb: c.accentRgb, font: TK.fonts.headline });
-            addTextL(comp, s.quote_text || "", { x: W / 2, y: H * 0.48, size: t.quote * S, rgb: c.textRgb,
-                                                 font: TK.fonts.headline, box: [W * 0.66, H * 0.34], leading: 1.35 });
-            addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2, y: H * 0.7, size: t.quoteWho * S, rgb: c.mutedRgb, font: TK.fonts.body });
+            // 인용 — 명조(경기천년바탕). 여는따옴표=텍스트 박스 좌상단, 닫는따옴표=우하단, 출처=우측 정렬
+            var qf = TK.fonts.quote || TK.fonts.headline;
+            var qBoxW = W * 0.62, qBoxH = H * 0.36, qY = H * 0.47;
+            addTextL(comp, "“", { x: W / 2 - qBoxW / 2 - 70 * S, y: qY - qBoxH / 2 + 10 * S,
+                                  size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
+            addTextL(comp, s.quote_text || "", { x: W / 2, y: qY, size: t.quote * S, rgb: c.textRgb,
+                                                 font: qf, box: [qBoxW, qBoxH], leading: 1.5 });
+            addTextL(comp, "”", { x: W / 2 + qBoxW / 2 + 70 * S, y: qY + qBoxH / 2 - 10 * S,
+                                  size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
+            addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2 + qBoxW / 2 - 200 * S, y: qY + qBoxH / 2 + 90 * S,
+                                  size: t.quoteWho * S, rgb: c.mutedRgb, font: qf,
+                                  just: ParagraphJustification.RIGHT_JUSTIFY, box: [400 * S, t.quoteWho * 1.6 * S] });
         }
     }
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
@@ -200,8 +208,10 @@ function akBuildScene(manifestPath) {
                     var pp = il.property("Position");
                     pp.setValueAtTime(t0, [P[0] + dx, P[1] + dy]);
                     pp.setValueAtTime(t1, [P[0], P[1]]);
-                    var op0 = il.property("Opacity");
-                    op0.setValueAtTime(t0, 0); op0.setValueAtTime(t0 + (t1 - t0) * 0.5, 100);
+                    if (!mv.noFade) {                        // 캐릭터(noFade)는 오퍼시티 키프레임 금지
+                        var op0 = il.property("Opacity");
+                        op0.setValueAtTime(t0, 0); op0.setValueAtTime(t0 + (t1 - t0) * 0.5, 100);
+                    }
                 } else if (mv.type === "fade_in") {
                     var op1 = il.property("Opacity");
                     op1.setValueAtTime(t0, 0); op1.setValueAtTime(t1, 100);

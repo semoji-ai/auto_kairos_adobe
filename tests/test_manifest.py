@@ -152,7 +152,9 @@ def test_char_auto_bob_not_duplicated_with_plan(tmp_path):
     manifest.build_manifest(d)
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     char = next(L for L in sc["layers"] if "_char" in L["name"])
-    assert [m["type"] for m in char["moves"]] == ["fade_in", "bob"]   # 플랜 그대로(중복 없음)
+    # 캐릭터는 오퍼시티 금지 — fade_in 제거되고 bob만(중복 부여 없음), noFade 플래그
+    assert [m["type"] for m in char["moves"]] == ["bob"]
+    assert all(m.get("noFade") for m in char["moves"])
 
 
 def test_manifest_layout_passthrough(tmp_path):
