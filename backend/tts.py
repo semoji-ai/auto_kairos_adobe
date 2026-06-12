@@ -117,20 +117,28 @@ def audio_duration(path: Path) -> float:
         return 0.0
 
 
-def _eleven_fetch(text: str, cfg: dict | None = None) -> bytes:
-    """ElevenLabs TTS — MP3 bytes 반환. 실패 시 예외."""
+def _eleven_fetch(text: str, cfg: dict | None = None):
+    """ElevenLabs with-timestamps — (MP3 bytes, alignment dict|None). 실패 시 일반 엔드포인트 폴백."""
     cfg = cfg or {}
     key = env.get_key("ELEVENLABS_API_KEY")
     vid = cfg.get("voice_id") or DEFAULT_VOICE_ID
     model = cfg.get("model") or DEFAULT_MODEL
     settings = cfg.get("voice_settings") or VOICE_SETTINGS
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_128"
     body = json.dumps({"text": text, "model_id": model, "voice_settings": settings}).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=body, method="POST",
-        headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"})
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return resp.read()
+    headers = {"xi-api-key": key, "Content-Type": "application/json"}
+    try:
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}/with-timestamps?output_format=mp3_44100_128"
+        req = urllib.request.Request(url, data=body, method="POST", headers=headers)
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read())
+        import base64
+        return base64.b64decode(data["audio_base64"]), data.get("alignment") or data.get("normalized_alignment")
+    except Exception:
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_128"
+        req = urllib.request.Request(url, data=body, method="POST",
+                                     headers={**headers, "Accept": "audio/mpeg"})
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return resp.read(), None
 
 
 def _synth_say(text: str, out_path: Path, voice: str | None) -> None:
@@ -145,9 +153,19 @@ def synthesize(text: str, out_path: Path, cfg: dict | None = None) -> dict:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     eng = _engine()
     clean = _clean_text(text)
+    align = None
     try:
         if eng == "elevenlabs":
-            out_path.write_bytes(_eleven_fetch(clean, cfg))
+            audio, align = _eleven_fetch(clean, cfg)
+            out_path.write_bytes(audio)
+            if align:
+                side = out_path.parent / (out_path.stem + ".timestamps.json")
+                side.write_text(json.dumps({
+                    "text": clean,
+                    "characters": align.get("characters", []),
+                    "starts": align.get("character_start_times_seconds", []),
+                    "ends": align.get("character_end_times_seconds", []),
+                }, ensure_ascii=False), encoding="utf-8")
         else:
             if shutil.which("say") is None:
                 return {"status": "failed", "error": "say 없음·ElevenLabs 키 없음", "path": str(out_path), "duration": 0.0}
@@ -156,9 +174,13 @@ def synthesize(text: str, out_path: Path, cfg: dict | None = None) -> dict:
         return {"status": "failed", "error": str(e)[:200], "path": str(out_path), "duration": 0.0, "engine": eng}
     if not out_path.exists() or out_path.stat().st_size == 0:
         return {"status": "failed", "error": "출력 없음", "path": str(out_path), "duration": 0.0, "engine": eng}
-    dur = audio_duration(out_path)
-    if dur == 0.0 and eng == "elevenlabs":          # afinfo 실패 시 비트레이트 추정(128kbps)
-        dur = round(out_path.stat().st_size * 8 / 128000, 3)
+    ends = (align or {}).get("character_end_times_seconds") or []
+    if ends:                                        # alignment가 가장 정확
+        dur = round(float(ends[-1]), 3)
+    else:
+        dur = audio_duration(out_path)
+        if dur == 0.0 and eng == "elevenlabs":      # afinfo 실패 시 비트레이트 추정(128kbps)
+            dur = round(out_path.stat().st_size * 8 / 128000, 3)
     return {"status": "completed", "path": str(out_path), "duration": dur, "engine": eng}
 
 

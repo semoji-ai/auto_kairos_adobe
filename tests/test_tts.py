@@ -26,12 +26,32 @@ def test_engine_and_ext_by_key(monkeypatch):
 
 def test_synthesize_elevenlabs(tmp_path, monkeypatch):
     monkeypatch.setattr(tts.env, "get_key", lambda k, *a: "KEY" if k == "ELEVENLABS_API_KEY" else "")
-    monkeypatch.setattr(tts, "_eleven_fetch", lambda text, cfg=None: b"ID3mp3bytes")
+    monkeypatch.setattr(tts, "_eleven_fetch", lambda text, cfg=None: (b"ID3mp3bytes", None))
     monkeypatch.setattr(tts, "audio_duration", lambda p: 4.2)
     out = tmp_path / "a.mp3"
     res = tts.synthesize("안녕하세요", out, cfg={"voice_id": "V", "model": "m", "voice_settings": {}})
     assert res["status"] == "completed" and res["engine"] == "elevenlabs"
     assert out.read_bytes() == b"ID3mp3bytes" and res["duration"] == 4.2
+    assert not (tmp_path / "a.timestamps.json").exists()    # alignment 없음 → 사이드카 없음
+
+
+def test_synthesize_saves_timestamp_sidecar(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(tts.env, "get_key", lambda k, *a: "KEY" if k == "ELEVENLABS_API_KEY" else "")
+    align = {"characters": ["안", "녕"],
+             "character_start_times_seconds": [0.0, 0.3],
+             "character_end_times_seconds": [0.3, 0.7]}
+    monkeypatch.setattr(tts, "_eleven_fetch", lambda text, cfg=None: (b"ID3x", align))
+    monkeypatch.setattr(tts, "audio_duration", lambda p: 4.2)
+    out = tmp_path / "tts_s1.mp3"
+    res = tts.synthesize("안녕", out)
+    assert res["status"] == "completed"
+    side = tmp_path / "tts_s1.timestamps.json"
+    assert side.exists()
+    d = _json.loads(side.read_text(encoding="utf-8"))
+    assert d["text"] == "안녕" and d["characters"] == ["안", "녕"]
+    assert d["starts"] == [0.0, 0.3] and d["ends"] == [0.3, 0.7]
+    assert res["duration"] == 0.7                            # duration = ends[-1] 우선
 
 
 def test_synthesize_elevenlabs_failure(tmp_path, monkeypatch):
