@@ -105,33 +105,50 @@ _CATALOG_DESC = (
 
 
 def project_status(proj_dir: Path) -> str:
+    """집계 + 씬별 한 줄 현황(질문/상담 답변에 필요한 맥락)."""
     data = scenes.load_scenes(proj_dir)
     ss = data.get("scenes", [])
     img = sum(1 for s in ss if s.get("_image"))
     lay = sum(1 for s in ss if s.get("_layers"))
     aud = sum(1 for s in ss if s.get("_audio"))
-    return f"총 {len(ss)}씬 / 이미지 {img} / 레이어 {lay} / TTS {aud}"
+    lines = [f"총 {len(ss)}씬 / 이미지 {img} / 레이어 {lay} / TTS {aud}"]
+    for s in ss[:20]:                       # 씬별 현황(과도 방지 20씬 캡)
+        st = s.get("_status") or {}
+        nar = (s.get("narration") or "")[:40]
+        lines.append(
+            f"- 씬{s.get('sceneNumber')} '{s.get('title', '')}': "
+            f"이미지 {'O' if st.get('image') else 'X'} / 레이어 {len(s.get('_layers') or [])}개 / "
+            f"TTS {'O' if st.get('tts') else 'X'} / 모션 {'O' if st.get('motion') else 'X'} — {nar}")
+    if len(ss) > 20:
+        lines.append(f"(외 {len(ss) - 20}씬 생략)")
+    return "\n".join(lines)
 
 
-def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> list:
-    """codex로 NL 지시를 액션 목록으로. 실패 시 []."""
+def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> dict:
+    """NL 지시 → {actions, reply}. 실행 요청이면 actions, 질문/상담이면 reply(한국어 답변). 실패 시 둘 다 빈 값."""
     from backend import edits
     recent = edits.recent_edits_text(proj_dir, limit=2, max_chars=1500)
     prompt = (
-        "너는 영상 제작 파이프라인 비서다. 사용자의 지시를 아래 액션들의 순서 있는 목록으로 변환해라. "
-        "목록 외 동작은 만들지 말고, 지시에 필요한 액션만 골라라. 보통 assemble은 마지막에 둔다.\n\n"
+        "너는 영상 제작 파이프라인 비서다.\n"
+        "사용자의 입력이 '실행 요청'이면 아래 액션들의 순서 있는 목록(actions)으로 변환하고 reply는 null로 둔다. "
+        "목록 외 동작은 만들지 말고, 보통 assemble은 마지막에 둔다.\n"
+        "사용자의 입력이 '질문/상담'(예: 어떻게 할까?, 몇 개로 나눌까?, 상태 알려줘)이면 "
+        "actions는 빈 배열로 두고 reply에 한국어 존댓말로 간결하게 답한다 — "
+        "아래 프로젝트 상태와 레이어 분리 기준(1순위 캐릭터 전원, 2순위 캐릭터를 가리는 전경, "
+        "3순위 내용상 필요한 요소, 그 외 배경 잔류)을 근거로 구체적으로.\n\n"
         f"## 가능한 액션\n{_CATALOG_DESC}\n## 현재 프로젝트 상태\n{project_status(proj_dir)}\n"
         + (f"\n{recent}\n" if recent else "")
-        + f"\n## 사용자 지시\n{instruction}"
+        + f"\n## 사용자 입력\n{instruction}"
     )
     out = proj_dir / ".assistant_plan.json"
     res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_PLAN_SCHEMA), output_last=str(out), on_line=on_line)
     if res.get("returncode") != 0 or not out.is_file():
-        return []
+        return {"actions": [], "reply": None}
     try:
-        return json.loads(out.read_text(encoding="utf-8")).get("actions", [])
+        data = json.loads(out.read_text(encoding="utf-8"))
+        return {"actions": data.get("actions", []), "reply": data.get("reply")}
     except Exception:
-        return []
+        return {"actions": [], "reply": None}
 
 
 def run_assistant(proj_dir: Path, instruction: str, *,
@@ -140,7 +157,11 @@ def run_assistant(proj_dir: Path, instruction: str, *,
     proj_dir = Path(proj_dir)
     planner = planner or plan_actions
     handlers = handlers if handlers is not None else ACTION_HANDLERS
-    actions = planner(proj_dir, instruction, on_line=on_event) if _accepts_on_line(planner) else planner(proj_dir, instruction)
+    planned = planner(proj_dir, instruction, on_line=on_event) if _accepts_on_line(planner) else planner(proj_dir, instruction)
+    if isinstance(planned, dict):                       # 신형 {actions, reply}
+        actions, reply = planned.get("actions", []), planned.get("reply")
+    else:                                               # 구형 list 플래너(테스트 주입) 호환
+        actions, reply = planned, None
     results = []
     for a in actions:
         name = a.get("action")
@@ -155,7 +176,7 @@ def run_assistant(proj_dir: Path, instruction: str, *,
         except TypeError:
             r = h(proj_dir)
         results.append({"action": name, "reason": a.get("reason"), "result": r})
-    return {"plan": actions, "results": results}
+    return {"plan": actions, "results": results, "reply": reply}
 
 
 def _accepts_on_line(fn) -> bool:

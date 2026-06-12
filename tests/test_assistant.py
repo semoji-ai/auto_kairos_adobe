@@ -48,15 +48,16 @@ def test_plan_actions_parses(tmp_path, monkeypatch):
         return {"returncode": 0, "output_last": output_last}
 
     monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
-    actions = assistant.plan_actions(d, "음성 입혀서 합쳐줘")
-    assert [a["action"] for a in actions] == ["tts_all", "assemble"]
+    planned = assistant.plan_actions(d, "음성 입혀서 합쳐줘")
+    assert [a["action"] for a in planned["actions"]] == ["tts_all", "assemble"]
+    assert planned["reply"] is None
 
 
 def test_plan_actions_failure_returns_empty(tmp_path, monkeypatch):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a"}])
     monkeypatch.setattr(assistant.llm, "run_orchestrator",
                         lambda *a, **k: {"returncode": 1, "output_last": k.get("output_last")})
-    assert assistant.plan_actions(d, "뭐든") == []
+    assert assistant.plan_actions(d, "뭐든") == {"actions": [], "reply": None}
 
 
 def test_run_assistant_dispatches_in_order(tmp_path):
@@ -131,3 +132,32 @@ def test_tts_all_handler_prefers_narration_tts(tmp_path, monkeypatch):
                         {"status": "completed"})
     res = assistant.ACTION_HANDLERS["tts_all"](d)
     assert res["generated"] == 1 and seen == ["교정본"]
+
+
+def test_plan_actions_question_returns_reply(tmp_path, monkeypatch):
+    """질문이면 actions 비우고 reply 답변 — 비서가 상담 모드로 응답."""
+    d = _proj(tmp_path, [{"sceneNumber": 2, "sceneId": "q1", "narration": "씬 둘"}])
+    cap = {}
+
+    def fake_run(prompt, cwd, *, output_schema=None, output_last=None, images=None, on_line=None, **kw):
+        cap["prompt"] = prompt
+        Path(output_last).write_text(
+            '{"actions":[],"reply":"씬 2는 인물 2명 + 전경 책상 1 + 강조 사물 1로 4개 분리를 권합니다."}',
+            encoding="utf-8")
+        return {"returncode": 0}
+
+    monkeypatch.setattr(assistant.llm, "run_orchestrator", fake_run)
+    out = assistant.run_assistant(d, "2번 씬은 레이어 몇 개로 나누면 좋을까?")
+    assert out["reply"].startswith("씬 2는")
+    assert out["plan"] == [] and out["results"] == []
+    assert "질문" in cap["prompt"] and "씬2" in cap["prompt"].replace(" ", "")   # 씬별 상태 제공
+
+
+def test_run_assistant_legacy_list_planner_compat(tmp_path):
+    """구형(list 반환) 주입 플래너 호환 유지."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a"}])
+    out = assistant.run_assistant(
+        d, "x",
+        planner=lambda proj_dir, instr, on_line=None: [{"action": "assemble", "reason": "r"}],
+        handlers={"assemble": lambda proj_dir, on_event=None: {"scenes": 0}})
+    assert out["plan"][0]["action"] == "assemble" and out["reply"] is None

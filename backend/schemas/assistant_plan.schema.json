@@ -1,8 +1,9 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["actions"],
+  "required": ["actions", "reply"],
   "properties": {
+    "reply": { "type": ["string", "null"] },
     "actions": {
       "type": "array",
       "items": {

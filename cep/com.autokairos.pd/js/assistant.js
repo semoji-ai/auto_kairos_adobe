@@ -25,8 +25,16 @@ function sendChat() {
       _pollJob(j.job_id, function (job) {
         if (job.status !== "completed") { _chatAppend("실패: " + _esc(job.error || JSON.stringify(job))); return; }
         var out = job.result || {};
+        if (out.reply) {                                 // 질문/상담 → 답변 모드
+          _chatAppend("🤖 " + _esc(out.reply).replace(/\n/g, "<br>"));
+          if (!(out.plan || []).length) return;          // 답변만(실행 없음)
+        }
+        if (!(out.plan || []).length) {
+          _chatAppend("🤖 실행할 액션을 찾지 못했습니다. 실행 지시(예: \"음성 입혀서 합쳐줘\") 또는 질문으로 다시 말씀해 주세요.");
+          return;
+        }
         var plan = (out.plan || []).map(function (a) { return "• " + a.action + " — " + _esc(a.reason || ""); }).join("<br>");
-        _chatAppend("📋 계획:<br>" + (plan || "(없음)"));
+        _chatAppend("📋 계획:<br>" + plan);
         (out.results || []).forEach(function (res) {
           _chatAppend("✓ " + res.action + ": " + _esc(JSON.stringify(res.result)));
         });
