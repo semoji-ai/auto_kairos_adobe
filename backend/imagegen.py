@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -80,18 +82,24 @@ def build_character_prompt(name: str, looks: str, rel_out: str) -> str:
     )
 
 
+# 전역 동시 이미지 생성 상한 — 병렬 씬 분리 등으로 codex가 폭주(rate limit·타임아웃)하지 않게 큐잉
+_GEN_SEMA = threading.BoundedSemaphore(max(1, int(os.environ.get("AK_GEN_CONCURRENCY", "3"))))
+
+
 def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
                      images=None, retries: int = 2, on_line=None, post=None) -> dict:
-    """codex image_gen 실행 + rate limit 백오프. out 생성 확인 후 post(out) 후처리(선택)."""
+    """codex image_gen 실행 + rate limit 백오프. out 생성 확인 후 post(out) 후처리(선택).
+    전역 세마포어로 동시 실행 수 제한(초과분은 대기)."""
     last = ""
     for attempt in range(retries + 1):
         captured = []
-        res = run_skill(
-            prompt, proj_dir, sandbox="workspace-write",
-            images=images or None,
-            output_last=str(proj_dir / ".imagegen_last.txt"),
-            on_line=lambda ln: (captured.append(ln), on_line and on_line(ln)),
-        )
+        with _GEN_SEMA:
+            res = run_skill(
+                prompt, proj_dir, sandbox="workspace-write",
+                images=images or None,
+                output_last=str(proj_dir / ".imagegen_last.txt"),
+                on_line=lambda ln: (captured.append(ln), on_line and on_line(ln)),
+            )
         last = "\n".join(captured)
         if res["returncode"] == 0 and out.exists():
             if post:

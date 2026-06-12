@@ -42,7 +42,7 @@ function sendChat() {
         if (typeof loadSheet === "function") loadSheet();
       }, function (logs) {
         for (; seenLogs < logs.length; seenLogs++) _chatAppend("… " + _esc(logs[seenLogs]));
-      });
+      }, 2400);   // 60분 한도 — 비서가 무거운 액션(분리·이미지) 실행 시 대비
     })
     .catch(function (e) { _chatAppend("오류: " + _esc(String(e))); });
 }

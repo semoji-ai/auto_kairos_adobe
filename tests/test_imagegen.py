@@ -584,3 +584,29 @@ def test_split_writes_kinds_sidecar(tmp_path, monkeypatch):
                                 {"name": "책상", "location": "중앙", "kind": "object"}], concurrency=1)
     kinds = _j.loads((proj / "layers" / "kd__kinds.json").read_text(encoding="utf-8"))
     assert kinds == {"kd__0_남자": "character", "kd__1_책상": "object"}
+
+
+def test_gen_semaphore_limits_concurrency(tmp_path, monkeypatch):
+    """전역 세마포어 — 동시 codex 이미지 실행이 상한을 넘지 않음(초과분 대기)."""
+    import threading, time
+    from PIL import Image
+    from backend import imagegen as ig
+    monkeypatch.setattr(ig, "_GEN_SEMA", threading.BoundedSemaphore(2))
+    state = {"cur": 0, "peak": 0}
+    lock = threading.Lock()
+
+    def fake_skill(prompt, cwd, **kw):
+        with lock:
+            state["cur"] += 1
+            state["peak"] = max(state["peak"], state["cur"])
+        time.sleep(0.05)
+        with lock:
+            state["cur"] -= 1
+        return {"returncode": 1, "output_last": None}     # 파일 미생성 → 즉시 실패 경로
+
+    monkeypatch.setattr(ig, "run_skill", fake_skill)
+    outs = [tmp_path / f"o{i}.png" for i in range(6)]
+    ts = [threading.Thread(target=lambda o=o: ig._run_codex_image(tmp_path, o, "p", retries=0))
+          for o in outs]
+    [t.start() for t in ts]; [t.join() for t in ts]
+    assert state["peak"] <= 2                              # 상한 준수

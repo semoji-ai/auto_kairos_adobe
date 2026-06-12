@@ -513,7 +513,7 @@ function splitLayers(n, els) {
         if (done) refreshRow(n);   // 레이어 썸네일 갱신(행 단위)
       }, function (logs) {
         if (logs.length) _rowStatus(n, "레이어 분리 중... " + logs[logs.length - 1]);
-      });
+      }, 1600);   // 40분 한도 — 병렬 분리 시 큐 대기 포함(5분 기본은 거짓 타임아웃 유발)
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
