@@ -356,8 +356,8 @@ function bindSheetToolbar() {
   });
   on("sa-map", function () {
     var ns = _needChecked(1, "지도 렌더"); if (!ns) return;
-    var box = $("aeresult");
-    function say(t) { if (box) box.textContent = t; }
+    var box = $("aeresult"), st = $("sa-status");
+    function say(t) { if (st) st.textContent = t; if (box) box.textContent = t; }
     say("지도 렌더 중... (타일 다운로드 수 초)");
     fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
       .then(function (r) { return r.json(); })

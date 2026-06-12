@@ -77,7 +77,11 @@ function _swapLL(c) { return [c[1], c[0]]; }   // [lat,lng] → [lng,lat]
 // s: 씬 객체(map_center/map_zoom/map_markers). resolve(상대경로) / reject(에러)
 function renderMapScene(s) {
   return new Promise(function (resolve, reject) {
-    if (typeof maplibregl === "undefined") { reject("maplibre-gl 미로드"); return; }
+    if (typeof maplibregl === "undefined") { reject("maplibre-gl 미로드 — 패널 재오픈 필요"); return; }
+    var glTest = document.createElement("canvas");
+    if (!glTest.getContext("webgl2") && !glTest.getContext("webgl")) {
+      reject("WebGL 비활성 — AE를 완전히 재시작해야 적용됩니다(manifest에 --enable-webgl 추가됨)"); return;
+    }
     var center = s.map_center && s.map_center.length === 2 ? _swapLL(s.map_center) : [127.0, 37.5];
     var host = document.createElement("div");
     host.style.cssText = "position:fixed;left:-99999px;top:0;width:1920px;height:1080px";

@@ -491,3 +491,13 @@ def test_map_overlay_native_layers():
     assert "renderMapOverlay" in jsx and "s.mapGeo" in jsx
     assert "ADBE Vector Filter - Trim" in jsx                # 경로 그리기 애니메이션
     assert "map_marker_" in jsx and "map_label_" in jsx
+
+
+def test_webgl_enabled_for_map():
+    """지도(MapLibre)용 WebGL — CEF 플래그 + mapgen 사전 점검 + 도구상자 상태 표시."""
+    mx = (PANEL / "CSXS" / "manifest.xml").read_text(encoding="utf-8")
+    assert "--enable-webgl" in mx and "--ignore-gpu-blacklist" in mx
+    mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
+    assert "webgl" in mg                                     # 사전 점검(명확한 에러)
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="sa-status"' in html                          # 시트 도구상자 상태 표시
