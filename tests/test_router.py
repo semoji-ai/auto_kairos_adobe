@@ -849,3 +849,21 @@ def test_import_v3_route_bad_dir_422(tmp_path):
     code, body = handle_request("POST", "/api/projects/import-v3", {},
                                 {"path": str(tmp_path / "nope")}, ctx)
     assert code == 422 and "error" in body
+
+
+def test_file_save_records_edit(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "plan.md").write_text("이전", encoding="utf-8")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/projects/file/save", {},
+                                {"project_id": "p", "name": "plan.md", "content": "이후"}, ctx)
+    assert code == 200 and body["ok"]
+    assert (proj / "edits_log.jsonl").exists()
+
+
+def test_file_save_rejects_bad_path(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/projects/file/save", {},
+                             {"project_id": "p", "name": "../x.md", "content": "x"}, ctx)
+    assert code == 400

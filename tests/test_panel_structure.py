@@ -72,7 +72,7 @@ def test_existing_result_boxes_wired():
 
 def test_planning_tab_has_file_viewer():
     html = HTML.read_text(encoding="utf-8")
-    for el in ['id="btnReloadFiles"', 'id="planFiles"', 'id="planViewer"']:
+    for el in ['id="btnReloadFiles"', 'id="planFiles"', 'id="planEdit"']:
         assert el in html, el
     # 임시 원고보기 버튼/박스는 제거됨
     assert 'id="btnManuscript"' not in html

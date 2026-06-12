@@ -37,3 +37,5 @@ data/llm_config.json
 # 모션 플랜 산출물(재생성 가능)
 projects/*/motion_*.json
 projects/*/.motion_plan_*.json
+projects/*/_versions/
+projects/*/edits_log.jsonl

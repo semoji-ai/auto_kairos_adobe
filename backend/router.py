@@ -5,7 +5,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -560,6 +560,17 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         except UnicodeDecodeError:
             return 415, {"error": "binary file not supported"}
         return 200, {"name": name, "content": content}
+
+    if method == "POST" and p == "/api/projects/file/save":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        name = b.get("name") or ""
+        if b.get("content") is None:
+            return 400, {"error": "content 필요"}
+        res = edits.save_file(proj_dir, name, b.get("content"))
+        return (200, res) if res.get("ok") else (400, res)
 
     if method == "GET" and p.startswith("/api/jobs/"):
         jid = p.rsplit("/", 1)[-1]

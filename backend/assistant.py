@@ -115,11 +115,14 @@ def project_status(proj_dir: Path) -> str:
 
 def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> list:
     """codex로 NL 지시를 액션 목록으로. 실패 시 []."""
+    from backend import edits
+    recent = edits.recent_edits_text(proj_dir, limit=2, max_chars=1500)
     prompt = (
         "너는 영상 제작 파이프라인 비서다. 사용자의 지시를 아래 액션들의 순서 있는 목록으로 변환해라. "
         "목록 외 동작은 만들지 말고, 지시에 필요한 액션만 골라라. 보통 assemble은 마지막에 둔다.\n\n"
-        f"## 가능한 액션\n{_CATALOG_DESC}\n## 현재 프로젝트 상태\n{project_status(proj_dir)}\n\n"
-        f"## 사용자 지시\n{instruction}"
+        f"## 가능한 액션\n{_CATALOG_DESC}\n## 현재 프로젝트 상태\n{project_status(proj_dir)}\n"
+        + (f"\n{recent}\n" if recent else "")
+        + f"\n## 사용자 지시\n{instruction}"
     )
     out = proj_dir / ".assistant_plan.json"
     res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_PLAN_SCHEMA), output_last=str(out), on_line=on_line)

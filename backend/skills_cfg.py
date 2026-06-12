@@ -25,6 +25,11 @@ def build_prompt(skills_dir: Path, name: str, config: dict, proj_dir: Path) -> s
         fp = proj_dir / fname
         if fp.exists():
             parts.append(f"\n\n## 입력: {fname}\n{fp.read_text(encoding='utf-8')}")
+    # 사용자가 패널에서 직접 고친 내역 — 오케스트레이터가 인지·존중하도록 주입
+    from backend import edits
+    recent = edits.recent_edits_text(proj_dir)
+    if recent:
+        parts.append("\n\n" + recent)
     out = config["output"]
     if config.get("output_kind") == "json":
         parts.append(f"\n\nproject_id={proj_dir.name}. {out} 내용(JSON)만 출력.")

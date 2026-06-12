@@ -25,16 +25,40 @@ function loadPlanningFiles() {
     .catch(function (e) { $("planFiles").textContent = "오류: " + e; });
 }
 
+var PLAN_EDIT_FILE = null;    // 현재 편집 중 파일명
+
 function viewPlanningFile(name) {
-  $("planViewer").textContent = "불러오는 중... (" + name + ")";
+  $("planEditStatus").textContent = "불러오는 중... (" + name + ")";
   fetch(BACKEND + "/api/projects/file?project_id=" + encodeURIComponent(SELECTED_PROJECT) +
         "&name=" + encodeURIComponent(name))
     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
     .then(function (res) {
-      $("planViewer").textContent =
-        (res.ok && res.j.content != null) ? res.j.content : ("(열 수 없음) " + JSON.stringify(res.j));
+      if (res.ok && res.j.content != null) {
+        PLAN_EDIT_FILE = name;
+        $("planEditName").textContent = name;
+        $("planEdit").value = res.j.content;
+        $("planEditStatus").textContent = "수정 후 💾 저장 — 수정 내역은 LLM이 인지합니다.";
+      } else {
+        $("planEditStatus").textContent = "(열 수 없음) " + JSON.stringify(res.j);
+      }
     })
-    .catch(function (e) { $("planViewer").textContent = "오류: " + e; });
+    .catch(function (e) { $("planEditStatus").textContent = "오류: " + e; });
+}
+
+function savePlanningFile() {
+  if (!PLAN_EDIT_FILE) { $("planEditStatus").textContent = "먼저 파일을 선택하세요."; return; }
+  $("planEditStatus").textContent = "저장 중...";
+  fetch(BACKEND + "/api/projects/file/save", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, name: PLAN_EDIT_FILE,
+                           content: $("planEdit").value }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      $("planEditStatus").textContent = j.ok
+        ? (j.changed ? ("💾 저장됨 — " + j.changed + "줄 변경 기록(이후 LLM 단계가 이 수정을 존중)") : "변경 없음")
+        : ("저장 실패: " + (j.error || JSON.stringify(j)));
+    })
+    .catch(function (e) { $("planEditStatus").textContent = "오류: " + e; });
 }
 
 /* 기획→리서치→원고 6단계 파이프라인 — 비동기 잡 + 폴링(스테이지 로그 표시) */
@@ -65,4 +89,5 @@ function runPipeline() {
 document.addEventListener("DOMContentLoaded", function () {
   $("btnReloadFiles").addEventListener("click", loadPlanningFiles);
   $("btnRunPipeline").addEventListener("click", runPipeline);
+  $("btnSavePlanFile").addEventListener("click", savePlanningFile);
 });
