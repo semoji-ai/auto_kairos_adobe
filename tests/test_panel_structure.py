@@ -282,3 +282,14 @@ def test_refresh_row_single_scene():
     assert "function bindRows(scope)" in js
     # 단일 씬 작업(genTts)은 refreshRow 사용
     assert "refreshRow" in js.split("function genTts")[1]
+
+
+def test_jsx_uses_json_parse():
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "JSON.parse" in jsx
+    assert (PANEL / "jsx" / "json2.jsx").exists()
+    # json2는 ES3 호환(parse만) — const/let/arrow 금지
+    j2 = (PANEL / "jsx" / "json2.jsx").read_text(encoding="utf-8")
+    assert "JSON.parse" in j2 and "=>" not in j2 and "const " not in j2 and "let " not in j2
+    main = MAIN.read_text(encoding="utf-8")
+    assert "json2.jsx" in main

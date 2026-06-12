@@ -1,6 +1,6 @@
 // auto_kairos — manifest 기반 AE 컴프 생성 (PoC, 최소 모션)
 // 입력: manifest 경로(JSON). 출력: 씬별 컴프 + Final 컴프(순서 배치).
-// ExtendScript에는 native JSON이 없을 수 있어 eval로 파싱(로컬 신뢰 파일 전제, PoC).
+// JSON 파싱: json2.jsx 폴리필(JSON.parse) 우선, 없으면 eval 폴백.
 
 function akBuildScene(manifestPath) {
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
@@ -27,7 +27,7 @@ function akBuildScene(manifestPath) {
         var mf = new File(manifestPath);
         if (!mf.exists) { return "ERROR: manifest 없음: " + manifestPath; }
         mf.open("r"); var raw = mf.read(); mf.close();
-        var m = eval("(" + raw + ")");
+        var m = (typeof JSON === "object" && JSON.parse) ? JSON.parse(raw) : eval("(" + raw + ")");
 
         var W = m.width || 1920, H = m.height || 1080, FPS = m.fps || 30;
         var scenes = m.scenes || [];

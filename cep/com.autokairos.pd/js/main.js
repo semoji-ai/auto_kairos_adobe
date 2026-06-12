@@ -94,7 +94,7 @@ function _assemble(sceneNumber, statusFn) {
     .then(function (j) {
       if (j.error || !j.path) { setS("매니페스트 실패: " + JSON.stringify(j)); return; }
       var jsx;
-      try { jsx = readLocal("./jsx/build_scene.jsx"); }
+      try { jsx = readLocal("./jsx/json2.jsx") + "\n" + readLocal("./jsx/build_scene.jsx"); }
       catch (e) { setS("jsx 로드 실패: " + e); return; }
       setS("AE 조립 중... (씬 " + j.scenes + ")");
       var call = "\nakBuildScene(" + JSON.stringify(j.path) + ");";
