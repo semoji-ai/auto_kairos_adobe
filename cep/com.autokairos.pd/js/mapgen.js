@@ -148,7 +148,7 @@ function renderMapScene(s) {
       // idle(타일 완전 로드)을 기다리되, 못 받으면 18초 후 현재 상태로 캡처(베스트에포트)
       var bestEffort = setTimeout(function () { capture(); }, 18000);
       function capture() {
-        clearTimeout(bestEffort); stopRepaint();
+        clearTimeout(bestEffort);                          // 리페인트는 finish()가 멈춤(재시도 동안 유지)
         captureNow();
       }
       map.once("idle", function () {                       // 타일 렌더 완료 시점
@@ -157,21 +157,52 @@ function renderMapScene(s) {
       });
       // 마커/경로는 지도에 굽지 않는다 — captureNow가 map.project()로
       // 위경도→캡처 픽셀 좌표(geo 사이드카)만 추출(AE 셰이프/텍스트 재료)
-      function captureNow() {
+      var capTries = 0;
+      function _isBlank(ctx, w, h) {                       // 픽셀 샘플링 — 전부 동일색이면 빈 캔버스
         try {
-          var dark = theme.url === MAP_DARK_URL;
-          var geo = { markers: [], route: [],
-                      labelRgb: dark ? [232, 234, 237] : [26, 26, 26] };   // 테마 대비색(jsx 라벨용)
-          (s.map_markers || []).forEach(function (m) {
-            var pt = map.project(_swapLL(m.coord));
-            geo.markers.push({ name: m.name || "", x: Math.round(pt.x), y: Math.round(pt.y) });
-          });
-          (s.map_route || []).forEach(function (c) {
-            var rp = map.project(_swapLL(c));
-            geo.route.push([Math.round(rp.x), Math.round(rp.y)]);
-          });
-          finish(null, { dataUrl: map.getCanvas().toDataURL("image/png"), geo: geo });
-        } catch (e) { finish("캡처 실패: " + e); }
+          var pts = [[w >> 1, h >> 1], [w >> 2, h >> 2], [3 * w >> 2, h >> 2], [w >> 2, 3 * h >> 2], [3 * w >> 2, 3 * h >> 2]];
+          var first = null, same = true;
+          for (var i = 0; i < pts.length; i++) {
+            var d = ctx.getImageData(pts[i][0], pts[i][1], 1, 1).data;
+            var key = d[0] + "," + d[1] + "," + d[2] + "," + d[3];
+            if (first === null) first = key; else if (key !== first) same = false;
+          }
+          return same;                                     // 진짜 지도라면 5점이 같을 수 없음
+        } catch (e) { return false; }
+      }
+      function captureNow() {
+        // CEF에서 WebGL toDataURL 직접 읽기가 빈 화면이 되는 문제 →
+        // 강제 리페인트 직후 프레임에 2D 캔버스로 drawImage 복사 후 읽기 + 빈 캔버스면 재시도
+        try { map.triggerRepaint(); } catch (e) { }
+        requestAnimationFrame(function () {
+          try {
+            var src = map.getCanvas();
+            var cv = document.createElement("canvas");
+            cv.width = src.width; cv.height = src.height;
+            var ctx = cv.getContext("2d");
+            ctx.drawImage(src, 0, 0);
+            if (_isBlank(ctx, cv.width, cv.height) && capTries < 6) {
+              capTries++;                                  // 타일이 아직 안 그려짐 — 1.2초 후 재시도
+              setTimeout(captureNow, 1200);
+              return;
+            }
+            var dark = theme.url === MAP_DARK_URL;
+            var geo = { markers: [], route: [],
+                        labelRgb: dark ? [232, 234, 237] : [26, 26, 26] };   // 테마 대비색(jsx 라벨용)
+            // 캡처 캔버스는 DPR 배율일 수 있음 — project() 좌표를 캔버스 픽셀로 환산
+            var sx = cv.width / map.getContainer().clientWidth || 1;
+            (s.map_markers || []).forEach(function (m) {
+              var pt = map.project(_swapLL(m.coord));
+              geo.markers.push({ name: m.name || "", x: Math.round(pt.x * sx), y: Math.round(pt.y * sx) });
+            });
+            (s.map_route || []).forEach(function (c) {
+              var rp = map.project(_swapLL(c));
+              geo.route.push([Math.round(rp.x * sx), Math.round(rp.y * sx)]);
+            });
+            if (capTries >= 6) geo.warning = "캔버스가 비어 보임 — 결과 확인 필요";
+            finish(null, { dataUrl: cv.toDataURL("image/png"), geo: geo });
+          } catch (e) { finish("캡처 실패: " + e); }
+        });
       }
     });
     setTimeout(function () {
