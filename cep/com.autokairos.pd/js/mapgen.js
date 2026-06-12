@@ -145,8 +145,8 @@ function renderMapScene(s) {
     map.on("load", function () {
       stage = "load";
       _applyOverrides(map, theme.overrides);               // 아트스타일 맵 테마 적용
-      // idle(타일 완전 로드)을 기다리되, 못 받으면 18초 후 현재 상태로 캡처(베스트에포트)
-      var bestEffort = setTimeout(function () { capture(); }, 18000);
+      // idle(타일 완전 로드)을 기다리되, 못 받으면 8초 후 캡처 시도(빈 캔버스면 재시도→라스터 폴백)
+      var bestEffort = setTimeout(function () { capture(); }, 8000);
       function capture() {
         clearTimeout(bestEffort);                          // 리페인트는 finish()가 멈춤(재시도 동안 유지)
         captureNow();
@@ -199,7 +199,7 @@ function renderMapScene(s) {
               var rp = map.project(_swapLL(c));
               geo.route.push([Math.round(rp.x * sx), Math.round(rp.y * sx)]);
             });
-            if (capTries >= 6) geo.warning = "캔버스가 비어 보임 — 결과 확인 필요";
+            if (capTries >= 6) { finish("BLANK_CANVAS"); return; }   // 타일 미렌더 → 라스터 폴백
             finish(null, { dataUrl: cv.toDataURL("image/png"), geo: geo });
           } catch (e) { finish("캡처 실패: " + e); }
         });
@@ -212,9 +212,87 @@ function renderMapScene(s) {
   });
 }
 
+/* ── 라스터 폴백 — MapLibre(WebGL/워커)가 CEP에서 타일을 못 그릴 때:
+   Carto 라스터 타일을 2D 캔버스에 직접 합성(워커·WebGL 불필요, 웹 메르카토르 수학만). */
+var RASTER_THEMES = {
+  warm_earth: { url: "https://basemaps.cartocdn.com/light_all/", filter: "sepia(0.32) saturate(0.85) brightness(1.03)", dark: false },
+  clean_white: { url: "https://basemaps.cartocdn.com/light_all/", filter: "", dark: false },
+  matte_slate: { url: "https://basemaps.cartocdn.com/dark_all/", filter: "", dark: true },
+  dark_cyber: { url: "https://basemaps.cartocdn.com/dark_all/", filter: "saturate(1.3) hue-rotate(160deg)", dark: true },
+  bright: { url: "https://basemaps.cartocdn.com/light_all/", filter: "", dark: false },
+};
+
+function _mercPx(lat, lng, z) {                    // 위경도 → 줌 z 세계 픽셀(타일 256 기준)
+  var sc = 256 * Math.pow(2, z);
+  var x = (lng + 180) / 360 * sc;
+  var r = lat * Math.PI / 180;
+  var y = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * sc;
+  return [x, y];
+}
+
+function renderMapRaster(s) {
+  return new Promise(function (resolve, reject) {
+    var name = (typeof TOKENS === "object" && TOKENS && TOKENS.map && TOKENS.map.defaultTheme) || "warm_earth";
+    var th = RASTER_THEMES[name] || RASTER_THEMES.warm_earth;
+    var W = 1920, H = 1080, z = s.map_zoom || 5;
+    var zi = Math.max(0, Math.min(19, Math.round(z)));
+    var scale = Math.pow(2, z - zi);                       // 소수 줌 → 정수 타일 줌 + 배율
+    var ctr = s.map_center && s.map_center.length === 2 ? s.map_center : [37.5, 127.0];
+    var c0 = _mercPx(ctr[0], ctr[1], zi);
+    var tlx = c0[0] - W / (2 * scale), tly = c0[1] - H / (2 * scale);   // 좌상단(zi 세계 px)
+    var cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var ctx = cv.getContext("2d");
+    var maxT = Math.pow(2, zi);
+    var x0 = Math.floor(tlx / 256), x1 = Math.floor((tlx + W / scale) / 256);
+    var y0 = Math.max(0, Math.floor(tly / 256)), y1 = Math.min(maxT - 1, Math.floor((tly + H / scale) / 256));
+    var jobs = [];
+    for (var tx = x0; tx <= x1; tx++) {
+      for (var ty = y0; ty <= y1; ty++) {
+        (function (tx2, ty2) {
+          var wx = ((tx2 % maxT) + maxT) % maxT;           // 경도 래핑
+          jobs.push(new Promise(function (done) {
+            var img = new Image();
+            img.crossOrigin = "anonymous";                  // CORS — 캔버스 오염 방지
+            var t = setTimeout(function () { done(null); }, 12000);
+            img.onload = function () { clearTimeout(t); done({ img: img, tx: tx2, ty: ty2 }); };
+            img.onerror = function () { clearTimeout(t); done(null); };
+            img.src = th.url + zi + "/" + wx + "/" + ty2 + ".png";
+          }));
+        })(tx, ty);
+      }
+    }
+    Promise.all(jobs).then(function (tiles) {
+      var drawn = 0;
+      try { ctx.filter = th.filter || "none"; } catch (e) { }
+      for (var i = 0; i < tiles.length; i++) {
+        var tl2 = tiles[i]; if (!tl2) continue;
+        ctx.drawImage(tl2.img, (tl2.tx * 256 - tlx) * scale, (tl2.ty * 256 - tly) * scale,
+                      256 * scale + 0.5, 256 * scale + 0.5);
+        drawn++;
+      }
+      try { ctx.filter = "none"; } catch (e) { }
+      if (!drawn) { reject("라스터 타일 전부 로드 실패(네트워크?)"); return; }
+      var geo = { markers: [], route: [], labelRgb: th.dark ? [232, 234, 237] : [26, 26, 26] };
+      function toPx(coord) {
+        var p = _mercPx(coord[0], coord[1], zi);
+        return [Math.round((p[0] - tlx) * scale), Math.round((p[1] - tly) * scale)];
+      }
+      (s.map_markers || []).forEach(function (m) {
+        var q = toPx(m.coord);
+        geo.markers.push({ name: m.name || "", x: q[0], y: q[1] });
+      });
+      (s.map_route || []).forEach(function (c) { geo.route.push(toPx(c)); });
+      resolve({ dataUrl: cv.toDataURL("image/png"), geo: geo });
+    });
+  });
+}
+
 // 체크된(또는 단일) 씬의 지도 생성 → 백엔드 저장(이미지+geo 사이드카) → 행 갱신
+// 1차: MapLibre(벡터, 테마 충실) → 실패/빈 캔버스 시 2차: 라스터 합성(워커·WebGL 불필요)
 function genMapForScene(s) {
-  return renderMapScene(s).then(function (res) {
+  return renderMapScene(s)
+    .catch(function (e) { return renderMapRaster(s); })
+    .then(function (res) {
     return fetch(BACKEND + "/api/scenes/map-image", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: s.sceneNumber,

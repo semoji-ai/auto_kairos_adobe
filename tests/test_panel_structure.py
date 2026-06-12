@@ -507,3 +507,12 @@ def test_map_polyfills_for_cep():
     """CEP 구버전 CEF — maplibre v5용 AbortSignal/structuredClone 폴리필."""
     mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
     assert "throwIfAborted" in mg and "AbortSignal.timeout" in mg and "structuredClone" in mg
+
+
+def test_map_raster_fallback():
+    """MapLibre가 CEP에서 타일을 못 그리면 — 라스터 합성 폴백(워커·WebGL 불필요)."""
+    mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
+    assert "renderMapRaster" in mg and "BLANK_CANVAS" in mg
+    assert "_mercPx" in mg                                 # 웹 메르카토르 투영(마커 좌표 일관)
+    assert "crossOrigin" in mg                             # 캔버스 오염 방지(CORS)
+    assert "basemaps.cartocdn.com" in mg
