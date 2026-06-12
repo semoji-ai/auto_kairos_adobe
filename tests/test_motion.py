@@ -59,3 +59,15 @@ def test_plan_scene_motion_clamps_time(tmp_path, monkeypatch):
     res = motion.plan_scene_motion(d, 1)
     mv = res["layers"][0]["moves"][0]
     assert mv["start"] + mv["duration"] <= 4.0 + 1e-6  # 씬 길이로 클램프
+
+
+def test_clamp_normalizes_camera_amount():
+    plan = {"layers": [], "camera": {"type": "slow_zoom_in", "amount": 0.06}}
+    out = motion._clamp_plan(plan, 5.0)
+    assert out["camera"]["amount"] == 6.0          # 비율 → 퍼센트
+
+
+def test_clamp_camera_pan_range():
+    plan = {"layers": [], "camera": {"type": "pan_left", "amount": 500}}
+    out = motion._clamp_plan(plan, 5.0)
+    assert out["camera"]["amount"] == 160.0        # 팬 상한

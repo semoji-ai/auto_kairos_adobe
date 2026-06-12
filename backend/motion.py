@@ -34,11 +34,24 @@ def _scene_duration(proj_dir: Path, s: dict) -> float:
 
 
 def _clamp_plan(plan: dict, dur: float) -> dict:
-    """start/duration을 씬 길이 안으로 클램프. 알 수 없는 레이어/타입은 스키마가 차단."""
+    """start/duration을 씬 길이 안으로 클램프. 알 수 없는 레이어/타입은 스키마가 차단.
+    camera.amount 단위 정규화: 0.06(비율) → 6(퍼센트/px 계열) + 타입별 범위 클램프."""
     for L in plan.get("layers", []):
         for mv in L.get("moves", []):
             mv["start"] = max(0.0, min(float(mv.get("start") or 0), dur))
             mv["duration"] = max(0.1, min(float(mv.get("duration") or 0.5), dur - mv["start"]))
+    cam = plan.get("camera") or {}
+    amt = cam.get("amount")
+    if amt is not None:
+        amt = float(amt)
+        if 0 < amt <= 1.0:
+            amt *= 100.0                        # 비율 표기 → 퍼센트
+        ctype = cam.get("type", "")
+        if ctype in ("slow_zoom_in", "slow_zoom_out"):
+            amt = max(2.0, min(amt, 15.0))      # 줌 2~15%
+        elif ctype in ("pan_left", "pan_right"):
+            amt = max(20.0, min(amt, 160.0))    # 팬 20~160px
+        cam["amount"] = round(amt, 2)
     return plan
 
 
