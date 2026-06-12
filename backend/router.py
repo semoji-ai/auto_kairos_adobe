@@ -5,7 +5,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -241,6 +241,17 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         vault.log_work(proj_dir, "assemble",
                        f"매니페스트 빌드(씬 {mres.get('scenes')}개{', 씬 ' + str(b.get('sceneNumber')) + '만' if b.get('sceneNumber') else ''})")
         return 200, mres
+
+    if method == "POST" and p == "/api/subtitles/build":
+        proj_dir = root / (body or {}).get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        res = subtitles.build_subtitles(proj_dir)
+        tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
+        if tokens_path.is_file():
+            res["ae_tokens"] = str(tokens_path)
+        vault.log_work(proj_dir, "subtitles", f"말자막 {res['lines']}줄 생성")
+        return 200, res
 
     if p == "/api/tts/settings" and method in ("GET", "POST"):
         pid = (query.get("project_id") if method == "GET" else (body or {}).get("project_id")) or ""

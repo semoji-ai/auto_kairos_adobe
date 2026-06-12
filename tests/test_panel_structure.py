@@ -256,10 +256,30 @@ def test_poll_job_helper_and_async_callers():
     assert "_awaitJob" in a
 
 
-def test_jsx_subtitle_uses_comp_size():
+def test_jsx_scene_comp_no_auto_subtitle():
+    # 씬 컴프 자동 자막 제거 — 자막은 Final에 일괄(subtitle_layers.jsx)
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
-    assert "[cw / 2, ch * 0.88]" in jsx
-    assert "[W / 2, H * 0.88]" not in jsx
+    assert "if (s.subtitle)" not in jsx
+    assert "[cw / 2, ch * 0.88]" not in jsx
+
+
+def test_subtitle_layers_jsx():
+    fp = PANEL / "jsx" / "subtitle_layers.jsx"
+    assert fp.exists()
+    jsx = fp.read_text(encoding="utf-8")
+    assert "function akBuildSubtitles" in jsx
+    assert "startTime" in jsx and "inPoint" in jsx and "outPoint" in jsx
+    assert '"Final"' in jsx and "JSON.parse" in jsx
+    # ES3 호환 — const/let/arrow 금지
+    assert "=>" not in jsx and "const " not in jsx and "let " not in jsx
+
+
+def test_ae_tokens_has_subtitle_keys():
+    import json
+    tk = json.loads((Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json")
+                    .read_text(encoding="utf-8"))
+    assert tk["type"]["subtitle"] == 54
+    assert tk["fonts"]["subtitle"] == "SBAggroM"
 
 
 def test_no_hardcoded_machine_paths_in_panel():

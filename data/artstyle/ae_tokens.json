@@ -8,8 +8,9 @@
   },
   "fonts": {
     "headline": "Cafe24Ssurround", "body": "SBAggroM", "number": "Cafe24Ssurround",
+    "subtitle": "SBAggroM",
     "fallback": "AppleSDGothicNeo-Bold"
   },
   "type": { "headline": 110, "sub": 48, "item": 52, "metric": 220, "metricLabel": 54,
-            "quote": 64, "quoteWho": 40, "barLabel": 36, "barValue": 40 }
+            "quote": 64, "quoteWho": 40, "barLabel": 36, "barValue": 40, "subtitle": 54 }
 }

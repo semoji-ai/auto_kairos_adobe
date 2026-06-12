@@ -259,16 +259,7 @@ function akBuildScene(manifestPath) {
                 if (!addLayerObj(proj, comp, { path: s.image }, cw, ch)) log.push(name + ": image 누락");
             }
 
-            // 자막 텍스트 레이어 (있으면)
-            if (s.subtitle) {
-                var tl = comp.layers.addText(s.subtitle);
-                var td = tl.property("Source Text").value;
-                td.fontSize = 60; td.fillColor = [1, 1, 1];
-                tl.property("Source Text").setValue(td);
-                tl.property("Position").setValue([cw / 2, ch * 0.88]);
-            }
-
-            // 오디오 (있으면)
+            // 오디오 (있으면) — 자막은 씬 컴프가 아닌 Final에 일괄(subtitle_layers.jsx)
             if (s.audio) {
                 var aF = new File(s.audio);
                 if (aF.exists) { comp.layers.add(proj.importFile(new ImportOptions(aF))); }

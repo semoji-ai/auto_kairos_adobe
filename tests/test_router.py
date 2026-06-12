@@ -882,3 +882,30 @@ def test_file_save_rejects_bad_path(tmp_path):
     code, _ = handle_request("POST", "/api/projects/file/save", {},
                              {"project_id": "p", "name": "../x.md", "content": "x"}, ctx)
     assert code == 400
+
+
+def test_subtitles_build_endpoint(monkeypatch, tmp_path):
+    import backend.router as r
+    proj = tmp_path / "demoS"
+    proj.mkdir()
+    called = {}
+
+    def fake_build(proj_dir):
+        called["dir"] = str(proj_dir)
+        return {"json": str(proj_dir / "subtitles.json"), "srt": str(proj_dir / "subtitles.srt"),
+                "lines": 7, "scenes_no_ts": [2]}
+
+    monkeypatch.setattr(r.subtitles, "build_subtitles", fake_build)
+    monkeypatch.setattr(r.vault, "log_work", lambda *a, **k: None)
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/subtitles/build", {},
+                                {"project_id": "demoS"}, ctx)
+    assert code == 200 and body["lines"] == 7 and body["scenes_no_ts"] == [2]
+    assert called["dir"] == str(proj)
+    assert body["ae_tokens"].endswith("ae_tokens.json")     # manifest와 동일 토큰 경로
+
+
+def test_subtitles_build_404():
+    code, body = handle_request("POST", "/api/subtitles/build", {},
+                                {"project_id": "no_such"}, _ctx())
+    assert code == 404
