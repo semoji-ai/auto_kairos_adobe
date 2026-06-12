@@ -106,37 +106,36 @@ function renderMapScene(s) {
     });
     map.on("load", function () {
       _applyOverrides(map, theme.overrides);               // 아트스타일 맵 테마 적용
-      var marks = s.map_markers || [];
-      if (marks.length) {
-        var fc = { type: "FeatureCollection", features: marks.map(function (m) {
-          return { type: "Feature", properties: { name: m.name || "" },
-                   geometry: { type: "Point", coordinates: _swapLL(m.coord) } };
-        }) };
-        map.addSource("ak-markers", { type: "geojson", data: fc });
-        map.addLayer({ id: "ak-marker-dot", type: "circle", source: "ak-markers",
-          paint: { "circle-radius": 14, "circle-color": "#4A90D9",
-                   "circle-stroke-width": 5, "circle-stroke-color": "#ffffff" } });
-        map.addLayer({ id: "ak-marker-label", type: "symbol", source: "ak-markers",
-          layout: { "text-field": ["get", "name"], "text-size": 34,
-                    "text-offset": [0, 1.3], "text-anchor": "top",
-                    "text-font": ["Noto Sans Bold"] },
-          paint: { "text-color": "#1a1a1a", "text-halo-color": "#ffffff", "text-halo-width": 2.5 } });
-      }
-      map.once("idle", function () {                       // 타일+심볼 렌더 완료 시점
-        try { finish(null, map.getCanvas().toDataURL("image/png")); }
-        catch (e) { finish("캡처 실패: " + e); }
+      map.once("idle", function () {                       // 타일 렌더 완료 시점
+        // 마커/경로는 지도에 굽지 않는다 — AE 셰이프/텍스트 레이어로 만들 수 있게
+        // map.project()로 위경도→캡처 픽셀 좌표(geo 사이드카)만 추출
+        try {
+          var dark = theme.url === MAP_DARK_URL;
+          var geo = { markers: [], route: [],
+                      labelRgb: dark ? [232, 234, 237] : [26, 26, 26] };   // 테마 대비색(jsx 라벨용)
+          (s.map_markers || []).forEach(function (m) {
+            var pt = map.project(_swapLL(m.coord));
+            geo.markers.push({ name: m.name || "", x: Math.round(pt.x), y: Math.round(pt.y) });
+          });
+          (s.map_route || []).forEach(function (c) {
+            var rp = map.project(_swapLL(c));
+            geo.route.push([Math.round(rp.x), Math.round(rp.y)]);
+          });
+          finish(null, { dataUrl: map.getCanvas().toDataURL("image/png"), geo: geo });
+        } catch (e) { finish("캡처 실패: " + e); }
       });
     });
     setTimeout(function () { finish("지도 렌더 타임아웃(45s)"); }, 45000);
   });
 }
 
-// 체크된(또는 단일) 씬의 지도 생성 → 백엔드 저장 → 행 갱신
+// 체크된(또는 단일) 씬의 지도 생성 → 백엔드 저장(이미지+geo 사이드카) → 행 갱신
 function genMapForScene(s) {
-  return renderMapScene(s).then(function (dataUrl) {
+  return renderMapScene(s).then(function (res) {
     return fetch(BACKEND + "/api/scenes/map-image", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: s.sceneNumber, dataUrl: dataUrl }),
+      body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: s.sceneNumber,
+                             dataUrl: res.dataUrl, geo: res.geo }),
     }).then(function (r) { return r.json(); });
   });
 }

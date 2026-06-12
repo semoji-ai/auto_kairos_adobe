@@ -76,6 +76,66 @@ function akBuildScene(manifestPath) {
         sl.property("Position").setValue([x + w / 2, y + h / 2]);
         return sl;
     }
+    // 지도 오버레이 — 지도는 배경판(이미지)이고 마커/라벨/경로는 AE 네이티브 레이어.
+    // geo: {markers:[{name,x,y}], route:[[x,y]...], labelRgb} — 픽셀 좌표(map.project 기준).
+    // 키프레임/경로/라벨 전부 AE에서 직접 수정 가능.
+    function renderMapOverlay(comp, geo, W, H, dur) {
+        var c = TK.colors, S = W / 1920;
+        var ac = [c.accentRgb[0] / 255, c.accentRgb[1] / 255, c.accentRgb[2] / 255];
+        var lr = geo.labelRgb || [26, 26, 26];
+        // 1) 이동 경로 — 셰이프 패스 + Trim Paths(끝 0→100%)로 선이 그려지는 애니메이션
+        if (geo.route && geo.route.length >= 2) {
+            var rl = comp.layers.addShape(); rl.name = "map_route";
+            rl.property("Position").setValue([0, 0]);
+            rl.property("Anchor Point").setValue([0, 0]);
+            var rg = rl.property("Contents").addProperty("ADBE Vector Group");
+            var pathProp = rg.property("Contents").addProperty("ADBE Vector Shape - Group");
+            var shp = new Shape();
+            shp.vertices = geo.route; shp.closed = false;
+            pathProp.property("Path").setValue(shp);
+            var st = rg.property("Contents").addProperty("ADBE Vector Graphic - Stroke");
+            st.property("Color").setValue(ac);
+            st.property("Stroke Width").setValue(8 * S);
+            try {
+                st.property("Line Cap").setValue(2);                    // 둥근 끝
+                st.property("Dashes").addProperty("Dash");              // 점선(여정 느낌)
+                st.property("Dashes").property("Dash").setValue(26 * S);
+            } catch (eD) { }
+            var trim = rg.property("Contents").addProperty("ADBE Vector Filter - Trim");
+            var te = trim.property("End");
+            te.setValueAtTime(0.4, 0); te.setValueAtTime(Math.max(1.2, dur * 0.6), 100);
+            try { te.setTemporalEaseAtKey(2, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 33)]); } catch (eE) { }
+        }
+        // 2) 마커 — 점별 셰이프 레이어(흰 테두리 원), 순차 팝 등장
+        var marks = geo.markers || [];
+        for (var mi = 0; mi < marks.length; mi++) {
+            var m = marks[mi], t0 = 0.3 + mi * 0.4;
+            var ml = comp.layers.addShape(); ml.name = "map_marker_" + (m.name || mi);
+            var mg = ml.property("Contents").addProperty("ADBE Vector Group");
+            var el = mg.property("Contents").addProperty("ADBE Vector Shape - Ellipse");
+            el.property("Size").setValue([34 * S, 34 * S]);
+            var mfill = mg.property("Contents").addProperty("ADBE Vector Graphic - Fill");
+            mfill.property("Color").setValue(ac);
+            var mst = mg.property("Contents").addProperty("ADBE Vector Graphic - Stroke");
+            mst.property("Color").setValue([1, 1, 1]);
+            mst.property("Stroke Width").setValue(6 * S);
+            ml.property("Anchor Point").setValue([0, 0]);               // 피벗=원 중심(팝이 제자리)
+            ml.property("Position").setValue([m.x, m.y]);
+            var msc = ml.property("Scale");
+            msc.setValueAtTime(t0, [0, 0]);
+            msc.setValueAtTime(t0 + 0.25, [115, 115]);
+            msc.setValueAtTime(t0 + 0.38, [100, 100]);
+            // 3) 라벨 — 텍스트 레이어(테마 대비색), 마커 옆에서 페이드 인
+            if (m.name) {
+                var tl2 = addTextL(comp, m.name, { x: m.x, y: m.y + 56 * S, size: 36 * S,
+                                                   rgb: lr, font: TK.fonts.bold || TK.fonts.body });
+                tl2.name = "map_label_" + m.name;
+                var lop = tl2.property("Opacity");
+                lop.setValueAtTime(t0 + 0.15, 0); lop.setValueAtTime(t0 + 0.45, 100);
+            }
+        }
+    }
+
     // 레이아웃 5종 결정적 렌더 — 1080p 기준 토큰을 S=W/1920 배율로 스케일(4K/720p 대응).
     // 긴 텍스트는 박스 텍스트(자동 줄바꿈 + 행간 1.25). 세로 폼은 별도 템플릿 필요(추후).
     function renderLayout(comp, s, W, H) {
@@ -338,6 +398,11 @@ function akBuildScene(manifestPath) {
                 }
             } else if (s.image) {
                 if (!addLayerObj(proj, comp, { path: s.image }, cw, ch)) log.push(name + ": image 누락");
+            }
+            // 지도 씬 — 지도 배경판 위에 마커/라벨/경로를 AE 네이티브 레이어로
+            if (s.mapGeo) {
+                try { renderMapOverlay(comp, s.mapGeo, cw, ch, dur); }
+                catch (eMap) { log.push(name + ": 지도 오버레이 실패 " + eMap.toString()); }
             }
 
             // 오디오 (있으면) — 자막은 씬 컴프가 아닌 Final에 일괄(subtitle_layers.jsx)

@@ -41,6 +41,7 @@ description: final_manuscript.md를 의미·길이·인물 기준으로 씬으�
   - bar: 수치 비교(3~6개) — headline+chart{labels,values,unit} 필수
   - quote: 인용 — quote_text+quote_who 필수
   - map: 지리적 위치/이동 경로가 핵심인 씬 — map_center[위도,경도]+map_zoom(국가~4, 도시~10)+map_markers[{name,coord:[위도,경도]}] 필수. 좌표는 [위도, 경도] 순서.
+    이동 경로가 있으면 map_route(순서대로 [위도,경도] 점 목록, 2~8개)도 채운다.
 - 비율 감각: 이미지 씬 40~60%, 나머지를 내용에 맞게 섞어라. 연속 2씬 같은 비-이미지 레이아웃 지양.
 - cinematic이 아닌 씬은 image_prompt를 빈 문자열로.
 - headline은 내레이션 요지의 단순 반복이 아니라 다른 표현으로 쓴다(자막과 중복 방지).

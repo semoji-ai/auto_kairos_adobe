@@ -46,7 +46,8 @@
           "quote_who",
           "map_center",
           "map_zoom",
-          "map_markers"
+          "map_markers",
+          "map_route"
         ],
         "properties": {
           "sceneNumber": {
@@ -213,6 +214,19 @@
                 }
               }
             }
+          },
+          "map_route": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "description": "이동 경로 [위도,경도] 점 목록(순서대로 선 연결)"
           }
         }
       }

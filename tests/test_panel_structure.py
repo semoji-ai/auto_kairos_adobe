@@ -480,3 +480,14 @@ def test_map_scene_wiring():
     assert "warm_earth" in mg and "_applyOverrides" in mg and "clean_white" in mg
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "sa-map" in js and "genMapForScene" in js
+
+
+def test_map_overlay_native_layers():
+    """지도 마커/라벨/경로 — 캔버스에 굽지 않고 AE 네이티브 레이어(jsx) + map.project geo."""
+    mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
+    assert "map.project" in mg and "labelRgb" in mg          # 픽셀 좌표 + 테마 대비색
+    assert "addLayer" not in mg                              # 지도에 마커 굽기 금지
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "renderMapOverlay" in jsx and "s.mapGeo" in jsx
+    assert "ADBE Vector Filter - Trim" in jsx                # 경로 그리기 애니메이션
+    assert "map_marker_" in jsx and "map_label_" in jsx

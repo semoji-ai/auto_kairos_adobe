@@ -30,7 +30,7 @@ def test_sample_doc_has_all_required_fields():
             "layout": "cinematic", "headline": None, "sub": None, "items": None,
             "value": None, "label": None, "chart": None,
             "quote_text": None, "quote_who": None,
-            "map_center": None, "map_zoom": None, "map_markers": None,
+            "map_center": None, "map_zoom": None, "map_markers": None, "map_route": None,
         }],
     }
     for k in s["required"]:

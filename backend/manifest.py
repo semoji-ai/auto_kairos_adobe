@@ -104,6 +104,15 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
                 cam = None
         if is_map and cam is None:
             cam = {"type": "slow_zoom_in", "amount": 6}   # 지도 씬 기본 — 천천히 푸시인
+        # 지도 geo 사이드카({이미지}.geo.json) — 마커/경로 픽셀 좌표를 jsx에 전달(AE 네이티브 레이어)
+        map_geo = None
+        if is_map and s.get("_image"):
+            gp = proj_dir / f"{s['_image']}.geo.json"
+            if gp.is_file():
+                try:
+                    map_geo = json.loads(gp.read_text(encoding="utf-8"))
+                except Exception:
+                    map_geo = None
         # 결정적 규칙: 캐릭터 레이어(_char 접미사 또는 kinds 사이드카)는 LLM 플랜 없이도
         # 항상 발밑 피벗 bob(까딱임) — 모션 버튼은 부가 연출(fade_in/camera)용 옵션
         kinds = {}
@@ -134,6 +143,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             "layout": layout,
             **data_fields,
             **({"camera": cam} if cam else {}),
+            **({"mapGeo": map_geo} if map_geo else {}),
         })
     mf = {"width": W, "height": H, "fps": FPS, "scenes": out_scenes}
     tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"

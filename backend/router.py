@@ -374,6 +374,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         sb_dir.mkdir(exist_ok=True)
         name = f"map_{sid}_{uuid.uuid4().hex[:6]}.png"
         (sb_dir / name).write_bytes(base64.b64decode(du.split(",", 1)[1]))
+        geo = b.get("geo")                                  # 마커/경로 픽셀 좌표 — AE 셰이프/텍스트 재료
+        if geo:
+            (sb_dir / f"{name}.geo.json").write_text(
+                json.dumps(geo, ensure_ascii=False, indent=2), encoding="utf-8")
         res = scenes.set_image_ref(proj_dir, sn, f"storyboard/{name}")
         vault.log_work(proj_dir, "map_image", {"scene": sn, "file": name})
         return (200, res) if res.get("ok") else (404, res)

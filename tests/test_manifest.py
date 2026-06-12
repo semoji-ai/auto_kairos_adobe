@@ -205,3 +205,19 @@ def test_map_scene_without_image_stays_layout(tmp_path):
     manifest.build_manifest(d)
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["layout"] == "map" and sc["image"] is None
+
+
+def test_map_geo_sidecar_passthrough(tmp_path):
+    """지도 geo 사이드카({이미지}.geo.json) → manifest mapGeo로 전달."""
+    from PIL import Image
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "mg", "layout": "map",
+                          "narration": "경로", "imageRef": "storyboard/map_mg_x1.png"}])
+    sb = d / "storyboard"; sb.mkdir()
+    Image.new("RGB", (1920, 1080)).save(sb / "map_mg_x1.png")
+    geo = {"markers": [{"name": "서울", "x": 960, "y": 540}],
+           "route": [[100, 200], [960, 540]], "labelRgb": [26, 26, 26]}
+    (sb / "map_mg_x1.png.geo.json").write_text(json.dumps(geo), encoding="utf-8")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["mapGeo"]["markers"][0]["name"] == "서울"
+    assert sc["mapGeo"]["route"] == [[100, 200], [960, 540]]

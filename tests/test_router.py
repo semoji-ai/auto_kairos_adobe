@@ -936,6 +936,8 @@ def test_map_image_save(tmp_path):
     assert st == 200 and res.get("ok")
     assert res["imageRef"].startswith("storyboard/map_mm_")
     assert (d / res["imageRef"]).is_file()
+    # geo 사이드카 미전송 시 생성 안 됨
+    assert not list((d / "storyboard").glob("*.geo.json"))
     # 형식 오류 거부
     st2, res2 = router.handle_request("POST", "/api/scenes/map-image", {},
         {"project_id": "p1", "sceneNumber": 1, "dataUrl": "data:image/jpeg;base64,xx"}, {"root": tmp_path})
@@ -948,3 +950,21 @@ def test_tokens_has_map_theme():
     from pathlib import Path
     st, res = router.handle_request("GET", "/api/tokens", {}, None, {"root": Path(".")})
     assert res.get("map", {}).get("defaultTheme") == "warm_earth"
+
+
+def test_map_image_save_with_geo(tmp_path):
+    """geo 동봉 시 {이미지}.geo.json 사이드카 저장."""
+    import base64, json as _json, io
+    from backend import router
+    from PIL import Image
+    d = tmp_path / "p2"; d.mkdir()
+    (d / "scenes.json").write_text(_json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "gg", "narration": "x"}]}), encoding="utf-8")
+    buf = io.BytesIO(); Image.new("RGB", (4, 4)).save(buf, "PNG")
+    du = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    geo = {"markers": [{"name": "부산", "x": 1, "y": 2}], "route": [], "labelRgb": [26, 26, 26]}
+    st, res = router.handle_request("POST", "/api/scenes/map-image", {},
+        {"project_id": "p2", "sceneNumber": 1, "dataUrl": du, "geo": geo}, {"root": tmp_path})
+    assert st == 200
+    gp = d / (res["imageRef"] + ".geo.json")
+    assert gp.is_file() and _json.loads(gp.read_text())["markers"][0]["name"] == "부산"
