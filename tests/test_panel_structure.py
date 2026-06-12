@@ -273,3 +273,12 @@ def test_main_js_escapes_dynamic_html():
     assert 'encodeURIComponent(nm)' in main
     assert 'decodeURIComponent(this.getAttribute("data-name")' in main
     assert "_esc(nm)" in main.split("function showCharacters")[1]
+
+
+def test_refresh_row_single_scene():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function refreshRow" in js
+    assert "bindRows(fresh)" in js                       # 새 행만 스코프 바인딩(중복 리스너 방지)
+    assert "function bindRows(scope)" in js
+    # 단일 씬 작업(genTts)은 refreshRow 사용
+    assert "refreshRow" in js.split("function genTts")[1]

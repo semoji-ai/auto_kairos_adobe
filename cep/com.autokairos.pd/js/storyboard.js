@@ -178,9 +178,11 @@ function _bindTtsPlayer(pl) {
   audio.addEventListener("ended", function () { btn.textContent = "▶"; });
 }
 
-function bindRows() {
+/* scope: 바인딩 대상 루트(기본 전체 시트). refreshRow는 새 행만 넘겨 중복 리스너 방지. */
+function bindRows(scope) {
+  scope = scope || $("sheet");
   // 나레이션: 저장 버튼 없이 blur 시 변경되었으면 확인 후 저장(아니오=되돌림)
-  var tas = $("sheet").querySelectorAll("textarea.nar");
+  var tas = scope.querySelectorAll("textarea.nar");
   for (var t = 0; t < tas.length; t++) {
     _autosize(tas[t]);
     tas[t].addEventListener("input", function () { _autosize(this); });
@@ -197,37 +199,58 @@ function bindRows() {
       }
     });
   }
-  var gen = $("sheet").querySelectorAll("button.gen-img");
+  var gen = scope.querySelectorAll("button.gen-img");
   for (var k = 0; k < gen.length; k++) {
     gen[k].addEventListener("click", function () { genSceneImage(this.getAttribute("data-scene")); });
   }
-  var un = $("sheet").querySelectorAll("button.unlink-img");
+  var un = scope.querySelectorAll("button.unlink-img");
   for (var u = 0; u < un.length; u++) {
     un[u].addEventListener("click", function () { unlinkScene(this.getAttribute("data-scene")); });
   }
-  var ly = $("sheet").querySelectorAll("button.layer-img");
+  var ly = scope.querySelectorAll("button.layer-img");
   for (var L = 0; L < ly.length; L++) {
     ly[L].addEventListener("click", function () { analyzeLayers(this.getAttribute("data-scene")); });
   }
-  var gt = $("sheet").querySelectorAll("button.gen-tts");
+  var gt = scope.querySelectorAll("button.gen-tts");
   for (var g = 0; g < gt.length; g++) {
     gt[g].addEventListener("click", function () { genTts(this.getAttribute("data-scene")); });
   }
-  var players = $("sheet").querySelectorAll(".tts-player");
+  var players = scope.querySelectorAll(".tts-player");
   for (var pp = 0; pp < players.length; pp++) { _bindTtsPlayer(players[pp]); }
-  var sc = $("sheet").querySelectorAll("button.scene-comp");
+  var sc = scope.querySelectorAll("button.scene-comp");
   for (var c = 0; c < sc.length; c++) {
     sc[c].addEventListener("click", function () {
       if (typeof buildSceneComp === "function") buildSceneComp(this.getAttribute("data-scene"));
     });
   }
-  _bindOp("op-add", function (n) { sceneOp("add", { after: parseInt(n, 10) }); });
-  _bindOp("op-split", function (n) { sceneOp("split", { sceneNumber: parseInt(n, 10) }); });
-  _bindOp("op-merge", function (n) { sceneOp("merge", { sceneNumber: parseInt(n, 10) }); });
+  _bindOp("op-add", function (n) { sceneOp("add", { after: parseInt(n, 10) }); }, scope);
+  _bindOp("op-split", function (n) { sceneOp("split", { sceneNumber: parseInt(n, 10) }); }, scope);
+  _bindOp("op-merge", function (n) { sceneOp("merge", { sceneNumber: parseInt(n, 10) }); }, scope);
   _bindOp("op-del", function (n) {
     if (confirm("씬 " + n + " 을 삭제할까요? (이미지/레이어 파일은 보존됩니다)"))
       sceneOp("delete", { sceneNumber: parseInt(n, 10) });
-  });
+  }, scope);
+}
+
+/* 단일 씬 행만 갱신 — 전체 loadSheet의 포커스 손실/스크롤 점프 방지.
+   행 수가 변하는 구조 편집(add/del/split/merge)은 loadSheet 사용. */
+function refreshRow(n) {
+  fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var s = (j.scenes || []).filter(function (x) { return x.sceneNumber === parseInt(n, 10); })[0];
+      var old = $("sheet").querySelector('.sheet-row[data-scene="' + n + '"]');
+      if (!s || !old) { loadSheet(); return; }            // 못 찾으면 전체 갱신 폴백
+      NAR_ORIG[s.sceneNumber] = s.narration || "";
+      var tmp = document.createElement("div");
+      tmp.innerHTML = renderRow(s, j.dir || "");
+      var fresh = tmp.firstChild;
+      old.parentNode.replaceChild(fresh, old);
+      bindRows(fresh);                                     // 새 행만 바인딩(중복 리스너 방지)
+      var ta = fresh.querySelector("textarea.nar");
+      if (ta) _autosize(ta);
+    })
+    .catch(function () { loadSheet(); });
 }
 
 function _rowStatus(n, msg) {
@@ -256,7 +279,7 @@ function genSceneImage(n) {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       _rowStatus(n, (j.result && j.result.status === "completed") ? "생성 완료 ✓" : ("실패: " + JSON.stringify(j)));
-      if (j.result && j.result.status === "completed") loadSheet();   // 썸네일 갱신
+      if (j.result && j.result.status === "completed") refreshRow(n);   // 썸네일 갱신(행 단위)
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
@@ -269,7 +292,7 @@ function unlinkScene(n) {
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       _rowStatus(n, j.ok ? "링크 해제됨(파일은 갤러리에 보존)" : ("실패: " + JSON.stringify(j)));
-      if (j.ok) loadSheet();
+      if (j.ok) refreshRow(n);
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
@@ -336,7 +359,7 @@ function splitLayers(n, els) {
         var res = (job.result && job.result.result) || {};
         var done = (res.layers || []).filter(function (l) { return l.status === "completed"; }).length;
         _rowStatus(n, done ? ("레이어 " + done + "개 생성 ✓") : ("실패: " + JSON.stringify(job.error || job)));
-        if (done) loadSheet();   // 레이어 썸네일 갱신
+        if (done) refreshRow(n);   // 레이어 썸네일 갱신(행 단위)
       }, function (logs) {
         if (logs.length) _rowStatus(n, "레이어 분리 중... " + logs[logs.length - 1]);
       });
@@ -356,13 +379,13 @@ function dropOnScene(ev, n) {
     .then(function (j) {
       var ok = j.result && j.result.ok;
       _rowStatus(n, ok ? "적용됨 ✓" : ("실패: " + JSON.stringify(j)));
-      if (ok) loadSheet();
+      if (ok) refreshRow(n);
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
 
-function _bindOp(cls, fn) {
-  var els = $("sheet").querySelectorAll("button." + cls);
+function _bindOp(cls, fn, scope) {
+  var els = (scope || $("sheet")).querySelectorAll("button." + cls);
   for (var i = 0; i < els.length; i++) {
     els[i].addEventListener("click", function () { fn(this.getAttribute("data-scene")); });
   }
@@ -390,7 +413,7 @@ function genTts(n) {
     .then(function (j) {
       var ok = j.result && j.result.status === "completed";
       _rowStatus(n, ok ? ("TTS 완료 (" + (j.result.duration || 0).toFixed(1) + "s)") : ("실패: " + JSON.stringify(j)));
-      if (ok) loadSheet();      // 오디오 플레이어 표시
+      if (ok) refreshRow(n);      // 오디오 플레이어 표시(행 단위)
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
