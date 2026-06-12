@@ -394,3 +394,65 @@ def test_split_qc_marks_lowq_after_retry(tmp_path, monkeypatch):
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
     assert el["status"] == "completed_lowq"      # 보존하되 저품질 표시(무삭제)
+
+
+def _scene_with_red_box(tmp_path):
+    """원본: 회색 바탕 + (30,30)-(70,70) 빨강 사각형."""
+    from PIL import Image
+    im = Image.new("RGB", (100, 100), (90, 90, 90))
+    for y in range(30, 70):
+        for x in range(30, 70):
+            im.putpixel((x, y), (200, 30, 40))
+    p = tmp_path / "scene.png"; im.save(p)
+    return p
+
+
+def _layer_box(tmp_path, name, x0, y0):
+    """레이어: 투명 바탕 + (x0,y0)부터 40px 빨강 사각형(불투명)."""
+    from PIL import Image
+    im = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    for y in range(y0, y0 + 40):
+        for x in range(x0, x0 + 40):
+            im.putpixel((x, y), (200, 30, 40, 255))
+    p = tmp_path / name; im.save(p)
+    return p
+
+
+def test_position_score_high_when_in_place(tmp_path):
+    from backend import imagegen as ig
+    scene = _scene_with_red_box(tmp_path)
+    layer = _layer_box(tmp_path, "ok.png", 30, 30)      # 원위치
+    assert ig.position_score(layer, scene) > 0.9
+
+
+def test_position_score_low_when_displaced(tmp_path):
+    from backend import imagegen as ig
+    scene = _scene_with_red_box(tmp_path)
+    layer = _layer_box(tmp_path, "off.png", 0, 55)      # 어긋난 위치(회색 영역 위)
+    assert ig.position_score(layer, scene) < 0.5
+
+
+def test_split_qc_retries_on_bad_position(tmp_path, monkeypatch):
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"
+    Image.new("RGB", (100, 100)).save(scene)
+    calls = {"n": 0}
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        calls["n"] += 1
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    pos_seq = iter([0.2, 0.9])                           # 1차 어긋남 → 재시도 정상
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
+    res = ig.split_scene_to_elements(proj, str(scene), "pq1",
+                                     [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    el = res["layers"][0]
+    assert el["status"] == "completed" and el["qc"] == "retried_ok"
+    assert calls["n"] >= 3                               # 요소 2회 + 배경 1회

@@ -219,12 +219,35 @@ def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_ou
             if others else "")
     return (
         f"{style_desc}\n\n## 레이어 분리 — 단일 요소\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-        f"이 씬에서 '{name}'({location})를 동일한 위치·크기·외형으로 다시 그린다. "
+        f"이 씬에서 '{name}'({location})를 다시 그린다. "
+        f"가장 중요한 규칙: 원본 씬에서 이 요소가 차지하는 **정확히 같은 좌표와 같은 크기** 그대로 그려라 — "
+        f"절대 확대하지 말고, 중앙으로 옮기지 말고, 화면을 채우지 말 것. "
+        f"이 레이어를 원본 위에 겹치면 픽셀이 일치해야 한다.\n"
         f"이 요소 위에 얹혀 있거나 붙어 있는 것(예: 위에 놓인 문서·물건)도 함께 그려 한 덩어리로 유지한다.\n"
         f"{excl}"
         f"그 외 전 영역(다른 인물·사물·배경)은 순수 마젠타 단색(#FF00FF)으로 채운다.\n"
         f"image_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. 텍스트 없음. 저장되면 OK만 답해."
     )
+
+
+def position_score(layer_png: Path, scene_image) -> float | None:
+    """요소 레이어가 원본 씬의 '같은 자리'에 그려졌는지 점수(0~1).
+    불투명 영역의 픽셀이 원본과 ±40 이내로 일치하는 비율 — 원위치 재드로잉이면 높고,
+    확대·이동돼 그려졌으면 낮다(실측: 제자리 0.57~0.98, 어긋남 0.14~0.46)."""
+    try:
+        im = Image.open(layer_png).convert("RGBA")
+        orig = Image.open(scene_image).convert("RGB")
+        if im.size != orig.size:
+            im = im.resize(orig.size)
+        a = np.array(im).astype(int)
+        o = np.array(orig).astype(int)
+        mask = a[:, :, 3] > 128
+        if mask.sum() == 0:
+            return None
+        diff = np.abs(a[:, :, :3] - o).max(axis=2)
+        return float((diff[mask] < 40).mean())
+    except Exception:
+        return None
 
 
 def normalize_layer_size(png_path: Path, target_size: tuple) -> bool:
@@ -280,6 +303,7 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
 
     all_names = [e.get("name", "") for e in elements]
     QC_MIN, QC_MAX = 0.05, 0.98     # transparent_ratio 정상 범위(요소 레이어만)
+    QC_POS_MIN = 0.5                # position_score 하한 — 미만이면 확대/이동돼 그려진 것
 
     def _gen_element_once(out, prompt):
         ratio_box = {}
@@ -288,9 +312,24 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
             ratio_box.update(chroma_key_magenta(o, o))
 
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
-        if res.get("status") == "completed" and scene_size:
-            normalize_layer_size(out, scene_size)       # 크기 변칙 가드
-        return res, ratio_box.get("transparent_ratio")
+        pos = None
+        if res.get("status") == "completed":
+            if scene_size:
+                normalize_layer_size(out, scene_size)   # 크기 변칙 가드
+            pos = position_score(out, scene_image)      # 원위치 충실도
+        return res, ratio_box.get("transparent_ratio"), pos
+
+    def _qc_feedback(ratio, pos):
+        """QC 불합격 사유 → 재시도 피드백 한 줄. 합격이면 None."""
+        if ratio is not None and ratio < QC_MIN:
+            return "이전 시도에서 마젠타 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 마젠타로."
+        if ratio is not None and ratio > QC_MAX:
+            return "이전 시도에서 요소가 거의 그려지지 않았다(전부 마젠타). 요소를 분명히 그려라."
+        if pos is not None and pos < QC_POS_MIN:
+            return ("이전 시도에서 요소가 원본과 다른 위치/크기로 그려졌다. "
+                    "원본 씬에서 이 요소가 차지하는 정확히 같은 좌표·같은 크기로 그려라 — "
+                    "확대하거나 중앙으로 옮기지 말 것.")
+        return None
 
     def _element(i_el):
         i, el = i_el
@@ -299,19 +338,18 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         rel = out.relative_to(proj_dir).as_posix()
         others = [nm for j, nm in enumerate(all_names) if j != i]   # 다른 선택 요소는 제외
         prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
-        res, ratio = _gen_element_once(out, prompt)
+        res, ratio, pos = _gen_element_once(out, prompt)
         qc = None
-        if res.get("status") == "completed" and ratio is not None and not (QC_MIN <= ratio <= QC_MAX):
-            fb = ("이전 시도에서 마젠타 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 마젠타로."
-                  if ratio < QC_MIN else
-                  "이전 시도에서 요소가 거의 그려지지 않았다(전부 마젠타). 요소를 분명히 그려라.")
+        fb = _qc_feedback(ratio, pos) if res.get("status") == "completed" else None
+        if fb:
             out2 = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(name)}.png")  # 새 파일(무삭제)
-            res2, ratio2 = _gen_element_once(out2, prompt + "\n[재시도 피드백] " + fb)
-            if res2.get("status") == "completed" and ratio2 is not None and QC_MIN <= ratio2 <= QC_MAX:
+            res2, ratio2, pos2 = _gen_element_once(out2, prompt + "\n[재시도 피드백] " + fb)
+            if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2) is None:
                 out, rel, res, qc = out2, out2.relative_to(proj_dir).as_posix(), res2, "retried_ok"
             else:
                 res = {"status": "completed_lowq", "path": str(out)}   # 1차본 유지, 저품질 표시
-        r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc}   # 풀프레임 레이어(크롭 안 함)
+        r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc,
+             "pos_score": pos}                                          # 풀프레임 레이어(크롭 안 함)
         if on_event:
             on_event(r)
         return r
