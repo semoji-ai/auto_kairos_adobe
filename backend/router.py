@@ -255,8 +255,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if p == "/api/llm/settings" and method in ("GET", "POST"):
         if method == "POST":
-            llm.set_orchestrator((body or {}).get("orchestrator", ""))
-        return 200, {"orchestrator": llm.get_orchestrator(), "choices": list(llm.VALID)}
+            b = body or {}
+            llm.set_orchestrator(b.get("orchestrator", ""), claude_model_name=b.get("claude_model"))
+        return 200, {"orchestrator": llm.get_orchestrator(), "choices": list(llm.VALID),
+                     "claude_model": llm.claude_model()}
 
     if method == "POST" and p == "/api/assistant":
         b = body or {}
