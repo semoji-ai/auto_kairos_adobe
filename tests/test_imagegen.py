@@ -513,3 +513,50 @@ def test_split_lowq_rekeys_final_file(tmp_path, monkeypatch):
     assert el["status"] == "completed_lowq"
     first = Path(el["rel"]).name
     assert keyed.count(first) >= 2                       # post 1회 + lowq 가드 재적용 1회
+
+
+def test_split_retry_retires_loser_no_duplicates(tmp_path, monkeypatch):
+    """재시도 성공 시 탈락 1차본이 _prev로 이동 — 활성 폴더에 같은 요소 1장만(중복 방지)."""
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    pos_seq = iter([0.2, 0.9])                          # 1차 탈락 → 재시도 합격
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
+    ig.split_scene_to_elements(proj, str(scene), "dd1",
+                               [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    active = [p.name for p in (proj / "layers").glob("dd1__0*.png")]
+    assert active == ["dd1__0_차_v2.png"]               # 활성엔 합격본 1장만
+    assert (proj / "layers" / "_prev" / "dd1__0_차.png").exists()   # 탈락본 보존
+
+
+def test_split_lowq_retires_retry_file(tmp_path, monkeypatch):
+    """재시도도 탈락(lowq) 시 재시도본이 _prev로 — 활성엔 1차본만."""
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: 0.1)     # 둘 다 탈락
+    res = ig.split_scene_to_elements(proj, str(scene), "dd2",
+                                     [{"name": "차", "location": "왼쪽"}], concurrency=1)
+    active = [p.name for p in (proj / "layers").glob("dd2__0*.png")]
+    assert active == ["dd2__0_차.png"]                  # 활성엔 1차본(lowq)만
+    assert res["layers"][0]["status"] == "completed_lowq"

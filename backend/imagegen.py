@@ -288,6 +288,24 @@ def _archive_prev_layers(out_base: Path, sid: str) -> int:
     return len(existing)
 
 
+def _retire_layer(out_base: Path, path: Path) -> None:
+    """QC에서 탈락한 시도 파일을 layers/_prev/ 로 이동(무삭제).
+    활성 폴더에 한 시도만 남겨 _layers glob 중복(같은 요소 2장)을 방지."""
+    try:
+        if not path or not Path(path).is_file():
+            return
+        prev = out_base / "_prev"
+        prev.mkdir(exist_ok=True)
+        dest = prev / Path(path).name
+        n = 2
+        while dest.exists():
+            dest = prev / f"{Path(path).stem}_p{n}{Path(path).suffix}"
+            n += 1
+        shutil.move(str(path), str(dest))
+    except Exception:
+        pass
+
+
 def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
                             *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
     """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
@@ -349,6 +367,7 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
             prompt2 = build_element_layer_prompt(name, loc, style, rel2, others=others)
             res2, ratio2, pos2 = _gen_element_once(out2, prompt2 + "\n[재시도 피드백] " + fb)
             if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2) is None:
+                _retire_layer(out_base, out)            # 탈락한 1차본 → _prev (중복 방지·무삭제)
                 out, rel, res, qc, pos = out2, rel2, res2, "retried_ok", pos2
             else:
                 # 1차본 유지 + 저품질 표시. 최종 파일이 키잉 안 된 raw일 가능성 가드:
@@ -361,6 +380,7 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
                         ratio = rr.get("transparent_ratio", ratio)
                 except Exception:
                     pass
+                _retire_layer(out_base, out2)           # 재시도본도 탈락 → _prev (중복 방지)
                 res = {"status": "completed_lowq", "path": str(out)}
         r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc,
              "pos_score": pos}                                          # 풀프레임 레이어(크롭 안 함)
