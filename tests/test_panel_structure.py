@@ -439,3 +439,12 @@ def test_storyboard_layout_badge():
     assert "layout-badge" in js and 's.layout !== "cinematic"' in js
     html = (PANEL / "index.html").read_text(encoding="utf-8")
     assert ".layout-badge" in html
+
+
+def test_subtitles_button_wired():
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="btnSubtitles"' in html
+    main = MAIN.read_text(encoding="utf-8")
+    assert "function buildSubtitles" in main and "/api/subtitles/build" in main
+    assert "subtitle_layers.jsx" in main and "akBuildSubtitles" in main
+    assert '$("btnSubtitles").addEventListener' in main

@@ -146,6 +146,29 @@ function queueRender() {
   });
 }
 
+/* 말자막 — 백엔드가 SRT/JSON 빌드 → Final 컴프에 자막 레이어 일괄 생성 */
+function buildSubtitles() {
+  if (!SELECTED_PROJECT) { $("aeresult").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  $("aeresult").textContent = "말자막 빌드 중...";
+  fetch(BACKEND + "/api/subtitles/build", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.error || !j.json) { $("aeresult").textContent = "실패: " + JSON.stringify(j); return; }
+      var warn = (j.scenes_no_ts && j.scenes_no_ts.length)
+        ? " (타임스탬프 없는 씬 " + j.scenes_no_ts.join(",") + " — 균등 분배)" : "";
+      var jsx;
+      try { jsx = readLocal("./jsx/json2.jsx") + "\n" + readLocal("./jsx/subtitle_layers.jsx"); }
+      catch (e) { $("aeresult").textContent = "jsx 로드 실패: " + e; return; }
+      var call = "\nakBuildSubtitles(" + JSON.stringify(j.json) + ", " + JSON.stringify(j.ae_tokens || "") + ");";
+      evalScript(jsx + call).then(function (r) {
+        $("aeresult").textContent = (r || "") + " — " + j.lines + "줄" + warn + " / SRT: " + j.srt;
+      });
+    })
+    .catch(function (e) { $("aeresult").textContent = "오류: " + e; });
+}
+
 /* 씬별/전체 AE 컴프 조립. sceneNumber=null이면 전체, 숫자면 그 씬만. */
 function _assemble(sceneNumber, statusFn) {
   if (!SELECTED_PROJECT) { (statusFn || function (m) { $("aeresult").textContent = m; })("프로젝트를 먼저 선택하세요."); return; }
@@ -488,6 +511,7 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnBuild").addEventListener("click", buildComp);
   $("btnBuildAll").addEventListener("click", buildComp);
   $("btnQueueRender").addEventListener("click", queueRender);
+  $("btnSubtitles").addEventListener("click", buildSubtitles);
   $("btnProjects").addEventListener("click", loadProjects);
   $("btnNewProject").addEventListener("click", function () {
     var f = $("newProjectForm"); f.hidden = !f.hidden;
