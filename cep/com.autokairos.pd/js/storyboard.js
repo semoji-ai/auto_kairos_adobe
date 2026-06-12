@@ -356,16 +356,26 @@ function bindSheetToolbar() {
   });
   on("sa-map", function () {
     var ns = _needChecked(1, "지도 렌더"); if (!ns) return;
+    var box = $("aeresult");
+    function say(t) { if (box) box.textContent = t; }
+    say("지도 렌더 중... (타일 다운로드 수 초)");
     fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var by = {}; (j.scenes || []).forEach(function (s) { by[s.sceneNumber] = s; });
         return _runSeq(ns, function (n) {
           var s = by[n];
-          if (!s || s.layout !== "map") return Promise.resolve();   // 지도 씬만 대상
-          return genMapForScene(s).then(function () { refreshRow(n); });
+          if (!s) return Promise.resolve();
+          if (s.layout !== "map") { say("씬 " + n + ": layout이 map이 아니라 건너뜀"); return Promise.resolve(); }
+          return genMapForScene(s)
+            .then(function (res) {
+              if (res && res.error) { say("씬 " + n + " 지도 실패: " + res.error); return; }
+              say("씬 " + n + " 지도 완료 ✓"); refreshRow(n);
+            })
+            .catch(function (e) { say("씬 " + n + " 지도 실패: " + e); });
         });
-      });
+      })
+      .catch(function (e) { say("지도 렌더 실패: " + e); });
   });
   on("sa-add", function () {
     var ns = _checkedScenes();
