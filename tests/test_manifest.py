@@ -111,3 +111,45 @@ def test_manifest_element_foot_point(tmp_path):
     assert el["foot"] == [90.0, 160.0]                    # bbox(60,40,120,160) 하단 중앙
     bg = next(L for L in sc["layers"] if L["kind"] == "bg")
     assert "foot" not in bg
+
+
+def test_char_layer_auto_bob_without_plan(tmp_path):
+    """_char 접미사(또는 kinds=character) 레이어는 모션 플랜 없이도 결정적 bob 부여."""
+    from PIL import Image
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ab", "imageRef": "storyboard/sb.png",
+                          "duration_estimate_sec": 5}])
+    (d / "storyboard").mkdir(); Image.new("RGB", (200, 200)).save(d / "storyboard" / "sb.png")
+    lay = d / "layers"; lay.mkdir()
+    im = Image.new("RGBA", (200, 200), (0, 0, 0, 0))
+    for y in range(50, 150):
+        for x in range(80, 120):
+            im.putpixel((x, y), (200, 30, 40, 255))
+    im.save(lay / "ab__0_남자_char.png")                  # _char 접미사
+    im.save(lay / "ab__1_책상.png")                       # 사물
+    Image.new("RGBA", (200, 200), (9, 9, 9, 255)).save(lay / "ab__bg.png")
+    manifest.build_manifest(d)                            # 모션 플랜 파일 없음
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    char = next(L for L in sc["layers"] if "_char" in L["name"])
+    assert char["moves"] == [{"type": "bob", "start": 0, "duration": 5.0}]   # 자동 bob
+    desk = next(L for L in sc["layers"] if "책상" in L["name"])
+    assert "moves" not in desk                            # 사물은 모션 없음
+
+
+def test_char_auto_bob_not_duplicated_with_plan(tmp_path):
+    """플랜에 이미 모션 있으면 자동 bob 중복 부여 안 함."""
+    from PIL import Image
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "nb", "imageRef": "storyboard/sb.png"}])
+    (d / "storyboard").mkdir(); Image.new("RGB", (100, 100)).save(d / "storyboard" / "sb.png")
+    lay = d / "layers"; lay.mkdir()
+    im = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    im.putpixel((50, 50), (255, 0, 0, 255))
+    im.save(lay / "nb__0_여자_char.png")
+    (d / "motion_nb.json").write_text(json.dumps({
+        "layers": [{"layer": "nb__0_여자_char", "moves": [
+            {"type": "fade_in", "start": 0, "duration": 1},
+            {"type": "bob", "start": 1, "duration": 2}]}],
+        "camera": {"type": "none"}}), encoding="utf-8")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    char = next(L for L in sc["layers"] if "_char" in L["name"])
+    assert [m["type"] for m in char["moves"]] == ["fade_in", "bob"]   # 플랜 그대로(중복 없음)

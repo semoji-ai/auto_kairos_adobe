@@ -375,7 +375,10 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     def _element(i_el):
         i, el = i_el
         name, loc = el.get("name", f"el{i}"), el.get("location", "")
-        out = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(name)}.png")
+        # 캐릭터 레이어는 _char 접미사 — AE 레이어명에 노출 + 결정적 모션 규칙의 앵커
+        tag = "_char" if el.get("kind") == "character" else ""
+        base_name = f"{sid}__{i}_{_layer_slug(name)}{tag}.png"
+        out = versioned_path(out_base, base_name)
         rel = out.relative_to(proj_dir).as_posix()
         others = [nm for j, nm in enumerate(all_names) if j != i]   # 다른 선택 요소는 제외
         prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
@@ -383,7 +386,7 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         qc = None
         fb = _qc_feedback(ratio, pos) if res.get("status") == "completed" else None
         if fb:
-            out2 = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(name)}.png")  # 새 파일(무삭제)
+            out2 = versioned_path(out_base, base_name)              # 새 파일(무삭제)
             rel2 = out2.relative_to(proj_dir).as_posix()
             # 재시도 프롬프트는 반드시 새 파일 경로로 다시 빌드 — 1차 경로가 들어가면
             # codex가 1차본을 raw로 덮어쓰고 out2는 미생성(E2E에서 발견된 버그)

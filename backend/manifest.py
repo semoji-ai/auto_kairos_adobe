@@ -89,6 +89,21 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
                     cam = c
             except Exception:
                 cam = None
+        # 결정적 규칙: 캐릭터 레이어(_char 접미사 또는 kinds 사이드카)는 LLM 플랜 없이도
+        # 항상 발밑 피벗 bob(까딱임) — 모션 버튼은 부가 연출(fade_in/camera)용 옵션
+        kinds = {}
+        kp = proj_dir / "layers" / f"{sid}__kinds.json"
+        if kp.is_file():
+            try:
+                kinds = json.loads(kp.read_text(encoding="utf-8"))
+            except Exception:
+                kinds = {}
+        for entry in layers:
+            if entry["kind"] != "element" or entry.get("moves") or not entry.get("foot"):
+                continue
+            is_char = "_char" in entry["name"] or kinds.get(entry["name"]) == "character"
+            if is_char:
+                entry["moves"] = [{"type": "bob", "start": 0, "duration": dur}]
         out_scenes.append({
             "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
             "width": sw, "height": sh,

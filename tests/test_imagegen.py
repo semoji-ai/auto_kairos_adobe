@@ -583,7 +583,7 @@ def test_split_writes_kinds_sidecar(tmp_path, monkeypatch):
                                [{"name": "남자", "location": "좌", "kind": "character"},
                                 {"name": "책상", "location": "중앙", "kind": "object"}], concurrency=1)
     kinds = _j.loads((proj / "layers" / "kd__kinds.json").read_text(encoding="utf-8"))
-    assert kinds == {"kd__0_남자": "character", "kd__1_책상": "object"}
+    assert kinds == {"kd__0_남자_char": "character", "kd__1_책상": "object"}
 
 
 def test_gen_semaphore_limits_concurrency(tmp_path, monkeypatch):
@@ -672,3 +672,26 @@ def test_bg_retries_once_on_failure(tmp_path, monkeypatch):
                                      [{"name": "차", "location": "좌", "kind": "object"}], concurrency=1)
     bg = res["layers"][-1]
     assert calls["bg"] == 2 and bg["status"] == "completed"           # 재시도로 생성
+
+
+def test_split_names_character_layers_with_char_suffix(tmp_path, monkeypatch):
+    from PIL import Image
+    from backend import imagegen as ig
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "storyboard").mkdir()
+    scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
+
+    def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        Image.new("RGBA", (100, 100)).save(out)
+        if post: post(out)
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
+    res = ig.split_scene_to_elements(proj, str(scene), "cs",
+                                     [{"name": "남자", "location": "좌", "kind": "character"},
+                                      {"name": "책상", "location": "중앙", "kind": "object"}], concurrency=1)
+    rels = [r["rel"] for r in res["layers"]]
+    assert any(r.endswith("cs__0_남자_char.png") for r in rels)       # 캐릭터 → _char
+    assert any(r.endswith("cs__1_책상.png") for r in rels)            # 사물 → 접미사 없음
