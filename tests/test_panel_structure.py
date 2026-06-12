@@ -367,3 +367,11 @@ def test_render_row_checkbox_and_dots():
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
     res = json.loads(out.stdout)
     assert res["chk"] and res["dots"] and res["on"] and res["noBtn"] and res["player"], out.stdout
+
+
+def test_layer_overlay_and_text_buttons():
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function toggleLayerOverlay" in js and "lyr-overlay" in js and "img-wrap" in js
+    html = HTML.read_text(encoding="utf-8")
+    assert "drop-shadow" in html                       # 알파 윤곽 빨간 테두리
+    assert ">씬 추가<" in html and ">병합<" in html and ">삭제<" in html   # 구조 버튼은 텍스트

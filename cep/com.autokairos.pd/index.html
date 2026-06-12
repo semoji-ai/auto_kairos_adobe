@@ -71,6 +71,16 @@
     #sheet-actionbar button { width:auto; margin:0; padding:5px 9px; font-size:12px;
       background:#2c2f36; border:1px solid #33363c; border-radius:5px; }
     #sheet-actionbar button:hover { background:#3a6df0; }
+    #sheet-actionbar .sab-txt { background:#23262b; color:#c5c8cc; }
+    #sheet-actionbar .sab-danger:hover { background:#a33; }
+    /* 레이어 오버레이 — 썸네일 클릭 시 씬 이미지 위에 좌표 그대로 겹쳐 빨간 윤곽선으로 표시 */
+    .col-img .img-wrap { position:relative; }
+    .col-img .lyr-overlay { position:absolute; top:0; left:0; width:100%; height:auto;
+      pointer-events:none; z-index:2;
+      filter: drop-shadow(1.5px 0 0 #e74c3c) drop-shadow(-1.5px 0 0 #e74c3c)
+              drop-shadow(0 1.5px 0 #e74c3c) drop-shadow(0 -1.5px 0 #e74c3c); }
+    .col-img .lyr.sel { outline:2px solid #e74c3c; outline-offset:1px; }
+    .col-img .lyr { cursor:pointer; }
     /* 씬 선택 체크박스 */
     .scene-sel-wrap { display:flex; align-items:center; gap:4px; cursor:pointer; }
     .scene-sel-wrap input { width:14px; height:14px; margin:0; }
@@ -258,16 +268,16 @@
             </div>
             <div id="sheet-actionbar" title="씬을 체크한 뒤 버튼을 누르면 체크된 씬에 일괄 실행됩니다">
               <span class="sab-hint">체크한 씬에:</span>
-              <button id="sa-img" title="씬 이미지 생성">🖼 이미지</button>
+              <button id="sa-img" title="씬 이미지 생성">▣ 이미지</button>
               <button id="sa-layer" title="레이어 분리(1개 씬만)">⧉ 레이어</button>
-              <button id="sa-tts" title="TTS 생성">🔊 TTS</button>
-              <button id="sa-motion" title="모션 플랜(LLM)">🎞 모션</button>
-              <button id="sa-comp" title="AE 컴프로">🎬 컴프</button>
+              <button id="sa-tts" title="TTS 생성">♪ 음성</button>
+              <button id="sa-motion" title="모션 플랜(LLM)">◈ 모션</button>
+              <button id="sa-comp" title="AE 컴프로 내보내기">▶ 컴프</button>
               <span class="sab-div"></span>
-              <button id="sa-add" title="체크한 씬 아래(없으면 맨 끝)에 씬 추가">＋</button>
-              <button id="sa-split" title="씬 분할(1개만)">✂</button>
-              <button id="sa-merge" title="다음 씬과 병합(1개만)">⤵</button>
-              <button id="sa-del" title="체크한 씬 삭제(파일 보존)">🗑</button>
+              <button id="sa-add" class="sab-txt" title="체크한 씬 아래(없으면 맨 끝)에 새 씬">씬 추가</button>
+              <button id="sa-split" class="sab-txt" title="체크한 씬을 둘로(1개만)">분할</button>
+              <button id="sa-merge" class="sab-txt" title="체크한 씬을 다음 씬과 합침(1개만)">병합</button>
+              <button id="sa-del" class="sab-txt sab-danger" title="체크한 씬 삭제(파일은 보존)">삭제</button>
             </div>
             <div id="sheet">—</div>
           </div>

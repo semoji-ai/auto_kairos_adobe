@@ -107,7 +107,8 @@ function renderRow(s, dir) {
     ? '<img class="main" src="file://' + dir + '/' + s._image + '">'
     : '<div style="color:#666;font-size:11px">(없음)</div>';
   var layers = (s._layers || []).map(function (lp) {
-    return '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp) + '">';
+    return '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp)
+      + ' — 클릭하면 씬 위에 위치 확인(빨간 윤곽선)">';
   }).join("");
   var chars = (s.characters || []).join(", ");
   var st = s._status || {};
@@ -118,10 +119,11 @@ function renderRow(s, dir) {
     +      '<label class="scene-sel-wrap"><input type="checkbox" class="scene-sel" data-scene="' + n + '"'
     +        (SEL_SCENES[n] ? ' checked' : '') + '> ' + n + '</label>'
     + '  </div>'
-    // 이미지 미리보기 + 레이어 썸네일
+    // 이미지 미리보기 + 레이어 썸네일(클릭=씬 위에 빨간 윤곽선 오버레이)
     + '  <div class="col-img">'
     +      (s._image ? '<button class="unlink-img" data-scene="' + n + '" title="씬 이미지 링크 해제">✕</button>' : '')
-    +      media + (layers ? '<div>' + layers + '</div>' : '')
+    + '    <div class="img-wrap">' + media + '</div>'
+    +      (layers ? '<div class="lyr-strip">' + layers + '</div>' : '')
     + '  </div>'
     // 스크립트(나레이션)
     + '  <div class="col-script">'
@@ -207,6 +209,31 @@ function bindRows(scope) {
       if (this.checked) SEL_SCENES[n] = true; else delete SEL_SCENES[n];
     });
   }
+  var thumbs = scope.querySelectorAll("img.lyr");
+  for (var th = 0; th < thumbs.length; th++) {
+    thumbs[th].addEventListener("click", function () { toggleLayerOverlay(this); });
+  }
+}
+
+/* 레이어 썸네일 클릭 — 풀프레임 레이어를 씬 이미지 위에 1:1로 겹치고
+   알파 윤곽을 따라 빨간 테두리(drop-shadow) 표시. 같은 썸네일 재클릭=해제. */
+function toggleLayerOverlay(thumb) {
+  var row = thumb.closest(".sheet-row");
+  if (!row) return;
+  var wrap = row.querySelector(".img-wrap");
+  if (!wrap) return;
+  var prev = wrap.querySelector(".lyr-overlay");
+  var was = thumb.classList.contains("sel");
+  // 기존 오버레이/선택 해제
+  if (prev) prev.parentNode.removeChild(prev);
+  var sels = row.querySelectorAll("img.lyr.sel");
+  for (var i = 0; i < sels.length; i++) sels[i].classList.remove("sel");
+  if (was) return;                     // 같은 썸네일 → 토글 오프
+  var ov = document.createElement("img");
+  ov.className = "lyr-overlay";
+  ov.src = thumb.src;                  // 풀프레임(씬과 동일 크기) — width:100%로 정확히 겹침
+  wrap.appendChild(ov);
+  thumb.classList.add("sel");
 }
 
 /* ===== 도구상자(시트 상단) — 체크된 씬에 일괄 실행 ===== */
