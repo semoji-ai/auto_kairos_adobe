@@ -23,6 +23,87 @@ function akBuildScene(manifestPath) {
         if (fade) { var op = il.property("Opacity"); op.setValueAtTime(0, 0); op.setValueAtTime(0.5, 100); }
         return il;
     }
+    // 프리셋 모션 → 키프레임(결정적). 실패해도 빌드는 계속(try/catch).
+    function applyMoves(il, moves, sceneDur, cw, ch) {
+        if (!moves || !moves.length) return;
+        var P = il.property("Position").value;
+        var S = il.property("Scale").value;
+        for (var mi = 0; mi < moves.length; mi++) {
+            var mv = moves[mi];
+            var t0 = Math.max(0, mv.start || 0);
+            var t1 = Math.min(sceneDur, t0 + (mv.duration || 0.5));
+            if (t1 <= t0) continue;
+            var amt = mv.amount;
+            try {
+                if (mv.type === "slide_in") {
+                    var dx = 0, dy = 0, off = amt || cw * 0.18;
+                    if (mv.direction === "right") dx = off; else if (mv.direction === "up") dy = -off;
+                    else if (mv.direction === "down") dy = off; else dx = -off;
+                    var pp = il.property("Position");
+                    pp.setValueAtTime(t0, [P[0] + dx, P[1] + dy]);
+                    pp.setValueAtTime(t1, [P[0], P[1]]);
+                    var op0 = il.property("Opacity");
+                    op0.setValueAtTime(t0, 0); op0.setValueAtTime(t0 + (t1 - t0) * 0.5, 100);
+                } else if (mv.type === "fade_in") {
+                    var op1 = il.property("Opacity");
+                    op1.setValueAtTime(t0, 0); op1.setValueAtTime(t1, 100);
+                } else if (mv.type === "exit_fade") {
+                    var op2 = il.property("Opacity");
+                    op2.setValueAtTime(t0, 100); op2.setValueAtTime(t1, 0);
+                } else if (mv.type === "pop") {
+                    var sp = il.property("Scale");
+                    sp.setValueAtTime(t0, [S[0] * 0.6, S[1] * 0.6]);
+                    sp.setValueAtTime(t0 + (t1 - t0) * 0.7, [S[0] * 1.06, S[1] * 1.06]);
+                    sp.setValueAtTime(t1, [S[0], S[1]]);
+                } else if (mv.type === "zoom_emphasis") {
+                    var sp2 = il.property("Scale");
+                    sp2.setValueAtTime(t0, [S[0], S[1]]);
+                    sp2.setValueAtTime(t0 + (t1 - t0) * 0.5, [S[0] * 1.08, S[1] * 1.08]);
+                    sp2.setValueAtTime(t1, [S[0], S[1]]);
+                } else if (mv.type === "drift") {
+                    var d2 = amt || 18;
+                    var pd = il.property("Position");
+                    pd.setValueAtTime(t0, [P[0], P[1]]);
+                    pd.setValueAtTime(t1, [P[0] + d2, P[1] - d2 * 0.4]);
+                } else if (mv.type === "bob") {
+                    var b2 = amt || 8, pb = il.property("Position");
+                    var steps = Math.max(2, Math.floor((t1 - t0) / 0.6));
+                    for (var bi = 0; bi <= steps; bi++) {
+                        var tb = t0 + (t1 - t0) * bi / steps;
+                        pb.setValueAtTime(tb, [P[0], P[1] + ((bi % 2) ? -b2 : 0)]);
+                    }
+                } else if (mv.type === "shake") {
+                    var s2 = amt || 10, ps = il.property("Position");
+                    for (var si2 = 0; si2 <= 6; si2++) {
+                        var ts = t0 + (t1 - t0) * si2 / 6;
+                        ps.setValueAtTime(ts, [P[0] + ((si2 % 2) ? s2 : -s2) * (1 - si2 / 6), P[1]]);
+                    }
+                }
+            } catch (e) { /* 모션 1개 실패는 무시 — 빌드 지속 */ }
+        }
+    }
+
+    // Final 씬 레이어 카메라 — slow zoom/pan(결정적)
+    function applyCamera(fl, cam, t, dur, baseScale, W, H) {
+        if (!cam || !cam.type || cam.type === "none") return;
+        try {
+            var amt = cam.amount || 6;
+            if (cam.type === "slow_zoom_in" || cam.type === "slow_zoom_out") {
+                var z = 1 + amt / 100.0;
+                var sIn = cam.type === "slow_zoom_in";
+                var sp = fl.property("Scale");
+                sp.setValueAtTime(t, [baseScale * (sIn ? 1 : z), baseScale * (sIn ? 1 : z)]);
+                sp.setValueAtTime(t + dur, [baseScale * (sIn ? z : 1), baseScale * (sIn ? z : 1)]);
+            } else {
+                var px = cam.amount || 40;
+                var dir2 = cam.type === "pan_left" ? -1 : 1;
+                var pp2 = fl.property("Position");
+                var base = fl.property("Position").value;
+                pp2.setValueAtTime(t, [base[0] - dir2 * px / 2, base[1]]);
+                pp2.setValueAtTime(t + dur, [base[0] + dir2 * px / 2, base[1]]);
+            }
+        } catch (e) { }
+    }
     try {
         var mf = new File(manifestPath);
         if (!mf.exists) { return "ERROR: manifest 없음: " + manifestPath; }
@@ -50,6 +131,7 @@ function akBuildScene(manifestPath) {
                 for (var li = 0; li < s.layers.length; li++) {
                     var ok = addLayerObj(proj, comp, s.layers[li], cw, ch, li === 0);
                     if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);
+                    else if (s.layers[li].moves) applyMoves(ok, s.layers[li].moves, dur, cw, ch);
                 }
             } else if (s.image) {
                 if (!addLayerObj(proj, comp, { path: s.image }, cw, ch, true)) log.push(name + ": image 누락");
@@ -80,7 +162,9 @@ function akBuildScene(manifestPath) {
             var fl = fc.layers.add(comps[j]);
             var fsc = Math.max(W / comps[j].width, H / comps[j].height) * 100;
             fl.property("Scale").setValue([fsc, fsc]);
-            fl.startTime = t; t += comps[j].duration;
+            fl.startTime = t;
+            if (scenes[j].camera) applyCamera(fl, scenes[j].camera, t, comps[j].duration, fsc, W, H);
+            t += comps[j].duration;
         }
         fc.openInViewer();
         app.endUndoGroup();

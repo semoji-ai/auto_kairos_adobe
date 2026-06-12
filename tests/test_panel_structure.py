@@ -293,3 +293,10 @@ def test_jsx_uses_json_parse():
     assert "JSON.parse" in j2 and "=>" not in j2 and "const " not in j2 and "let " not in j2
     main = MAIN.read_text(encoding="utf-8")
     assert "json2.jsx" in main
+
+
+def test_jsx_has_motion():
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "function applyMoves" in jsx and "function applyCamera" in jsx
+    for t in ["slide_in", "pop", "bob", "zoom_emphasis", "slow_zoom_in"]:
+        assert t in jsx
