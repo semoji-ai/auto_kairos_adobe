@@ -6,7 +6,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -381,6 +381,29 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         res = scenes.set_image_ref(proj_dir, sn, f"storyboard/{name}")
         vault.log_work(proj_dir, "map_image", {"scene": sn, "file": name})
         return (200, res) if res.get("ok") else (404, res)
+
+    if method == "POST" and p == "/api/scenes/chart-spec":
+        # 차트 디자인 명세서 생성(chartagent) — bar 씬의 패턴/모티프 토큰을 AE에 주입
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        if not chartgen.available():
+            return 200, {"error": "chartagent 미설치 — CHARTAGENT_ROOT 환경변수 설정 필요"}
+        sn = b.get("sceneNumber")
+        data = scenes.load_scenes(proj_dir)
+        scene = next((s for s in data["scenes"] if s.get("sceneNumber") == sn), None)
+        if not scene:
+            return 404, {"error": f"scene {sn} 없음"}
+        tp = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
+        ae_tokens = json.loads(tp.read_text(encoding="utf-8")) if tp.is_file() else {}
+        try:
+            res = chartgen.gen_chart_spec(proj_dir, scene, ae_tokens)
+        except Exception as e:
+            return 200, {"error": f"chartagent 실패: {e}"}
+        if res.get("ok"):
+            vault.log_work(proj_dir, "chart_spec", {"scene": sn, "theme_set": res.get("theme_set")})
+        return 200, res
 
     if method == "POST" and p == "/api/scenes/unlink-image":
         b = body or {}

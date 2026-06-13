@@ -104,6 +104,14 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
                 cam = None
         if is_map and cam is None:
             cam = {"type": "slow_zoom_in", "amount": 6}   # 지도 씬 기본 — 천천히 푸시인
+        # 차트 명세서 사이드카(chart_{sid}.spec.json) — chartagent 패턴/모티프 토큰을 jsx bar에 전달
+        chart_spec = None
+        csp = proj_dir / f"chart_{sid}.spec.json"
+        if layout == "bar" and csp.is_file():
+            try:
+                chart_spec = json.loads(csp.read_text(encoding="utf-8"))
+            except Exception:
+                chart_spec = None
         # 지도 geo 사이드카({이미지}.geo.json) — 마커/경로 픽셀 좌표를 jsx에 전달(AE 네이티브 레이어)
         map_geo = None
         if is_map and s.get("_image"):
@@ -144,6 +152,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             **data_fields,
             **({"camera": cam} if cam else {}),
             **({"mapGeo": map_geo} if map_geo else {}),
+            **({"chartSpec": chart_spec} if chart_spec else {}),
         })
     mf = {"width": W, "height": H, "fps": FPS, "scenes": out_scenes}
     tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"

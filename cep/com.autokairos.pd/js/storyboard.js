@@ -377,6 +377,23 @@ function bindSheetToolbar() {
       })
       .catch(function (e) { say("지도 렌더 실패: " + e); });
   });
+  on("sa-chart", function () {
+    var ns = _needChecked(1, "차트 명세서"); if (!ns) return;
+    var st = $("sa-status"), box = $("aeresult");
+    function say(t) { if (st) st.textContent = t; if (box) box.textContent = t; }
+    say("차트 명세서 생성 중...");
+    _runSeq(ns, function (n) {
+      return fetch(BACKEND + "/api/scenes/chart-spec", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: n }),
+      }).then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res && res.error) { say("씬 " + n + " 차트: " + res.error); return; }
+          say("씬 " + n + " 차트 명세 완료 ✓ (" + (res.theme_set || "") + ")");
+        })
+        .catch(function (e) { say("씬 " + n + " 차트 실패: " + e); });
+    });
+  });
   on("sa-add", function () {
     var ns = _checkedScenes();
     sceneOp("add", ns.length ? { after: ns[ns.length - 1] } : {});   // 체크 없으면 맨 끝에

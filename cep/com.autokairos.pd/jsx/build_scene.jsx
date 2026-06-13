@@ -76,6 +76,68 @@ function akBuildScene(manifestPath) {
         sl.property("Position").setValue([x + w / 2, y + h / 2]);
         return sl;
     }
+    // 점선 적용 — dash="4 6" 형식(있으면). 셰이프 레이어 첫 스트로크에.
+    function applyDash(layer, dash, S) {
+        if (!dash) return;
+        try {
+            var grp = layer.property("Contents").property(1);
+            var stroke = null, cc = grp.property("Contents");
+            for (var i = 1; i <= cc.numProperties; i++) {
+                if (cc.property(i).matchName === "ADBE Vector Graphic - Stroke") { stroke = cc.property(i); break; }
+            }
+            if (!stroke) return;
+            var parts = String(dash).split(/\s+/);
+            var dProp = stroke.property("Dashes").addProperty("ADBE Vector Stroke Dash 1");
+            dProp.setValue(parseFloat(parts[0]) * S);
+        } catch (e) { }
+    }
+    // chartagent 명세 반영 막대 — 채움(+패턴 오퍼시티) + 외곽선 + 대각 해칭을 한 레이어에.
+    // 사각형은 레이어 원점 중심 [-w/2..w/2, -h/2..h/2] → bar 루프가 앵커/포지션으로 하단 고정.
+    function addBarShape(comp, name, w, h, rgb, CS, S) {
+        var sl = comp.layers.addShape(); sl.name = name;
+        var root = sl.property("Contents");
+        var hatch = CS.patternKind === "diagonal_hatch";
+        var outlineW = (CS.outlineWidth || 0) * S;
+        // 채움 — 해칭이면 약하게(패턴 오퍼시티), 아니면 단색
+        var fg = root.addProperty("ADBE Vector Group");
+        var rect = fg.property("Contents").addProperty("ADBE Vector Shape - Rect");
+        rect.property("Size").setValue([w, h]);
+        var fill = fg.property("Contents").addProperty("ADBE Vector Graphic - Fill");
+        fill.property("Color").setValue(rgb);
+        if (hatch) { try { fill.property("Opacity").setValue((CS.patternOpacity != null ? CS.patternOpacity : 0.5) * 100); } catch (e) { } }
+        // 대각 해칭 — 사각형에 클리핑된 45° 선들(같은 레이어 → Scale 동반)
+        if (hatch) {
+            var sp = (CS.patternSpacing || 16) * S, sw = (CS.patternStrokeWidth || 1.3) * S;
+            var hg = root.addProperty("ADBE Vector Group");
+            var hc = hg.property("Contents");
+            var x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2;
+            // y = x + b 형태(기울기 1) 선을 사각형에 클립
+            for (var b = (y0 - x1); b <= (y1 - x0); b += sp) {
+                var pts = [];
+                var yA = x0 + b; if (yA >= y0 && yA <= y1) pts.push([x0, yA]);
+                var yB = x1 + b; if (yB >= y0 && yB <= y1) pts.push([x1, yB]);
+                var xA = y0 - b; if (xA > x0 && xA < x1) pts.push([xA, y0]);
+                var xB = y1 - b; if (xB > x0 && xB < x1) pts.push([xB, y1]);
+                if (pts.length < 2) continue;
+                var pp = hc.addProperty("ADBE Vector Shape - Group");
+                var shp = new Shape(); shp.vertices = [pts[0], pts[1]]; shp.closed = false;
+                pp.property("Path").setValue(shp);
+            }
+            var hst = hg.property("Contents").addProperty("ADBE Vector Graphic - Stroke");
+            hst.property("Color").setValue(rgb);
+            hst.property("Stroke Width").setValue(sw);
+        }
+        // 외곽선 — 마지막에 추가(맨 위)
+        if (outlineW > 0) {
+            var og = root.addProperty("ADBE Vector Group");
+            var orect = og.property("Contents").addProperty("ADBE Vector Shape - Rect");
+            orect.property("Size").setValue([w, h]);
+            var ost = og.property("Contents").addProperty("ADBE Vector Graphic - Stroke");
+            ost.property("Color").setValue(rgb);
+            ost.property("Stroke Width").setValue(outlineW);
+        }
+        return sl;
+    }
     // 지도 오버레이 — 지도는 배경판(이미지)이고 마커/라벨/경로는 AE 네이티브 레이어.
     // geo: {markers:[{name,x,y}], route:[[x,y]...], labelRgb} — 픽셀 좌표(map.project 기준).
     // 키프레임/경로/라벨 전부 AE에서 직접 수정 가능.
@@ -176,15 +238,27 @@ function akBuildScene(manifestPath) {
             var ch2 = s.chart || {}, labels = ch2.labels || [], vals = ch2.values || [];
             var n = Math.max(1, vals.length), maxV = 0;
             for (var vi = 0; vi < vals.length; vi++) if (vals[vi] > maxV) maxV = vals[vi];
+            // chartagent 명세서(chartSpec) — 없으면 단순 단색 막대 기본값
+            var CS = s.chartSpec || {};
             var areaW = W * 0.7, baseY = H * 0.76, maxH = H * 0.42;
             var bw = Math.min(150 * S, areaW / n * 0.55), gap2 = areaW / n;
-            addRectL(comp, "axis", W * 0.13, baseY, W * 0.74, 3 * S, c.mutedRgb);        // 기준선
+            var accent = [c.accentRgb[0] / 255, c.accentRgb[1] / 255, c.accentRgb[2] / 255];
+            var muted = [c.mutedRgb[0] / 255, c.mutedRgb[1] / 255, c.mutedRgb[2] / 255];
+            // 가이드선(기준선 위 수평선) — chartSpec.guideLineCount 만큼 점선
+            var glc = CS.guideLineCount || 0;
+            for (var gi = 1; gi <= glc; gi++) {
+                var gy = baseY - (maxH * gi) / (glc + 1);
+                var gl = addRectL(comp, "guide" + gi, W * 0.13, gy, W * 0.74, (CS.guideStrokeWidth || 1) * S, c.mutedRgb);
+                gl.property("Opacity").setValue((CS.guideOpacity != null ? CS.guideOpacity : 0.3) * 100);
+                applyDash(gl, CS.guideDash, S);              // 점선 패턴(있으면)
+            }
+            addRectL(comp, "axis", W * 0.13, baseY, W * 0.74, (CS.axisStrokeWidth || 2) * S, c.mutedRgb);  // 기준선
             for (var bi = 0; bi < n; bi++) {
                 var bh = maxV ? (vals[bi] / maxV) * maxH : 0;
                 var bx = W * 0.15 + gap2 * bi + (gap2 - bw) / 2;
-                var bar = addRectL(comp, "bar" + bi, bx, baseY - bh, bw, bh, c.accentRgb);
-                // 하단 고정 성장: 하단 중앙 [0, bh/2] 앵커 → 컴프 [bx+bw/2, baseY] 고정
-                bar.property("Anchor Point").setValue([0, bh / 2]);
+                // chartSpec 반영 막대(채움+외곽선+해칭이 한 레이어 → Scale 애니메이션 동반)
+                var bar = addBarShape(comp, "bar" + bi, bw, bh, accent, CS, S);
+                bar.property("Anchor Point").setValue([0, bh / 2]);   // 하단 고정 성장
                 bar.property("Position").setValue([bx + bw / 2, baseY]);
                 var sc2 = bar.property("Scale");
                 sc2.setValueAtTime(0.2 + bi * 0.15, [100, 0]); sc2.setValueAtTime(0.7 + bi * 0.15, [100, 100]);

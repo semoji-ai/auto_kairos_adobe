@@ -221,3 +221,16 @@ def test_map_geo_sidecar_passthrough(tmp_path):
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["mapGeo"]["markers"][0]["name"] == "서울"
     assert sc["mapGeo"]["route"] == [[100, 200], [960, 540]]
+
+
+def test_chart_spec_sidecar_passthrough(tmp_path):
+    """차트 명세서 사이드카(chart_{sid}.spec.json) → manifest chartSpec(bar 씬만)."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "cc", "layout": "bar", "narration": "x",
+                          "headline": "수면 단계", "chart": {"labels": ["a", "b"], "values": [1, 2], "unit": "분"}}])
+    (d / "chart_cc.spec.json").write_text(json.dumps({
+        "theme_set": "gallery_infographic", "guideLineCount": 3,
+        "patternKind": "diagonal_hatch", "outlineWidth": 2.45}), encoding="utf-8")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["chartSpec"]["guideLineCount"] == 3
+    assert sc["chartSpec"]["patternKind"] == "diagonal_hatch"

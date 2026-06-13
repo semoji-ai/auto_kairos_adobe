@@ -968,3 +968,22 @@ def test_map_image_save_with_geo(tmp_path):
     assert st == 200
     gp = d / (res["imageRef"] + ".geo.json")
     assert gp.is_file() and _json.loads(gp.read_text())["markers"][0]["name"] == "부산"
+
+
+def test_chart_spec_endpoint(tmp_path, monkeypatch):
+    """POST /api/scenes/chart-spec — chartagent 호출(스텁) → 사이드카 + 토큰 반환."""
+    import json as _json
+    from backend import router, chartgen
+    d = tmp_path / "pc"; d.mkdir()
+    (d / "scenes.json").write_text(_json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "cs", "layout": "bar", "headline": "t",
+         "chart": {"labels": ["a", "b"], "values": [1, 2], "unit": "분"}}]}), encoding="utf-8")
+    monkeypatch.setattr(chartgen, "available", lambda: True)
+    def fake_gen(proj_dir, scene, ae_tokens):
+        (proj_dir / "chart_cs.spec.json").write_text("{}", encoding="utf-8")
+        return {"ok": True, "tokens": {"guideLineCount": 2}, "theme_set": "gallery_infographic"}
+    monkeypatch.setattr(chartgen, "gen_chart_spec", fake_gen)
+    st, res = router.handle_request("POST", "/api/scenes/chart-spec", {},
+        {"project_id": "pc", "sceneNumber": 1}, {"root": tmp_path})
+    assert st == 200 and res.get("ok") and res["theme_set"] == "gallery_infographic"
+    assert (d / "chart_cs.spec.json").is_file()

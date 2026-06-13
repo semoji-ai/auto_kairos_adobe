@@ -516,3 +516,14 @@ def test_map_raster_fallback():
     assert "_mercPx" in mg                                 # 웹 메르카토르 투영(마커 좌표 일관)
     assert "crossOrigin" in mg                             # 캔버스 오염 방지(CORS)
     assert "basemaps.cartocdn.com" in mg
+
+
+def test_chart_spec_wiring():
+    """chartagent 차트 명세서 — 버튼 + jsx 패턴/가이드선/외곽선 반영."""
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="sa-chart"' in html
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "sa-chart" in js and "/api/scenes/chart-spec" in js
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "addBarShape" in jsx and "s.chartSpec" in jsx
+    assert "diagonal_hatch" in jsx and "guideLineCount" in jsx and "applyDash" in jsx
