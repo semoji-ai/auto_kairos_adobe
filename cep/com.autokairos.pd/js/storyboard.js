@@ -77,7 +77,8 @@ function _loadTokens() {
 // 컴프 결과 미리보기 — jsx renderLayout(1920 기준)을 200px 폭으로 축소 미러링.
 // 이미지 씬=이미지+자막 오버레이, 레이아웃 씬=셰이프/텍스트 근사 렌더(동일 토큰).
 function _previewHTML(s, dir) {
-  var T = TOKENS || {}, c = T.colors || {}, t = T.type || {};
+  var T = TOKENS || {}, t = T.type || {};
+  var c = (s._theme && s._theme.colors) || T.colors || {};   // 씬 resolve된 테마 색 우선
   function px(v) { return (v * 200 / 1920).toFixed(1) + "px"; }      // 1920 디자인 px → 미리보기 px
   function rgb(a, fb) { a = a || fb; return "rgb(" + a[0] + "," + a[1] + "," + a[2] + ")"; }
   var BG = rgb(c.bgRgb, [35, 38, 43]), TX = rgb(c.textRgb, [232, 234, 237]),
