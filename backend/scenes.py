@@ -108,6 +108,14 @@ def load_scenes(proj_dir: Path) -> dict:
             s["_audio_dur"] = _tts.audio_duration(proj_dir / s["_audio"])
         else:
             s["_audio_dur"] = 0.0
+        # 차트 명세서 사이드카(chart_{sid}.spec.json) — 시트 미리보기 해칭 표시용
+        if sid and s.get("layout") == "bar":
+            csp = proj_dir / f"chart_{sid}.spec.json"
+            if csp.is_file():
+                try:
+                    s["chartSpec"] = json.loads(csp.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    pass
         aud = proj_dir / "audio"
         s["_status"] = {
             "narration": bool((s.get("narration") or "").strip()),

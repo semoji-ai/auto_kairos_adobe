@@ -268,3 +268,18 @@ def test_concurrent_mutations_consistent(tmp_path):
     assert len(data["scenes"]) == 21                       # 1 + 4*5 (유실 없음)
     nums = [s["sceneNumber"] for s in data["scenes"]]
     assert nums == list(range(1, 22))                      # 재번호 일관
+
+
+def test_load_scenes_exposes_chart_spec(tmp_path):
+    """bar 씬 — chart_{sid}.spec.json 사이드카를 load_scenes가 chartSpec으로 노출(시트 미리보기용)."""
+    import json
+    from backend import scenes
+    d = tmp_path
+    (d / "scenes.json").write_text(json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "bs", "layout": "bar", "narration": "x",
+         "chart": {"labels": ["a"], "values": [1]}}]}), encoding="utf-8")
+    (d / "chart_bs.spec.json").write_text(json.dumps(
+        {"patternKind": "crosshatch_light", "outlineWidth": 2.4}), encoding="utf-8")
+    data = scenes.load_scenes(d)
+    bar = data["scenes"][0]
+    assert bar["chartSpec"]["patternKind"] == "crosshatch_light"
