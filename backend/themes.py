@@ -54,6 +54,7 @@ def list_themes() -> list[dict]:
 
 
 def load_theme(theme_id: str) -> dict | None:
+    """카탈로그 단건 로드 — 없거나 빈 id거나 JSON 오류면 None."""
     if not theme_id:
         return None
     p = _catalog_dir() / f"{theme_id}.json"
@@ -66,6 +67,7 @@ def load_theme(theme_id: str) -> dict | None:
 
 
 def _project_theme_id(proj_dir: Path) -> str | None:
+    # scenes.json 최상위 "theme" — scenes.set_project_theme(Task 3)가 이 키에 기록
     fp = proj_dir / "scenes.json"
     if not fp.is_file():
         return None
