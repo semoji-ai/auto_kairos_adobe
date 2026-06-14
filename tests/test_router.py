@@ -987,3 +987,22 @@ def test_chart_spec_endpoint(tmp_path, monkeypatch):
         {"project_id": "pc", "sceneNumber": 1}, {"root": tmp_path})
     assert st == 200 and res.get("ok") and res["theme_set"] == "gallery_infographic"
     assert (d / "chart_cs.spec.json").is_file()
+
+def test_themes_endpoints(tmp_path, monkeypatch):
+    """GET /api/themes 목록 + set-project/set-scene."""
+    import json
+    from backend import router, themes
+    td = tmp_path / "cat"; td.mkdir()
+    (td / "semoji.json").write_text(json.dumps({"id": "semoji", "label": "세모지",
+        "colors": {}, "chart": {"theme_set": "gallery_infographic"}, "map": {"tile": "bright", "overrides": []}}), encoding="utf-8")
+    monkeypatch.setattr(themes, "_catalog_dir", lambda: td)
+    st, res = router.handle_request("GET", "/api/themes", {}, None, {"root": tmp_path})
+    assert st == 200 and any(t["id"] == "semoji" for t in res["themes"])
+    d = tmp_path / "p1"; d.mkdir()
+    (d / "scenes.json").write_text(json.dumps({"scenes": [{"sceneNumber": 1, "sceneId": "a"}]}), encoding="utf-8")
+    st, res = router.handle_request("POST", "/api/themes/set-project", {},
+        {"project_id": "p1", "theme_id": "semoji"}, {"root": tmp_path})
+    assert st == 200 and res["theme"] == "semoji"
+    st, res = router.handle_request("POST", "/api/themes/set-scene", {},
+        {"project_id": "p1", "sceneNumber": 1, "theme_id": "semoji"}, {"root": tmp_path})
+    assert st == 200 and res["themeOverride"] == "semoji"

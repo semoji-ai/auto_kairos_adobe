@@ -6,7 +6,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -145,6 +145,27 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 200, {"images": []}
         names = sorted(f.name for f in cd.glob("*.png"))
         return 200, {"images": names, "dir": str(cd)}
+
+    if method == "GET" and p == "/api/themes":
+        return 200, {"themes": themes.list_themes()}
+
+    if method == "POST" and p == "/api/themes/set-project":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        res = scenes.set_project_theme(proj_dir, b.get("theme_id", ""))
+        if res.get("ok"):
+            vault.log_work(proj_dir, "set_theme", {"theme": b.get("theme_id")})
+        return (200, res) if res.get("ok") else (404, res)
+
+    if method == "POST" and p == "/api/themes/set-scene":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        res = scenes.set_scene_theme(proj_dir, b.get("sceneNumber"), b.get("theme_id"))
+        return (200, res) if res.get("ok") else (404, res)
 
     if method == "GET" and p == "/api/tokens":          # 디자인 토큰 — 시트 미리보기가 사용
         tp = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
