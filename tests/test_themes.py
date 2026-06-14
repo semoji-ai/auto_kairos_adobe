@@ -53,6 +53,21 @@ def test_resolve_priority_scene_over_project(tmp_path, monkeypatch):
     assert themes.resolve_theme(pd, None)["chart"]["theme_set"] == "gallery_infographic"
 
 
+def test_seed_creates_three_themes(tmp_path, monkeypatch):
+    """seed_themes가 시드 3종을 멱등 생성."""
+    import scripts.seed_themes as seed
+    td = tmp_path / "themes"
+    seed.seed(td)
+    ids = {p.stem for p in td.glob("*.json")}
+    assert ids == {"semoji", "modern_clean", "dark_broadcast"}
+    semoji = json.loads((td / "semoji.json").read_text(encoding="utf-8"))
+    assert semoji["chart"]["theme_set"] == "gallery_infographic"
+    assert semoji["map"]["tile"] == "bright"
+    # 멱등 — 다시 실행해도 3종 유지
+    seed.seed(td)
+    assert len({p.stem for p in td.glob("*.json")}) == 3
+
+
 def test_resolve_falls_back_to_ae_tokens(tmp_path, monkeypatch):
     """카탈로그/theme 필드 없으면 ae_tokens 기본값으로."""
     td = tmp_path / "empty_themes"; td.mkdir()
