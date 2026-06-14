@@ -526,4 +526,6 @@ def test_chart_spec_wiring():
     assert "sa-chart" in js and "/api/scenes/chart-spec" in js
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
     assert "addBarShape" in jsx and "s.chartSpec" in jsx
-    assert "diagonal_hatch" in jsx and "guideLineCount" in jsx and "applyDash" in jsx
+    assert "guideLineCount" in jsx and "applyDash" in jsx
+    # 패턴 종류 전부 처리(diagonal/crosshatch/vertical/dot)
+    assert "crosshatch_light" in jsx and "vertical_stripe" in jsx and "dot_sparse" in jsx

@@ -127,7 +127,16 @@ function _previewHTML(s, dir) {
     for (var bi = 0; bi < vals.length; bi++) {
       var bhPct = maxV ? (vals[bi] / maxV) * 42 : 0;                 // jsx maxH=H*0.42
       var gw = 70 / n2, bxPct = 15 + gw * bi + gw * 0.225, bwPct = gw * 0.55;
-      inner += '<div class="pv-abs" style="left:' + bxPct + "%;width:" + bwPct + "%;top:" + (76 - bhPct) + "%;height:" + bhPct + "%;background:" + AC + '"></div>'
+      var barStyle = "background:" + AC;
+      var CS = s.chartSpec || {};
+      if (CS.patternKind && CS.patternKind !== "solid" && CS.patternKind !== "none") {
+        // 미리보기 해칭 근사 — CSS repeating-linear-gradient(대각/세로/교차)
+        var ang = CS.patternKind === "vertical_stripe" ? "90deg" : "45deg";
+        var gap = Math.max(3, (CS.patternSpacing || 12) / 4);
+        barStyle = "background:repeating-linear-gradient(" + ang + "," + AC + " 0 1.5px,transparent 1.5px " + gap + "px)," + AC.replace("rgb", "rgba").replace(")", "," + (CS.patternOpacity || 0.4) + ")");
+        if (CS.outlineWidth) barStyle += ";outline:1px solid " + AC;
+      }
+      inner += '<div class="pv-abs" style="left:' + bxPct + "%;width:" + bwPct + "%;top:" + (76 - bhPct) + "%;height:" + bhPct + "%;" + barStyle + '"></div>'
         + '<div class="pv-abs pv-body" style="left:' + (bxPct - gw * 0.2) + "%;width:" + (bwPct + gw * 0.4) + "%;top:78.5%;font-size:" + px(t.barLabel || 36) + ";color:" + MU + ';text-align:center;white-space:nowrap;overflow:hidden">' + _esc(labels[bi] || "") + "</div>"
         + '<div class="pv-abs pv-bold" style="left:' + (bxPct - gw * 0.2) + "%;width:" + (bwPct + gw * 0.4) + "%;top:" + (76 - bhPct - 4.5) + "%;font-size:" + px(t.barValue || 40) + ";color:" + TX + ';text-align:center">' + _esc(String(vals[bi]) + (ch.unit || "")) + "</div>";
     }

@@ -91,41 +91,90 @@ function akBuildScene(manifestPath) {
             dProp.setValue(parseFloat(parts[0]) * S);
         } catch (e) { }
     }
-    // chartagent 명세 반영 막대 — 채움(+패턴 오퍼시티) + 외곽선 + 대각 해칭을 한 레이어에.
+    // 평행선 해칭 한 방향을 사각형 [x0..x1, y0..y1]에 클립해 그룹에 추가.
+    // dir: "diag1"(↘ 기울기1) / "diag2"(↙ 기울기-1) / "vert" / "horiz"
+    function _hatchDir(hc, x0, x1, y0, y1, sp, dir) {
+        var b, pts, pp, shp;
+        if (dir === "vert") {
+            for (b = x0 + sp / 2; b < x1; b += sp) {
+                pp = hc.addProperty("ADBE Vector Shape - Group");
+                shp = new Shape(); shp.vertices = [[b, y0], [b, y1]]; shp.closed = false;
+                pp.property("Path").setValue(shp);
+            }
+            return;
+        }
+        if (dir === "horiz") {
+            for (b = y0 + sp / 2; b < y1; b += sp) {
+                pp = hc.addProperty("ADBE Vector Shape - Group");
+                shp = new Shape(); shp.vertices = [[x0, b], [x1, b]]; shp.closed = false;
+                pp.property("Path").setValue(shp);
+            }
+            return;
+        }
+        var slope = (dir === "diag2") ? -1 : 1;          // y = slope*x + b
+        var bMin = (slope > 0) ? (y0 - x1) : (y0 + x0);
+        var bMax = (slope > 0) ? (y1 - x0) : (y1 + x1);
+        for (b = bMin; b <= bMax; b += sp) {
+            pts = [];
+            var yA = slope * x0 + b; if (yA >= y0 && yA <= y1) pts.push([x0, yA]);
+            var yB = slope * x1 + b; if (yB >= y0 && yB <= y1) pts.push([x1, yB]);
+            var xA = (y0 - b) / slope; if (xA > x0 && xA < x1) pts.push([xA, y0]);
+            var xB = (y1 - b) / slope; if (xB > x0 && xB < x1) pts.push([xB, y1]);
+            if (pts.length < 2) continue;
+            pp = hc.addProperty("ADBE Vector Shape - Group");
+            shp = new Shape(); shp.vertices = [pts[0], pts[1]]; shp.closed = false;
+            pp.property("Path").setValue(shp);
+        }
+    }
+    // chartagent 명세 반영 막대 — 채움(+패턴 오퍼시티) + 외곽선 + 패턴을 한 레이어에.
     // 사각형은 레이어 원점 중심 [-w/2..w/2, -h/2..h/2] → bar 루프가 앵커/포지션으로 하단 고정.
     function addBarShape(comp, name, w, h, rgb, CS, S) {
         var sl = comp.layers.addShape(); sl.name = name;
         var root = sl.property("Contents");
-        var hatch = CS.patternKind === "diagonal_hatch";
+        // 패턴 종류 — chartagent: diagonal_hatch / wide_diagonal / crosshatch_light / vertical_stripe / dot_sparse
+        var pk = CS.patternKind || "";
+        var patterned = pk && pk !== "solid" && pk !== "none";
         var outlineW = (CS.outlineWidth || 0) * S;
-        // 채움 — 해칭이면 약하게(패턴 오퍼시티), 아니면 단색
+        var x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2;
+        // 채움 — 패턴이면 약하게(패턴 오퍼시티), 아니면 단색
         var fg = root.addProperty("ADBE Vector Group");
         var rect = fg.property("Contents").addProperty("ADBE Vector Shape - Rect");
         rect.property("Size").setValue([w, h]);
         var fill = fg.property("Contents").addProperty("ADBE Vector Graphic - Fill");
         fill.property("Color").setValue(rgb);
-        if (hatch) { try { fill.property("Opacity").setValue((CS.patternOpacity != null ? CS.patternOpacity : 0.5) * 100); } catch (e) { } }
-        // 대각 해칭 — 사각형에 클리핑된 45° 선들(같은 레이어 → Scale 동반)
-        if (hatch) {
-            var sp = (CS.patternSpacing || 16) * S, sw = (CS.patternStrokeWidth || 1.3) * S;
-            var hg = root.addProperty("ADBE Vector Group");
-            var hc = hg.property("Contents");
-            var x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2;
-            // y = x + b 형태(기울기 1) 선을 사각형에 클립
-            for (var b = (y0 - x1); b <= (y1 - x0); b += sp) {
-                var pts = [];
-                var yA = x0 + b; if (yA >= y0 && yA <= y1) pts.push([x0, yA]);
-                var yB = x1 + b; if (yB >= y0 && yB <= y1) pts.push([x1, yB]);
-                var xA = y0 - b; if (xA > x0 && xA < x1) pts.push([xA, y0]);
-                var xB = y1 - b; if (xB > x0 && xB < x1) pts.push([xB, y1]);
-                if (pts.length < 2) continue;
-                var pp = hc.addProperty("ADBE Vector Shape - Group");
-                var shp = new Shape(); shp.vertices = [pts[0], pts[1]]; shp.closed = false;
-                pp.property("Path").setValue(shp);
+        if (patterned) { try { fill.property("Opacity").setValue((CS.patternOpacity != null ? CS.patternOpacity : 0.45) * 100); } catch (e) { } }
+        // 패턴 — 사각형에 클립된 선/점들(같은 레이어 → Scale 동반)
+        if (patterned) {
+            var sp = (CS.patternSpacing || 14) * S, sw = (CS.patternStrokeWidth || 1.3) * S;
+            if (pk === "wide_diagonal") sp *= 1.7;
+            if (pk === "dot_sparse") {
+                // 점 격자 — 작은 원 채움
+                var dg = root.addProperty("ADBE Vector Group"), dc = dg.property("Contents");
+                var r = Math.max(1.2 * S, sw);
+                for (var dx = x0 + sp; dx < x1; dx += sp) {
+                    for (var dy = y0 + sp; dy < y1; dy += sp) {
+                        var eg = dc.addProperty("ADBE Vector Group");
+                        var el = eg.property("Contents").addProperty("ADBE Vector Shape - Ellipse");
+                        el.property("Size").setValue([r * 2, r * 2]);
+                        el.property("Position").setValue([dx, dy]);
+                    }
+                }
+                var df = dc.addProperty("ADBE Vector Graphic - Fill");
+                df.property("Color").setValue(rgb);
+            } else {
+                var hg = root.addProperty("ADBE Vector Group"), hc = hg.property("Contents");
+                if (pk === "vertical_stripe") {
+                    _hatchDir(hc, x0, x1, y0, y1, sp, "vert");
+                } else if (pk === "crosshatch_light") {
+                    _hatchDir(hc, x0, x1, y0, y1, sp, "diag1");
+                    _hatchDir(hc, x0, x1, y0, y1, sp, "diag2");   // 양방향 교차
+                } else {                                          // diagonal_hatch / wide_diagonal / 기타
+                    _hatchDir(hc, x0, x1, y0, y1, sp, "diag1");
+                }
+                var hst = hg.property("Contents").addProperty("ADBE Vector Graphic - Stroke");
+                hst.property("Color").setValue(rgb);
+                hst.property("Stroke Width").setValue(sw);
             }
-            var hst = hg.property("Contents").addProperty("ADBE Vector Graphic - Stroke");
-            hst.property("Color").setValue(rgb);
-            hst.property("Stroke Width").setValue(sw);
         }
         // 외곽선 — 마지막에 추가(맨 위)
         if (outlineW > 0) {
