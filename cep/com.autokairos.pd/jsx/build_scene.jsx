@@ -480,6 +480,11 @@ function akBuildScene(manifestPath) {
             }
         } catch (eTk) { }
 
+        // 프로젝트 테마 색 오버라이드(manifest.themeColors) — ae_tokens 로드 여부와 무관하게 항상 적용
+        if (m.themeColors) {
+            for (var ck in m.themeColors) { TK.colors[ck] = m.themeColors[ck]; }
+        }
+
         // 폰트 PS명을 AE 폰트 DB 기준으로 검증/보정(패밀리 키워드 + 굵기 힌트)
         try {
             var FAM = TK.families || {};

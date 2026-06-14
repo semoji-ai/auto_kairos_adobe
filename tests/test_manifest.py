@@ -234,3 +234,20 @@ def test_chart_spec_sidecar_passthrough(tmp_path):
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["chartSpec"]["guideLineCount"] == 3
     assert sc["chartSpec"]["patternKind"] == "diagonal_hatch"
+
+
+def test_manifest_injects_theme_colors(tmp_path, monkeypatch):
+    """manifest — resolve된 테마 색을 themeColors로 주입(jsx가 ae_tokens 위에 오버라이드)."""
+    from backend import themes
+    td = tmp_path / "cat"; td.mkdir()
+    (td / "dark_broadcast.json").write_text(json.dumps({"id": "dark_broadcast", "label": "다크방송",
+        "colors": {"accentRgb": [255, 80, 80]}, "chart": {"theme_set": "broadcast_signal"},
+        "map": {"tile": "dark", "overrides": []}}), encoding="utf-8")
+    monkeypatch.setattr(themes, "_catalog_dir", lambda: td)
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "layout": "headline_only",
+                          "headline": "x", "narration": "n"}])
+    data = json.loads((d / "scenes.json").read_text()); data["theme"] = "dark_broadcast"
+    (d / "scenes.json").write_text(json.dumps(data), encoding="utf-8")
+    manifest.build_manifest(d)
+    mf = json.loads((d / "manifest.json").read_text())
+    assert mf["themeColors"]["accentRgb"] == [255, 80, 80]

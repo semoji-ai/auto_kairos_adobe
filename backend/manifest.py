@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend import scenes, tts
+from backend import scenes, themes, tts
 
 W, H, FPS = 1920, 1080, 30
 DEFAULT_DUR = 3.0
@@ -158,6 +158,9 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
     tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
     if tokens_path.is_file():
         mf["ae_tokens"] = str(tokens_path)
+    proj_theme = themes.resolve_theme(proj_dir, None)
+    if proj_theme.get("colors"):
+        mf["themeColors"] = proj_theme["colors"]   # jsx가 ae_tokens.colors 위에 오버라이드
     out = proj_dir / (f"manifest_scene_{only_scene}.json" if only_scene is not None else "manifest.json")
     out.write_text(json.dumps(mf, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"path": str(out), "scenes": len(out_scenes)}
