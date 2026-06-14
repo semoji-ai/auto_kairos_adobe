@@ -172,6 +172,7 @@ function loadSheet() {
       _applyCols();
       _bindColResize();
       bindRows();
+      loadThemes();
       var sa = $("selAllScenes");
       if (sa) sa.addEventListener("change", function () {
         var on = this.checked;
@@ -401,6 +402,16 @@ function bindSheetToolbar() {
           say("씬 " + n + " 차트 명세 완료 ✓ (" + (res.theme_set || "") + ")");
         })
         .catch(function (e) { say("씬 " + n + " 차트 실패: " + e); });
+    });
+  });
+  on("sa-theme", function () {
+    var ns = _needChecked(1, "씬 테마"); if (!ns) return;
+    var tid = window.prompt("이 씬에 적용할 테마 id(비우면 해제):", "");
+    _runSeq(ns, function (n) {
+      return fetch(BACKEND + "/api/themes/set-scene", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: n, theme_id: tid || null }),
+      }).then(function (r) { return r.json(); }).then(function () { refreshRow(n); });
     });
   });
   on("sa-add", function () {
@@ -735,3 +746,25 @@ document.addEventListener("DOMContentLoaded", function () {
   var d = $("ttsSettings");
   if (d) d.addEventListener("toggle", function () { if (d.open) loadTtsSettings(); });
 });
+
+// 프로젝트 테마 드롭다운 — 카탈로그 로드 + 현재 프로젝트 테마 선택 + 변경 시 저장
+function loadThemes() {
+  var sel = $("projectTheme");
+  if (!sel || !SELECTED_PROJECT) return;
+  fetch(BACKEND + "/api/themes").then(function (r) { return r.json(); }).then(function (j) {
+    var themeList = j.themes || [];
+    fetch(BACKEND + "/api/scenes?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+      .then(function (r) { return r.json(); }).then(function (sd) {
+        var cur = (sd._theme && sd._theme.id) || "";
+        sel.innerHTML = themeList.map(function (t) {
+          return '<option value="' + t.id + '"' + (t.id === cur ? " selected" : "") + ">" + _esc(t.label || t.id) + "</option>";
+        }).join("");
+      });
+  });
+  sel.onchange = function () {
+    fetch(BACKEND + "/api/themes/set-project", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: SELECTED_PROJECT, theme_id: sel.value }),
+    }).then(function () { loadSheet(); });
+  };
+}

@@ -283,6 +283,10 @@
             <div class="label">프로덕션 시트
               <button id="btnLoadSheet" class="mini">시트 불러오기</button>
             </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;color:#9aa0a6">
+              <span>프로젝트 테마:</span>
+              <select id="projectTheme" style="background:#23262b;color:#e6e6e6;border:1px solid #33363c;border-radius:4px;padding:3px 6px"></select>
+            </div>
             <div id="sheet-actionbar" title="씬을 체크한 뒤 버튼을 누르면 체크된 씬에 일괄 실행됩니다">
               <span class="sab-hint">체크한 씬에:</span>
               <button id="sa-img" title="씬 이미지 생성">▣ 이미지</button>
@@ -292,6 +296,7 @@
               <button id="sa-comp" title="AE 컴프로 내보내기">▶ 컴프</button>
               <button id="sa-map" title="지도 씬 렌더(MapLibre→씬 이미지)">🗺 지도</button>
               <button id="sa-chart" title="차트 디자인 명세서 생성(chartagent)">📊 차트</button>
+              <button id="sa-theme" title="체크한 씬에 테마 오버라이드 지정/해제">🎨 씬 테마</button>
               <span id="sa-status" class="sab-hint"></span>
               <span class="sab-div"></span>
               <button id="sa-add" class="sab-txt" title="체크한 씬 아래(없으면 맨 끝)에 새 씬">씬 추가</button>

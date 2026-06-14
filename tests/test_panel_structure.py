@@ -536,3 +536,13 @@ def test_mapgen_uses_scene_theme():
     mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
     assert "_theme" in mg
     assert "overrides" in mg and "rasterFilter" in mg
+
+
+def test_theme_selector_ui():
+    """테마 UI — 프로젝트 드롭다운 + 씬 테마 버튼 + 로드 함수."""
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="projectTheme"' in html
+    assert 'id="sa-theme"' in html
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function loadThemes" in js and "/api/themes" in js
+    assert "/api/themes/set-project" in js and "/api/themes/set-scene" in js
