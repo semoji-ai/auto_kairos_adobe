@@ -529,3 +529,10 @@ def test_chart_spec_wiring():
     assert "guideLineCount" in jsx and "applyDash" in jsx
     # 패턴 종류 전부 처리(diagonal/crosshatch/vertical/dot)
     assert "crosshatch_light" in jsx and "vertical_stripe" in jsx and "dot_sparse" in jsx
+
+
+def test_mapgen_uses_scene_theme():
+    """지도 — 씬/프로젝트 resolve된 테마(_theme.map)를 우선 사용(하드코딩 MAP_THEMES는 폴백)."""
+    mg = (PANEL / "js" / "mapgen.js").read_text(encoding="utf-8")
+    assert "_theme" in mg
+    assert "overrides" in mg and "rasterFilter" in mg

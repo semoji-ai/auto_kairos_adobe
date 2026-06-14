@@ -96,7 +96,16 @@ function _applyOverrides(map, overrides) {
   }
 }
 
-function _mapTheme() {                                      // ae_tokens.map.defaultTheme(세모지=warm_earth)
+// 씬에 resolve된 테마(_theme.map)가 있으면 그걸 우선 사용, 없으면 기존 MAP_THEMES(폴백).
+function _mapTheme(scene) {
+  var tm = scene && scene._theme && scene._theme.map;
+  if (tm && tm.overrides) {
+    return {
+      url: tm.tile === "dark" ? MAP_DARK_URL : MAP_BRIGHT_URL,
+      overrides: tm.overrides,
+      rasterFilter: tm.rasterFilter || "",
+    };
+  }
   var name = (typeof TOKENS === "object" && TOKENS && TOKENS.map && TOKENS.map.defaultTheme) || "warm_earth";
   return MAP_THEMES[name] || MAP_THEMES.warm_earth;
 }
@@ -127,7 +136,7 @@ function renderMapScene(s) {
     var repaint = null;                          // 숨김 패널 rAF 스로틀 대응 — 강제 리페인트
     function stopRepaint() { if (repaint) { clearInterval(repaint); repaint = null; } }
     try {
-      var theme = _mapTheme();
+      var theme = _mapTheme(s);
       map = new maplibregl.Map({
         container: host, style: theme.url,
         center: center, zoom: s.map_zoom || 5,
@@ -232,8 +241,15 @@ function _mercPx(lat, lng, z) {                    // 위경도 → 줌 z 세계
 
 function renderMapRaster(s) {
   return new Promise(function (resolve, reject) {
-    var name = (typeof TOKENS === "object" && TOKENS && TOKENS.map && TOKENS.map.defaultTheme) || "warm_earth";
-    var th = RASTER_THEMES[name] || RASTER_THEMES.warm_earth;
+    var tm = s && s._theme && s._theme.map;
+    var th;
+    if (tm && tm.overrides) {
+      th = { url: tm.tile === "dark" ? "https://basemaps.cartocdn.com/dark_all/" : "https://basemaps.cartocdn.com/light_all/",
+             filter: tm.rasterFilter || "", dark: tm.tile === "dark" };
+    } else {
+      var name = (typeof TOKENS === "object" && TOKENS && TOKENS.map && TOKENS.map.defaultTheme) || "warm_earth";
+      th = RASTER_THEMES[name] || RASTER_THEMES.warm_earth;
+    }
     var W = 1920, H = 1080, z = s.map_zoom || 5;
     var zi = Math.max(0, Math.min(19, Math.round(z)));
     var scale = Math.pow(2, z - zi);                       // 소수 줌 → 정수 타일 줌 + 배율
