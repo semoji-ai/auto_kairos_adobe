@@ -416,10 +416,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         scene = next((s for s in data["scenes"] if s.get("sceneNumber") == sn), None)
         if not scene:
             return 404, {"error": f"scene {sn} 없음"}
-        tp = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
-        ae_tokens = json.loads(tp.read_text(encoding="utf-8")) if tp.is_file() else {}
         try:
-            res = chartgen.gen_chart_spec(proj_dir, scene, ae_tokens)
+            res = chartgen.gen_chart_spec(proj_dir, scene)
         except Exception as e:
             return 200, {"error": f"chartagent 실패: {e}"}
         if res.get("ok"):

@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from backend import themes
+
 # bar 레이아웃 → chartagent goal (v3 _viz_type_to_goal 이식, 현재 AE는 bar만)
 _GOAL = {"bar": "show_ranking", "line_chart": "show_trend", "pie": "show_composition"}
 
@@ -108,13 +110,14 @@ def extract_ae_tokens(chart_spec: dict) -> dict:
     }
 
 
-def gen_chart_spec(proj_dir: Path, scene: dict, ae_tokens: dict) -> dict:
+def gen_chart_spec(proj_dir: Path, scene: dict) -> dict:
     """씬 1개에 대해 chartagent 명세서 생성 → AE 토큰 추출 → chart_{sid}.spec.json 저장.
+    테마는 resolve_theme(proj_dir, scene)["chart"]에서 결정.
     반환 {ok, tokens} 또는 {error}."""
     sid = scene.get("sceneId")
     if not sid:
         return {"error": "sceneId 없음"}
-    cfg = ae_tokens.get("chartagent") or {}
+    cfg = (themes.resolve_theme(proj_dir, scene).get("chart")) or {}
     theme_set = cfg.get("theme_set") or "dashboard_analytical"
     theme_overrides = cfg.get("theme_overrides")
     task = build_chart_task(scene, theme_set, theme_overrides)

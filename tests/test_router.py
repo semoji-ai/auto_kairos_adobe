@@ -979,7 +979,7 @@ def test_chart_spec_endpoint(tmp_path, monkeypatch):
         {"sceneNumber": 1, "sceneId": "cs", "layout": "bar", "headline": "t",
          "chart": {"labels": ["a", "b"], "values": [1, 2], "unit": "분"}}]}), encoding="utf-8")
     monkeypatch.setattr(chartgen, "available", lambda: True)
-    def fake_gen(proj_dir, scene, ae_tokens):
+    def fake_gen(proj_dir, scene):
         (proj_dir / "chart_cs.spec.json").write_text("{}", encoding="utf-8")
         return {"ok": True, "tokens": {"guideLineCount": 2}, "theme_set": "gallery_infographic"}
     monkeypatch.setattr(chartgen, "gen_chart_spec", fake_gen)
