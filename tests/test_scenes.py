@@ -300,3 +300,24 @@ def test_set_project_and_scene_theme(tmp_path):
     scenes.set_scene_theme(tmp_path, 1, None)   # 해제
     d = json.loads((tmp_path / "scenes.json").read_text())
     assert "themeOverride" not in d["scenes"][0]
+
+
+def test_load_scenes_exposes_resolved_theme(tmp_path, monkeypatch):
+    """load_scenes — 프로젝트 _theme(전역) + 각 씬 _theme(override 반영)."""
+    import json
+    from backend import scenes, themes
+    td = tmp_path / "cat"; td.mkdir()
+    (td / "semoji.json").write_text(json.dumps({"id": "semoji", "label": "세모지",
+        "colors": {"accentRgb": [1, 2, 3]}, "chart": {"theme_set": "gallery_infographic"},
+        "map": {"tile": "bright", "overrides": []}}), encoding="utf-8")
+    (td / "dark_broadcast.json").write_text(json.dumps({"id": "dark_broadcast", "label": "다크방송",
+        "colors": {"accentRgb": [9, 9, 9]}, "chart": {"theme_set": "broadcast_signal"},
+        "map": {"tile": "dark", "overrides": []}}), encoding="utf-8")
+    monkeypatch.setattr(themes, "_catalog_dir", lambda: td)
+    (tmp_path / "scenes.json").write_text(json.dumps({"theme": "semoji", "scenes": [
+        {"sceneNumber": 1, "sceneId": "a"},
+        {"sceneNumber": 2, "sceneId": "b", "themeOverride": "dark_broadcast"}]}), encoding="utf-8")
+    data = scenes.load_scenes(tmp_path)
+    assert data["_theme"]["id"] == "semoji"
+    assert data["scenes"][0]["_theme"]["id"] == "semoji"
+    assert data["scenes"][1]["_theme"]["id"] == "dark_broadcast"

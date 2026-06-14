@@ -7,6 +7,8 @@ import threading
 import uuid
 from pathlib import Path
 
+from backend import themes
+
 
 _LOCK = threading.RLock()
 
@@ -124,6 +126,8 @@ def load_scenes(proj_dir: Path) -> dict:
             "tts": bool(sid and aud.is_dir() and any(aud.glob(f"*{sid}*"))),
             "motion": bool(sid and (proj_dir / f"motion_{sid}.json").is_file()),
         }
+        s["_theme"] = themes.resolve_theme(proj_dir, s)   # 씬별 resolve(override 반영)
+    data["_theme"] = themes.resolve_theme(proj_dir, None)  # 프로젝트 전역 테마
     data["dir"] = str(proj_dir)
     return data
 
