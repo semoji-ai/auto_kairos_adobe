@@ -248,6 +248,36 @@ def split_scene(proj_dir: Path, scene_number: int,
         return load_scenes(proj_dir)
 
 
+def set_project_theme(proj_dir: Path, theme_id: str) -> dict:
+    """scenes.json 최상위 theme 설정. {ok} 또는 {error}."""
+    with _LOCK:
+        fp = _path(proj_dir)
+        if not fp.is_file():
+            return {"error": "scenes.json 없음"}
+        data = json.loads(fp.read_text(encoding="utf-8"))
+        data["theme"] = theme_id
+        fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"ok": True, "theme": theme_id}
+
+
+def set_scene_theme(proj_dir: Path, scene_number: int, theme_id: str | None) -> dict:
+    """씬 themeOverride 설정(None이면 해제). {ok} 또는 {error}."""
+    with _LOCK:
+        fp = _path(proj_dir)
+        if not fp.is_file():
+            return {"error": "scenes.json 없음"}
+        data = json.loads(fp.read_text(encoding="utf-8"))
+        for s in data.get("scenes", []):
+            if s.get("sceneNumber") == scene_number:
+                if theme_id:
+                    s["themeOverride"] = theme_id
+                else:
+                    s.pop("themeOverride", None)
+                fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                return {"ok": True, "sceneNumber": scene_number, "themeOverride": theme_id}
+        return {"error": f"scene {scene_number} 없음"}
+
+
 def merge_scenes(proj_dir: Path, scene_number: int) -> dict:
     """scene_number 와 그 다음 씬을 병합. 첫 씬 sceneId+imageRef 유지, 나레이션 연결.
     둘째 씬 에셋은 디스크에 남김(무삭제). 다음 씬 없으면 no-op. 반환=load_scenes."""

@@ -283,3 +283,20 @@ def test_load_scenes_exposes_chart_spec(tmp_path):
     data = scenes.load_scenes(d)
     bar = data["scenes"][0]
     assert bar["chartSpec"]["patternKind"] == "crosshatch_light"
+
+
+def test_set_project_and_scene_theme(tmp_path):
+    """프로젝트 전역 theme + 씬별 themeOverride 설정/해제."""
+    import json
+    from backend import scenes
+    (tmp_path / "scenes.json").write_text(json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "a"}]}), encoding="utf-8")
+    scenes.set_project_theme(tmp_path, "semoji")
+    d = json.loads((tmp_path / "scenes.json").read_text())
+    assert d["theme"] == "semoji"
+    scenes.set_scene_theme(tmp_path, 1, "dark_broadcast")
+    d = json.loads((tmp_path / "scenes.json").read_text())
+    assert d["scenes"][0]["themeOverride"] == "dark_broadcast"
+    scenes.set_scene_theme(tmp_path, 1, None)   # 해제
+    d = json.loads((tmp_path / "scenes.json").read_text())
+    assert "themeOverride" not in d["scenes"][0]
