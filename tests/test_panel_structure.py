@@ -559,3 +559,11 @@ def test_preview_hatch_matches_pattern_kind():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "crosshatch_light" in js and "-45deg" in js     # 교차(양방향)
     assert "dot_sparse" in js and "radial-gradient" in js  # 점
+
+
+def test_jsx_skips_final_for_scene_comp():
+    """jsx — skipFinal이면 Final 컴프 생성 건너뜀(씬 컴프만)."""
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "m.skipFinal" in jsx
+    # skipFinal 분기가 Final addComp보다 먼저 와서 막아야 함
+    assert jsx.index("m.skipFinal") < jsx.index('addComp("Final"')

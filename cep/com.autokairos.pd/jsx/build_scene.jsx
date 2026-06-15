@@ -542,6 +542,15 @@ function akBuildScene(manifestPath) {
             comps.push(comp); totalDur += dur;
         }
 
+        // Final 컴프 — 전체 컴프 때만 생성(씬별 컴프는 m.skipFinal로 건너뜀).
+        // 씬별 컴프를 매번 Final로 감싸면 여러 씬 선택 시 Final이 중복 생성됨.
+        if (m.skipFinal) {
+            if (comps.length) comps[0].openInViewer();       // 방금 만든 씬 컴프를 띄움
+            app.endUndoGroup();
+            return "OK: 씬 컴프 " + comps.length + "개" +
+                   (log.length ? " | " + log.join(", ") : "") +
+                   (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "");
+        }
         // Final 컴프(1920x1080) — 씬 컴프를 순서대로 배치(크기 다르면 채움 스케일 + 중앙)
         var fc = proj.items.addComp("Final", W, H, 1.0, Math.max(totalDur, 1), FPS);
         var t = 0;

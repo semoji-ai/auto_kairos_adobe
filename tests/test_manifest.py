@@ -251,3 +251,16 @@ def test_manifest_injects_theme_colors(tmp_path, monkeypatch):
     manifest.build_manifest(d)
     mf = json.loads((d / "manifest.json").read_text())
     assert mf["themeColors"]["accentRgb"] == [255, 80, 80]
+
+
+def test_scene_manifest_skips_final(tmp_path):
+    """씬별 manifest(only_scene)는 skipFinal — Final은 전체 컴프 때만(중복 방지)."""
+    d = _proj(tmp_path, [
+        {"sceneNumber": 1, "sceneId": "a", "layout": "headline_only", "headline": "x", "narration": "n"},
+        {"sceneNumber": 2, "sceneId": "b", "layout": "headline_only", "headline": "y", "narration": "m"}])
+    manifest.build_manifest(d, only_scene=1)
+    m1 = json.loads((d / "manifest_scene_1.json").read_text())
+    assert m1.get("skipFinal") is True and len(m1["scenes"]) == 1
+    manifest.build_manifest(d)
+    m2 = json.loads((d / "manifest.json").read_text())
+    assert "skipFinal" not in m2 and len(m2["scenes"]) == 2

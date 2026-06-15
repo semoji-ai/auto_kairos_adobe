@@ -4,17 +4,15 @@
   "fps": 30,
   "scenes": [
     {
-      "ae_comp_name": "S02_b0798c6d",
+      "ae_comp_name": "S10_f9bbf08b",
       "width": 1920,
       "height": 1080,
       "image": null,
       "layers": [],
       "audio": null,
-      "subtitle": "그런데 잠은 단순한 휴식이 아니다.",
-      "duration": 3.2,
-      "layout": "headline_only",
-      "headline": "잠은 몸의 재가동 시간",
-      "sub": "쉬는 동안 더 중요한 일이 시작된다"
+      "subtitle": "오늘 밤, 당신의 뇌에게 청소할 시간을 주자.",
+      "duration": 4.0,
+      "layout": "cinematic"
     }
   ],
   "ae_tokens": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/data/artstyle/ae_tokens.json",

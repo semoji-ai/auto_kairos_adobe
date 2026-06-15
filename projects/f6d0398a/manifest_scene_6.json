@@ -38,7 +38,7 @@
         "guideStrokeWidth": 1,
         "axisStrokeWidth": 2,
         "barRadius": 14,
-        "patternKind": "crosshatch_light",
+        "patternKind": "diagonal_hatch",
         "patternSpacing": 10,
         "patternOpacity": 0.4,
         "patternStrokeWidth": 1.25,
@@ -49,6 +49,7 @@
       }
     }
   ],
+  "skipFinal": true,
   "ae_tokens": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/data/artstyle/ae_tokens.json",
   "themeColors": {
     "bg": "#23262b",

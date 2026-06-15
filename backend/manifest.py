@@ -155,6 +155,8 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             **({"chartSpec": chart_spec} if chart_spec else {}),
         })
     mf = {"width": W, "height": H, "fps": FPS, "scenes": out_scenes}
+    if only_scene is not None:
+        mf["skipFinal"] = True   # 씬별 컴프 — Final은 전체 컴프 때만(jsx가 스킵)
     tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
     if tokens_path.is_file():
         mf["ae_tokens"] = str(tokens_path)
