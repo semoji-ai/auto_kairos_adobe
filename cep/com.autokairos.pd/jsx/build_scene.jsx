@@ -58,20 +58,22 @@ function akBuildScene(manifestPath) {
                 props.addProperty("ADBE Text Opacity").setValue(0);
             }
             var sel = an.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
-            if (type === "word_stagger") {                 // 단위=단어
-                try { sel.property("ADBE Text Range Type2").setValue(2); } catch (eW) { }
+            if (type === "word_stagger") {                 // 단위=단어(3). 1=글자,2=공백제외글자,3=단어,4=줄
+                try { sel.property("ADBE Text Range Type2").setValue(3); } catch (eW) { }
             }
             // 셀렉터 폭 — 타이핑은 좁게(딱딱한 글자단위), 나머지는 부드럽게
             try {
                 var smooth = sel.property("ADBE Text Range Advanced").property("ADBE Text Range Smoothness");
                 if (smooth) smooth.setValue(type === "type" ? 0 : 100);
             } catch (eS) { }
+            // Offset 0→100: 전체선택(opacity 0=안보임) → 선택해제(보임). 글자가 왼쪽부터 순차 등장.
+            // (-100→0은 보였다 사라지는 역방향이라 금지)
             var offP = sel.property("ADBE Text Percent Offset");
-            offP.setValueAtTime(t0, -100);
-            offP.setValueAtTime(t0 + dur, 0);
+            offP.setValueAtTime(t0, 0);
+            offP.setValueAtTime(t0 + dur, 100);
             try {
-                offP.setTemporalEaseAtKey(1, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 33)]);
-                offP.setTemporalEaseAtKey(2, [new KeyframeEase(0, 75)], [new KeyframeEase(0, 75)]);
+                offP.setTemporalEaseAtKey(1, [new KeyframeEase(0, 75)], [new KeyframeEase(0, 75)]);
+                offP.setTemporalEaseAtKey(2, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 33)]);
             } catch (eE) { }
             tl.motionBlur = true;
         } catch (e) { }

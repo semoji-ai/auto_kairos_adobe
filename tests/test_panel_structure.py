@@ -589,3 +589,6 @@ def test_kinetic_typo_animator():
     for typ in ("reveal", "slide", "type", "word_stagger"):
         assert typ in jsx, typ
     assert "opts.anim" in jsx                          # addTextL이 anim 옵션 처리
+    # Offset 0→100(등장) — -100→0(퇴장) 역방향 금지
+    assert "setValueAtTime(t0, 0)" in jsx and "setValueAtTime(t0 + dur, 100)" in jsx
+    assert 'setValue(3)' in jsx                         # word_stagger Units=Words(3)
