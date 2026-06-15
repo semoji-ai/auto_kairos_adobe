@@ -347,6 +347,10 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         ratio_box = {}
 
         def _post(o):
+            # raw(chroma 전) 보존 — 텍스처/화질 검수용. layers/_raw/{name}(무삭제·덮어쓰기)
+            raw_dir = o.parent / "_raw"
+            raw_dir.mkdir(exist_ok=True)
+            shutil.copy(o, raw_dir / o.name)
             ratio_box.update(chroma_key_magenta(o, o))
 
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
