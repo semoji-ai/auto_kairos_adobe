@@ -10,8 +10,10 @@ PROPORTIONS: Defined ONLY by the attached semoji_base reference — do NOT speci
 
 COLOR & SHADING: Flat solid block colors. At most ONE soft cell-shadow tone per surface. NO gradients, NO painterly blending, NO 3D, NO photorealistic.
 
+SURFACE — CRITICAL: Perfectly smooth, clean flat fills. Each color region is one uniform solid tone. NO film grain, NO noise, NO speckle, NO paper/canvas/fabric texture, NO halftone or dithering, NO stippling, NO grunge. Digital-clean vector look — fills must be 100% even with zero added surface detail.
+
 BACKGROUND: Single solid muted color (sage green, off-white, dusty rose, cream) or extremely simplified flat shapes. Generous negative space.
 
 PALETTE: Muted warm — dusty pastels, sage green, off-white, dusty blue, soft beige.
 
-EXPLICITLY NOT: Disney/Pixar, painterly, comic-book outlines, 3D, photorealistic. NO text, NO captions, NO logos.
+EXPLICITLY NOT: Disney/Pixar, painterly, comic-book outlines, 3D, photorealistic, film grain, noise, texture, halftone, grunge. NO text, NO captions, NO logos.

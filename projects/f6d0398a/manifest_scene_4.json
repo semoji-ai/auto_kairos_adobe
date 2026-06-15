@@ -19,34 +19,25 @@
   ],
   "ae_tokens": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/data/artstyle/ae_tokens.json",
   "themeColors": {
-    "bg": "#23262b",
-    "bgRgb": [
-      35,
-      38,
-      43
-    ],
-    "text": "#E8EAED",
-    "textRgb": [
-      232,
-      234,
-      237
-    ],
-    "muted": "#9AA0A6",
-    "mutedRgb": [
-      154,
-      160,
-      166
-    ],
-    "accent": "#4A90D9",
     "accentRgb": [
       74,
       144,
       217
     ],
-    "accentSoftRgb": [
-      74,
-      144,
-      217
+    "textRgb": [
+      33,
+      37,
+      41
+    ],
+    "mutedRgb": [
+      134,
+      142,
+      150
+    ],
+    "bgRgb": [
+      248,
+      249,
+      250
     ]
   }
 }

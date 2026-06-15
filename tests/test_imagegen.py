@@ -695,3 +695,11 @@ def test_split_names_character_layers_with_char_suffix(tmp_path, monkeypatch):
     rels = [r["rel"] for r in res["layers"]]
     assert any(r.endswith("cs__0_남자_char.png") for r in rels)       # 캐릭터 → _char
     assert any(r.endswith("cs__1_책상.png") for r in rels)            # 사물 → 접미사 없음
+
+
+def test_style_forbids_grain_texture():
+    """스타일 명세 — codex 그레인/노이즈/텍스처 명시 금지(평면 일러스트 화질)."""
+    from backend import imagegen
+    style = imagegen.load_style().lower()
+    for term in ("grain", "noise", "texture", "halftone", "smooth"):
+        assert term in style, term
