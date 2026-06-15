@@ -567,3 +567,13 @@ def test_jsx_skips_final_for_scene_comp():
     assert "m.skipFinal" in jsx
     # skipFinal 분기가 Final addComp보다 먼저 와서 막아야 함
     assert jsx.index("m.skipFinal") < jsx.index('addComp("Final"')
+
+
+def test_all_text_anchors_centered():
+    """모든 텍스트(점/박스)·자막 앵커를 sourceRectAtTime 중앙으로 — 베이스라인 어긋남 방지."""
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    # addTextL이 box 유무와 무관하게 sourceRectAtTime으로 앵커 설정
+    assert jsx.count("sourceRectAtTime") >= 1
+    assert "Anchor Point" in jsx and "rc.left + rc.width / 2" in jsx
+    sub = (PANEL / "jsx" / "subtitle_layers.jsx").read_text(encoding="utf-8")
+    assert "sourceRectAtTime(0" in sub

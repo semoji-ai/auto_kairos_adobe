@@ -43,7 +43,7 @@ function akBuildSubtitles(subsPath, tokensPath) {
             // 앵커포인트를 실제 텍스트 박스 중앙으로 — 점 텍스트는 기본 앵커가 베이스라인 좌하단이라
             // 그대로 두면 위치가 어긋남. sourceRectAtTime으로 렌더된 bounds 중앙을 앵커로.
             try {
-                var r = tl.sourceRectAtTime(c.start, false);
+                var r = tl.sourceRectAtTime(0, false);   // 텍스트는 시간 불변 — 0 시점 bounds로 안전
                 tl.property("Anchor Point").setValue([r.left + r.width / 2, r.top + r.height / 2]);
             } catch (eA) { }
             tl.property("Position").setValue([W / 2, H * 0.92]);

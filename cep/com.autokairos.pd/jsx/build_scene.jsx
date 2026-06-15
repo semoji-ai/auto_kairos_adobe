@@ -60,9 +60,12 @@ function akBuildScene(manifestPath) {
         try { if (opts.track) td.tracking = opts.track; } catch (e) { }
         try { if (opts.leading) { td.autoLeading = false; td.leading = opts.size * opts.leading; } } catch (e) { }
         tl.property("Source Text").setValue(td);
-        if (opts.box) {
-            try { tl.property("Anchor Point").setValue([opts.box[0] / 2, opts.box[1] / 2]); } catch (e) { }
-        }
+        // 앵커포인트를 실제 텍스트 박스 중앙으로 — 점 텍스트(box 없음)는 기본 앵커가 베이스라인
+        // 좌하단이라 Position이 어긋남. sourceRectAtTime으로 렌더된 bounds 중앙을 앵커로(정렬 반영됨).
+        try {
+            var rc = tl.sourceRectAtTime(0, false);
+            tl.property("Anchor Point").setValue([rc.left + rc.width / 2, rc.top + rc.height / 2]);
+        } catch (e) { }
         tl.property("Position").setValue([opts.x, opts.y]);
         return tl;
     }
