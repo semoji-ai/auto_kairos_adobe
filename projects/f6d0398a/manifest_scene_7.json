@@ -4,80 +4,55 @@
   "fps": 30,
   "scenes": [
     {
-      "ae_comp_name": "S07_d435d7d3",
+      "ae_comp_name": "S07_5eefe51d",
       "width": 1920,
       "height": 1080,
-      "image": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/storyboard/map_d435d7d3_66a460.png",
+      "image": null,
       "layers": [],
       "audio": null,
-      "subtitle": "수면 과학의 흐름은 세계 곳곳의 연구소를 따라 이어졌습니다. 시카고에서 렘수면이 발견됐고, 스탠퍼드에서 수면 클리닉이 시작됐으며, 취리히에서 수면 압력 모델이 완성됐죠.",
-      "duration": 8.0,
-      "layout": "cinematic",
-      "camera": {
-        "type": "slow_zoom_in",
-        "amount": 6
-      },
-      "mapGeo": {
-        "markers": [
-          {
-            "name": "시카고",
-            "x": 781,
-            "y": 536
-          },
-          {
-            "name": "스탠퍼드",
-            "x": 652,
-            "y": 557
-          },
-          {
-            "name": "취리히",
-            "x": 1142,
-            "y": 507
-          }
-        ],
-        "route": [
-          [
-            652,
-            557
-          ],
-          [
-            781,
-            536
-          ],
-          [
-            1142,
-            507
-          ]
-        ],
-        "labelRgb": [
-          26,
-          26,
-          26
-        ]
-      }
+      "subtitle": "수면이 부족하면 몸은 정직하게 신호를 보낸다. 첫째, 집중력이 떨어지고 실수가 늘어난다. 둘째, 면역력이 약해져 감기에 잘 걸린다. 셋째, 식욕 호르몬이 흔들려 과식하게 된다. 넷째, 감정 조절이 어려워져 짜증이 늘어난다.",
+      "duration": 22.3,
+      "layout": "items_list",
+      "headline": "부족한 잠은 몸 전체에 남는다",
+      "items": [
+        "집중력 저하와 실수 증가",
+        "면역력 약화",
+        "과식 유도",
+        "감정 조절 어려움"
+      ]
     }
   ],
+  "skipFinal": true,
   "ae_tokens": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/data/artstyle/ae_tokens.json",
   "themeColors": {
+    "bg": "#23262b",
+    "bgRgb": [
+      35,
+      38,
+      43
+    ],
+    "text": "#E8EAED",
+    "textRgb": [
+      232,
+      234,
+      237
+    ],
+    "muted": "#9AA0A6",
+    "mutedRgb": [
+      154,
+      160,
+      166
+    ],
+    "accent": "#4A90D9",
     "accentRgb": [
       74,
       144,
       217
     ],
-    "textRgb": [
-      33,
-      37,
-      41
-    ],
-    "mutedRgb": [
-      134,
-      142,
-      150
-    ],
-    "bgRgb": [
-      248,
-      249,
-      250
+    "accentSoftRgb": [
+      74,
+      144,
+      217
     ]
   }
 }

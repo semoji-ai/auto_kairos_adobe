@@ -577,3 +577,15 @@ def test_all_text_anchors_centered():
     assert "Anchor Point" in jsx and "rc.left + rc.width / 2" in jsx
     sub = (PANEL / "jsx" / "subtitle_layers.jsx").read_text(encoding="utf-8")
     assert "sourceRectAtTime(0" in sub
+
+
+def test_kinetic_typo_animator():
+    """키네틱 타이포 — Text Animator(Range Selector) 헬퍼 + 레이아웃 기본 anim."""
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "_addTextAnim" in jsx
+    assert "ADBE Text Animator" in jsx and "ADBE Text Selector" in jsx
+    assert "ADBE Text Percent Offset" in jsx          # 셀렉터 오프셋 키프레임
+    # 레이아웃이 기본 키네틱 모션을 지정(reveal/slide/type/word_stagger)
+    for typ in ("reveal", "slide", "type", "word_stagger"):
+        assert typ in jsx, typ
+    assert "opts.anim" in jsx                          # addTextL이 anim 옵션 처리

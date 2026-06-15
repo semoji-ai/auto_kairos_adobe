@@ -39,6 +39,43 @@ function akBuildScene(manifestPath) {
     }
     // 텍스트 레이어 — opts: {x,y,size,rgb,font,just,track,box:[w,h],leading}
     // box 지정 시 박스 텍스트(자동 줄바꿈, x/y=박스 중심). 폰트는 폴백 체인 + 적용 검증.
+    // 키네틱 타이포 — Text Animator + Range Selector. anim={type,t0,dur,dir,ease}.
+    // type: reveal(글자별 닦임 등장) / slide(방향 슬라이드) / type(타이핑) / word_stagger(단어 시차).
+    // Range Selector Offset를 0→100% 키프레임 → 셀렉터가 텍스트를 쓸며 등장. 실패해도 무해(텍스트는 정상).
+    function _addTextAnim(tl, anim) {
+        try {
+            var t0 = anim.t0 || 0, dur = anim.dur || 1.0, type = anim.type || "reveal";
+            var animers = tl.property("ADBE Text Properties").property("ADBE Text Animators");
+            var an = animers.addProperty("ADBE Text Animator");
+            var props = an.property("ADBE Text Animator Properties");
+            if (type === "slide") {                       // 글자별 위치 오프셋
+                var dir = anim.dir || "up";
+                var off = dir === "left" ? [-80, 0] : dir === "right" ? [80, 0]
+                        : dir === "down" ? [0, -60] : [0, 60];
+                props.addProperty("ADBE Text Position 3D").setValue([off[0], off[1], 0]);
+                props.addProperty("ADBE Text Opacity").setValue(0);
+            } else {                                       // reveal/type/word — 투명도 닦임
+                props.addProperty("ADBE Text Opacity").setValue(0);
+            }
+            var sel = an.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
+            if (type === "word_stagger") {                 // 단위=단어
+                try { sel.property("ADBE Text Range Type2").setValue(2); } catch (eW) { }
+            }
+            // 셀렉터 폭 — 타이핑은 좁게(딱딱한 글자단위), 나머지는 부드럽게
+            try {
+                var smooth = sel.property("ADBE Text Range Advanced").property("ADBE Text Range Smoothness");
+                if (smooth) smooth.setValue(type === "type" ? 0 : 100);
+            } catch (eS) { }
+            var offP = sel.property("ADBE Text Percent Offset");
+            offP.setValueAtTime(t0, -100);
+            offP.setValueAtTime(t0 + dur, 0);
+            try {
+                offP.setTemporalEaseAtKey(1, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 33)]);
+                offP.setTemporalEaseAtKey(2, [new KeyframeEase(0, 75)], [new KeyframeEase(0, 75)]);
+            } catch (eE) { }
+            tl.motionBlur = true;
+        } catch (e) { }
+    }
     function addTextL(comp, str, opts) {
         var tl = opts.box
             ? comp.layers.addBoxText([opts.box[0], opts.box[1]], String(str))
@@ -67,6 +104,7 @@ function akBuildScene(manifestPath) {
             tl.property("Anchor Point").setValue([rc.left + rc.width / 2, rc.top + rc.height / 2]);
         } catch (e) { }
         tl.property("Position").setValue([opts.x, opts.y]);
+        if (opts.anim) _addTextAnim(tl, opts.anim);    // 키네틱 타이포(있으면)
         return tl;
     }
     function addRectL(comp, name, x, y, w, h, rgb) {   // 좌상단 기준 사각형 셰이프
@@ -260,11 +298,14 @@ function akBuildScene(manifestPath) {
             // 액센트 바(타이틀 위 포인트) + 줄바꿈 박스 헤드라인 + 서브
             addRectL(comp, "accent", W / 2 - 60 * S, H * 0.30, 120 * S, 10 * S, c.accentRgb);
             addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.47, size: t.headline * S, rgb: c.textRgb,
-                                               font: TK.fonts.headline, box: [W * 0.84, H * 0.34], leading: 1.25 });
+                                               font: TK.fonts.headline, box: [W * 0.84, H * 0.34], leading: 1.25,
+                                               anim: s.textAnim || { type: "reveal", t0: 0.2, dur: 0.8 } });
             if (s.sub) addTextL(comp, s.sub, { x: W / 2, y: H * 0.67, size: t.sub * S, rgb: c.mutedRgb,
-                                               font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
+                                               font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3,
+                                               anim: { type: "slide", dir: "up", t0: 0.5, dur: 0.6 } });
         } else if (s.layout === "items_list") {
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.16, size: t.sub * 1.5 * S, rgb: c.textRgb, font: TK.fonts.headline });
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.16, size: t.sub * 1.5 * S, rgb: c.textRgb, font: TK.fonts.headline,
+                                               anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
             addRectL(comp, "rule", W * 0.16, H * 0.235, W * 0.68, 3 * S, c.accentRgb);   // 제목 밑줄
             var items = s.items || [];
             var y0 = H * 0.33, gap = Math.min(130 * S, (H * 0.58) / Math.max(1, items.length));
@@ -281,12 +322,14 @@ function akBuildScene(manifestPath) {
                 opb.setValueAtTime(0.2 + ii * 0.35, 0); opb.setValueAtTime(0.5 + ii * 0.35, 100);
             }
         } else if (s.layout === "metric_spotlight") {
-            addTextL(comp, s.value || "", { x: W / 2, y: H * 0.46, size: t.metric * S, rgb: c.accentRgb, font: TK.fonts.number });
+            addTextL(comp, s.value || "", { x: W / 2, y: H * 0.46, size: t.metric * S, rgb: c.accentRgb, font: TK.fonts.number,
+                                            anim: { type: "type", t0: 0.2, dur: 0.7 } });
             addRectL(comp, "rule", W / 2 - 110 * S, H * 0.585, 220 * S, 5 * S, c.accentRgb);
             addTextL(comp, s.label || "", { x: W / 2, y: H * 0.68, size: t.metricLabel * S, rgb: c.textRgb,
                                             font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
         } else if (s.layout === "bar") {
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.13, size: t.sub * 1.4 * S, rgb: c.textRgb, font: TK.fonts.headline });
+            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.13, size: t.sub * 1.4 * S, rgb: c.textRgb, font: TK.fonts.headline,
+                                               anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
             var ch2 = s.chart || {}, labels = ch2.labels || [], vals = ch2.values || [];
             var n = Math.max(1, vals.length), maxV = 0;
             for (var vi = 0; vi < vals.length; vi++) if (vals[vi] > maxV) maxV = vals[vi];
@@ -326,7 +369,8 @@ function akBuildScene(manifestPath) {
             addTextL(comp, "“", { x: W / 2 - qBoxW / 2 - 70 * S, y: qY - qBoxH / 2 + 10 * S,
                                   size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
             addTextL(comp, s.quote_text || "", { x: W / 2, y: qY, size: t.quote * S, rgb: c.textRgb,
-                                                 font: qf, box: [qBoxW, qBoxH], leading: 1.5 });
+                                                 font: qf, box: [qBoxW, qBoxH], leading: 1.5,
+                                                 anim: { type: "word_stagger", t0: 0.3, dur: 1.4 } });
             addTextL(comp, "”", { x: W / 2 + qBoxW / 2 + 70 * S, y: qY + qBoxH / 2 - 10 * S,
                                   size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
             addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2 + qBoxW / 2 - 200 * S, y: qY + qBoxH / 2 + 90 * S,

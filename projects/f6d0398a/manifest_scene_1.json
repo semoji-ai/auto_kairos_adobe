@@ -19,36 +19,33 @@
           "path": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/layers/bb940d9f__0_벽시계.png",
           "kind": "element",
           "foot": [
-            364.5,
-            277.0
+            634.5,
+            896.0
           ]
         },
         {
-          "name": "bb940d9f__1_누워_있는_남자_char",
-          "path": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/layers/bb940d9f__1_누워_있는_남자_char.png",
+          "name": "bb940d9f__1_잠_못_드는_남자_char",
+          "path": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/layers/bb940d9f__1_잠_못_드는_남자_char.png",
           "kind": "element",
           "foot": [
-            534.0,
-            914.0
+            634.5,
+            896.0
           ],
           "moves": [
             {
               "type": "bob",
-              "start": 1.2,
-              "duration": 7.7,
-              "direction": null,
-              "amount": 0.025,
-              "noFade": true
+              "start": 0,
+              "duration": 8.907755
             }
           ]
         },
         {
-          "name": "bb940d9f__2_앞쪽_이불",
-          "path": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/layers/bb940d9f__2_앞쪽_이불.png",
+          "name": "bb940d9f__2_이불",
+          "path": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/projects/f6d0398a/layers/bb940d9f__2_이불.png",
           "kind": "element",
           "foot": [
-            944.0,
-            993.0
+            823.0,
+            1060.0
           ]
         }
       ],
@@ -62,27 +59,37 @@
       }
     }
   ],
+  "skipFinal": true,
   "ae_tokens": "/Users/jleavens_macmini/LocalProjects/auto_kairos_adobe/data/artstyle/ae_tokens.json",
   "themeColors": {
+    "bg": "#23262b",
+    "bgRgb": [
+      35,
+      38,
+      43
+    ],
+    "text": "#E8EAED",
+    "textRgb": [
+      232,
+      234,
+      237
+    ],
+    "muted": "#9AA0A6",
+    "mutedRgb": [
+      154,
+      160,
+      166
+    ],
+    "accent": "#4A90D9",
     "accentRgb": [
       74,
       144,
       217
     ],
-    "textRgb": [
-      33,
-      37,
-      41
-    ],
-    "mutedRgb": [
-      134,
-      142,
-      150
-    ],
-    "bgRgb": [
-      248,
-      249,
-      250
+    "accentSoftRgb": [
+      74,
+      144,
+      217
     ]
   }
 }
