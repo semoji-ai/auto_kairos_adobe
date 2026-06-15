@@ -29,7 +29,8 @@ _THEMES = [
     {"id": "semoji", "label": "세모지", "source": "내장 시드",
      "colors": {"accentRgb": [74, 144, 217], "textRgb": [232, 234, 237],
                 "mutedRgb": [154, 160, 166], "bgRgb": [35, 38, 43]},
-     "chart": {"theme_set": "gallery_infographic", "theme_overrides": {"pattern_mode": "outline_plus_hatch"}},
+     "chart": {"theme_set": "gallery_infographic", "theme_overrides": {"pattern_mode": "outline_plus_hatch"},
+               "patternKind": "diagonal_hatch"},   # 한 방향 빗금(chartagent crosshatch 오버라이드)
      "map": {"tile": "bright", "overrides": _WARM_EARTH, "rasterFilter": "sepia(0.32) saturate(0.85) brightness(1.03)"}},
     {"id": "modern_clean", "label": "모던클린", "source": "내장 시드",
      "colors": {"accentRgb": [74, 144, 217], "textRgb": [33, 37, 41],

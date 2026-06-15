@@ -130,11 +130,27 @@ function _previewHTML(s, dir) {
       var gw = 70 / n2, bxPct = 15 + gw * bi + gw * 0.225, bwPct = gw * 0.55;
       var barStyle = "background:" + AC;
       var CS = s.chartSpec || {};
-      if (CS.patternKind && CS.patternKind !== "solid" && CS.patternKind !== "none") {
-        // 미리보기 해칭 근사 — CSS repeating-linear-gradient(대각/세로/교차)
-        var ang = CS.patternKind === "vertical_stripe" ? "90deg" : "45deg";
+      var pk = CS.patternKind;
+      if (pk && pk !== "solid" && pk !== "none") {
+        // 미리보기 해칭 — jsx addBarShape와 같은 종류로(일치): 한방향/교차/세로/점
         var gap = Math.max(3, (CS.patternSpacing || 12) / 4);
-        barStyle = "background:repeating-linear-gradient(" + ang + "," + AC + " 0 1.5px,transparent 1.5px " + gap + "px)," + AC.replace("rgb", "rgba").replace(")", "," + (CS.patternOpacity || 0.4) + ")");
+        var line = AC + " 0 1.5px,transparent 1.5px " + gap + "px";
+        var faint = AC.replace("rgb", "rgba").replace(")", "," + (CS.patternOpacity || 0.4) + ")");
+        var bg;
+        if (pk === "dot_sparse") {
+          bg = "radial-gradient(" + AC + " 22%,transparent 23%)," + faint;
+          barStyle = "background:" + bg + ";background-size:" + (gap * 1.6) + "px " + (gap * 1.6) + "px";
+        } else {
+          var grads;
+          if (pk === "crosshatch_light") {                 // 양방향 X자
+            grads = "repeating-linear-gradient(45deg," + line + "),repeating-linear-gradient(-45deg," + line + ")";
+          } else if (pk === "vertical_stripe") {           // 세로
+            grads = "repeating-linear-gradient(90deg," + line + ")";
+          } else {                                         // diagonal_hatch / wide_diagonal — 한 방향
+            grads = "repeating-linear-gradient(45deg," + line + ")";
+          }
+          barStyle = "background:" + grads + "," + faint;
+        }
         if (CS.outlineWidth) barStyle += ";outline:1px solid " + AC;
       }
       inner += '<div class="pv-abs" style="left:' + bxPct + "%;width:" + bwPct + "%;top:" + (76 - bhPct) + "%;height:" + bhPct + "%;" + barStyle + '"></div>'

@@ -7,7 +7,7 @@
   "guideStrokeWidth": 1,
   "axisStrokeWidth": 2,
   "barRadius": 14,
-  "patternKind": "crosshatch_light",
+  "patternKind": "diagonal_hatch",
   "patternSpacing": 10,
   "patternOpacity": 0.4,
   "patternStrokeWidth": 1.25,

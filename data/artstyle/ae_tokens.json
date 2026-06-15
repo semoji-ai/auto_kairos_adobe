@@ -73,6 +73,7 @@
     "theme_set": "gallery_infographic",
     "theme_overrides": {
       "pattern_mode": "outline_plus_hatch"
-    }
+    },
+    "patternKind": "diagonal_hatch"
   }
 }

@@ -546,3 +546,16 @@ def test_theme_selector_ui():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "function loadThemes" in js and "/api/themes" in js
     assert "/api/themes/set-project" in js and "/api/themes/set-scene" in js
+
+
+def test_subtitle_anchor_centered():
+    """자막 — 점 텍스트 앵커를 sourceRectAtTime 중앙으로(베이스라인 좌하단 아님)."""
+    jsx = (PANEL / "jsx" / "subtitle_layers.jsx").read_text(encoding="utf-8")
+    assert "sourceRectAtTime" in jsx and "Anchor Point" in jsx
+
+
+def test_preview_hatch_matches_pattern_kind():
+    """시트 미리보기 해칭 — patternKind별로 정확히(crosshatch=양방향, vertical=세로, dot=점)."""
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "crosshatch_light" in js and "-45deg" in js     # 교차(양방향)
+    assert "dot_sparse" in js and "radial-gradient" in js  # 점

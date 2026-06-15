@@ -130,6 +130,10 @@ def gen_chart_spec(proj_dir: Path, scene: dict) -> dict:
     spec_path = _run_cli(task_path, charts_dir)
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     tokens = extract_ae_tokens(spec)
+    # 테마가 patternKind를 명시하면 chartagent 결과를 오버라이드(예: 세모지=한 방향 diagonal_hatch).
+    # chartagent의 패턴은 style_combo가 결정해 직접 못 고르므로, 테마에서 강제 선택.
+    if cfg.get("patternKind"):
+        tokens["patternKind"] = cfg["patternKind"]
     # 씬별 사이드카(무삭제·덮어쓰기) — manifest가 chartSpec으로 읽음
     (proj_dir / f"chart_{sid}.spec.json").write_text(
         json.dumps(tokens, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -40,6 +40,12 @@ function akBuildSubtitles(subsPath, tokensPath) {
             try { if (fontName) td.font = fontName; } catch (e) { }
             try { td.justification = ParagraphJustification.CENTER_JUSTIFY; } catch (e) { }
             tl.property("Source Text").setValue(td);
+            // 앵커포인트를 실제 텍스트 박스 중앙으로 — 점 텍스트는 기본 앵커가 베이스라인 좌하단이라
+            // 그대로 두면 위치가 어긋남. sourceRectAtTime으로 렌더된 bounds 중앙을 앵커로.
+            try {
+                var r = tl.sourceRectAtTime(c.start, false);
+                tl.property("Anchor Point").setValue([r.left + r.width / 2, r.top + r.height / 2]);
+            } catch (eA) { }
             tl.property("Position").setValue([W / 2, H * 0.92]);
             tl.startTime = c.start;
             tl.inPoint = c.start;

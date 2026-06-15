@@ -33,7 +33,8 @@ def _default_theme() -> dict:
         "id": "default", "label": "기본(ae_tokens)",
         "colors": ae.get("colors") or {},
         "chart": {"theme_set": ca.get("theme_set") or "dashboard_analytical",
-                  "theme_overrides": ca.get("theme_overrides") or {}},
+                  "theme_overrides": ca.get("theme_overrides") or {},
+                  "patternKind": ca.get("patternKind")},
         "map": {"tile": "bright", "overrides": [],
                 "rasterFilter": "", "defaultTheme": mp.get("defaultTheme") or "warm_earth"},
     }
