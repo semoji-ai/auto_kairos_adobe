@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -469,7 +470,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 400, {"error": "elements 필요"}
         jobs = ctx["jobs"]
         jid = jobs.create("split-layers", b.get("project_id", ""))
-        conc = int(b.get("concurrency", 4))
+        # 기본 순차(1) — 같은 프로젝트 폴더에서 codex image_gen 동시 실행 시 출력이 섞이는
+        # 충돌 관측됨(요소 A 레이어에 요소 B 그림). AK_LAYER_CONCURRENCY로 조정.
+        conc = int(b.get("concurrency") or os.environ.get("AK_LAYER_CONCURRENCY", "1"))
         def _do(proj_dir=proj_dir, sc=sc, elements=elements, conc=conc, jid=jid):
             res = imagegen.split_scene_to_elements(
                 proj_dir, str(proj_dir / sc["_image"]), sc.get("sceneId"), elements,
@@ -525,7 +528,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         refs = _json.loads(refs_fp.read_text(encoding="utf-8")).get("references", [])
         jobs = ctx["jobs"]
         jid = jobs.create("images", pid)
-        conc = int(b.get("concurrency", 4))
+        # 기본 순차(1) — 같은 프로젝트 폴더에서 codex image_gen 동시 실행 시 출력이 섞이는
+        # 충돌 관측됨(요소 A 레이어에 요소 B 그림). AK_LAYER_CONCURRENCY로 조정.
+        conc = int(b.get("concurrency") or os.environ.get("AK_LAYER_CONCURRENCY", "1"))
         items = [(f"{ref['id']}.png", ref["image_prompt"]) for ref in refs]
         def _do(proj_dir=proj_dir, items=items, refs=refs, conc=conc, jid=jid):
             results = imagegen.generate_many(
@@ -558,7 +563,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         scene_list = data["scenes"]
         jobs = ctx["jobs"]
         jid = jobs.create("storyboard", pid)
-        conc = int(b.get("concurrency", 4))
+        # 기본 순차(1) — 같은 프로젝트 폴더에서 codex image_gen 동시 실행 시 출력이 섞이는
+        # 충돌 관측됨(요소 A 레이어에 요소 B 그림). AK_LAYER_CONCURRENCY로 조정.
+        conc = int(b.get("concurrency") or os.environ.get("AK_LAYER_CONCURRENCY", "1"))
         char = (b.get("character") or "").strip()
         character_ref = None
         if char:
@@ -612,7 +619,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 422, {"error": "씬 이미지 없음(sb_{sid}.png)"}
         jobs = ctx["jobs"]
         jid = jobs.create("layers", pid)
-        conc = int(b.get("concurrency", 4))
+        # 기본 순차(1) — 같은 프로젝트 폴더에서 codex image_gen 동시 실행 시 출력이 섞이는
+        # 충돌 관측됨(요소 A 레이어에 요소 B 그림). AK_LAYER_CONCURRENCY로 조정.
+        conc = int(b.get("concurrency") or os.environ.get("AK_LAYER_CONCURRENCY", "1"))
         def _do(proj_dir=proj_dir, pid=pid, items=items, sid_to_n=sid_to_n, conc=conc, jid=jid):
             results = imagegen.generate_scene_layers(
                 proj_dir, items, concurrency=conc,
