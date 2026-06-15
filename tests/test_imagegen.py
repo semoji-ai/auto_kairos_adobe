@@ -703,3 +703,28 @@ def test_style_forbids_grain_texture():
     style = imagegen.load_style().lower()
     for term in ("grain", "noise", "texture", "halftone", "smooth"):
         assert term in style, term
+
+
+def test_flatten_colors_quantizes(tmp_path):
+    """flatten_colors — 그라데이션(얼룩)을 적은 색으로 평탄화(디더 없음)."""
+    from PIL import Image
+    from backend import imagegen
+    im = Image.new("RGB", (60, 60))
+    px = im.load()
+    for x in range(60):
+        for y in range(60):
+            px[x, y] = (40 + x, 66, 80)        # 60단계 그라데이션
+    p = tmp_path / "t.png"; im.save(p)
+    before = len(Image.open(p).convert("RGB").getcolors(99999))
+    assert imagegen.flatten_colors(p, colors=8) is True
+    after = len(Image.open(p).convert("RGB").getcolors(99999))
+    assert after <= 8 and after < before
+
+
+def test_flatten_colors_disabled(tmp_path, monkeypatch):
+    """AK_FLATTEN_COLORS=0 이면 비활성(원본 유지)."""
+    from PIL import Image
+    from backend import imagegen
+    monkeypatch.setenv("AK_FLATTEN_COLORS", "0")
+    im = Image.new("RGB", (20, 20), (10, 20, 30)); p = tmp_path / "t.png"; im.save(p)
+    assert imagegen.flatten_colors(p) is False

@@ -351,6 +351,7 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
             raw_dir = o.parent / "_raw"
             raw_dir.mkdir(exist_ok=True)
             shutil.copy(o, raw_dir / o.name)
+            flatten_colors(o)                       # 구름 얼룩 제거(색 양자화) → 그 후 마젠타 키잉
             ratio_box.update(chroma_key_magenta(o, o))
 
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
@@ -455,6 +456,22 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     (out_base / f"{sid}__kinds.json").write_text(
         json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"layers": layers}
+
+
+def flatten_colors(png_path: Path, colors: int | None = None) -> bool:
+    """codex가 평면 일러스트에 넣는 구름 얼룩(불균일 저주파 음영)을 제거 — 색 양자화로 flat화.
+    디더 없음(디더=노이즈). 접힘 음영/디테일은 보존(색 경계가 뚜렷한 영역은 유지).
+    AK_FLATTEN_COLORS=0 이면 비활성. 마젠타 전 적용 권장(마젠타도 묶여 chroma 정확)."""
+    n = colors if colors is not None else int(os.environ.get("AK_FLATTEN_COLORS", "40"))
+    if n <= 0:
+        return False
+    try:
+        im = Image.open(png_path).convert("RGB")
+        q = im.quantize(colors=n, method=Image.FASTOCTREE, dither=Image.NONE)
+        q.convert("RGB").save(png_path)
+        return True
+    except Exception:
+        return False
 
 
 def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
