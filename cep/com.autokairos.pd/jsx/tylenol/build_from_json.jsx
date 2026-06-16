@@ -163,6 +163,61 @@ function akBuildFromJson() {
             }
         }
 
+        // 프리셋명 → AE 키프레임+이징. params는 프리셋 기본값 + 컷별 오버라이드 병합.
+        function easeKeys(prop, dim, ease) {
+            try {
+                var inf = (ease === "linear") ? 0.1 : 75;
+                var arr = []; for (var d = 0; d < dim; d++) arr.push(new KeyframeEase(0, inf));
+                var n = prop.numKeys;
+                if (ease === "easeOut" || ease === "overshoot") prop.setTemporalEaseAtKey(n, arr, arr);
+                else if (ease === "easeInOut") { prop.setTemporalEaseAtKey(1, arr, arr); prop.setTemporalEaseAtKey(n, arr, arr); }
+            } catch (e) {}
+        }
+        function applyPreset(layer, isText, presetName, t0, dur, params) {
+            var P = PRESETS[presetName]; if (!P) return;
+            var pr = {}; for (var k in (P.params || {})) pr[k] = P.params[k];
+            for (var k2 in (params || {})) pr[k2] = params[k2];   // 컷별 오버라이드
+            dur = dur || 0.6; t0 = t0 || 0;
+            layer.motionBlur = true;
+            try {
+                if (presetName === "type_on" && isText) {
+                    var an = layer.property("ADBE Text Properties").property("ADBE Text Animators").addProperty("ADBE Text Animator");
+                    an.property("ADBE Text Animator Properties").addProperty("ADBE Text Opacity").setValue(0);
+                    var sel = an.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
+                    try { sel.property("ADBE Text Range Advanced").property("ADBE Text Range Smoothness").setValue(0); } catch (e) {}
+                    var off = sel.property("ADBE Text Percent Offset");
+                    off.setValueAtTime(t0, 0); off.setValueAtTime(t0 + dur, 100);
+                } else if (presetName === "fade_scale_in") {
+                    var sf = pr.scaleFrom || 85;
+                    var op = layer.property("Opacity"); op.setValueAtTime(t0, 0); op.setValueAtTime(t0 + dur * 0.6, 100);
+                    var sc = layer.property("Scale"); sc.setValueAtTime(t0, [sf, sf]); sc.setValueAtTime(t0 + dur, [100, 100]); easeKeys(sc, 2, "easeOut");
+                } else if (presetName === "slide_in") {
+                    var dir = pr.dir || "left", off2 = pr.offset || 80, ps = layer.property("Position"), cur = ps.value;
+                    var dx = dir === "left" ? -off2 : dir === "right" ? off2 : 0;
+                    var dy = dir === "up" ? -off2 : dir === "down" ? off2 : 0;
+                    ps.setValueAtTime(t0, [cur[0] + dx, cur[1] + dy]); ps.setValueAtTime(t0 + dur, [cur[0], cur[1]]); easeKeys(ps, 2, "easeOut");
+                    var op2 = layer.property("Opacity"); op2.setValueAtTime(t0, 0); op2.setValueAtTime(t0 + dur * 0.4, 100);
+                } else if (presetName === "pop_bounce") {
+                    var ov = pr.overshoot || 110, sc2 = layer.property("Scale");
+                    sc2.setValueAtTime(t0, [0, 0]); sc2.setValueAtTime(t0 + dur * 0.6, [ov, ov]); sc2.setValueAtTime(t0 + dur, [100, 100]);
+                    try { sc2.setTemporalEaseAtKey(2, [new KeyframeEase(0, 80), new KeyframeEase(0, 80)]); sc2.setTemporalEaseAtKey(3, [new KeyframeEase(0, 60), new KeyframeEase(0, 60)]); } catch (e) {}
+                    var op3 = layer.property("Opacity"); op3.setValueAtTime(t0, 0); op3.setValueAtTime(t0 + dur * 0.2, 100);
+                } else if (presetName === "mask_reveal") {
+                    try {
+                        var cont = layer.property("ADBE Root Vectors Group");
+                        var trim = cont.addProperty("ADBE Vector Filter - Trim");
+                        var te = trim.property("ADBE Vector Trim End");
+                        te.setValueAtTime(t0, 0); te.setValueAtTime(t0 + dur, 100); easeKeys(te, 1, "easeInOut");
+                    } catch (eM) {
+                        var op4 = layer.property("Opacity"); op4.setValueAtTime(t0, 0); op4.setValueAtTime(t0 + dur, 100);
+                    }
+                } else if (presetName === "tilt_2_5d") {
+                    layer.threeDLayer = true;
+                    var ang = pr.angle || -15, ry = layer.property("ADBE Transform Group").property("ADBE Rotate Y");
+                    ry.setValueAtTime(t0, 0); ry.setValueAtTime(t0 + dur, ang); easeKeys(ry, 1, "easeOut");
+                }
+            } catch (eP) {}
+        }
         function applyAnim(layer, isText, anims) {
             if (!anims) return;
             for (var a = 0; a < anims.length; a++) {

@@ -599,3 +599,12 @@ def test_builder_loads_motion_lib():
     jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
     assert "motion_presets.json" in jsx and "font_map.json" in jsx and "color_tokens.json" in jsx
     assert "function resolveFont" in jsx and "function resolveColor" in jsx
+
+
+def test_builder_apply_preset():
+    """applyPreset가 7 프리셋 분기 + 커스텀 이징."""
+    jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
+    assert "function applyPreset" in jsx
+    for p in ("type_on", "fade_scale_in", "slide_in", "pop_bounce", "mask_reveal", "tilt_2_5d"):
+        assert p in jsx, p
+    assert "KeyframeEase" in jsx
