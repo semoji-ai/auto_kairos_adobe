@@ -78,3 +78,39 @@ def generate_brief(proj_dir, *, version: int, prev_brief=None, revisions=None,
     if res.get("returncode") == 0 and out.is_file():
         return out
     return None
+
+
+def review_brief(proj_dir, brief_path, *, prev_path=None, on_event=None) -> dict:
+    """brief-review 스킬로 채점. 반환 {score:int, verdict, spine_blocking, revision_instructions}.
+    파싱 실패/스킬 실패 시 score=0, verdict='REVISE'."""
+    proj_dir = Path(proj_dir)
+    brief_path = Path(brief_path)
+    m = re.search(r"\.v(\d+)\.json$", brief_path.name)
+    ver = m.group(1) if m else "1"
+    out = proj_dir / f"brief_review_feedback.v{ver}.json"
+    parts = [
+        _load_skill("brief-review"),
+        "\n\n## DNA 레버 정의\n" + _dna_text(),
+        "\n\n## 평가 대상 brief\n" + brief_path.read_text(encoding="utf-8"),
+    ]
+    if prev_path and Path(prev_path).is_file():
+        parts.append("\n\n## 직전 버전(점수 하락 감시용)\n" + Path(prev_path).read_text(encoding="utf-8"))
+    parts.append(f"\n\nbrief_review_feedback JSON만 출력. project_id={proj_dir.name}.")
+    prompt = "".join(parts)
+    if on_event:
+        on_event(f"브리프 채점 v{ver}")
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_REVIEW_SCHEMA),
+                               output_last=str(out), on_line=on_event)
+    fail = {"score": 0, "verdict": "REVISE", "spine_blocking": None, "revision_instructions": []}
+    if res.get("returncode") != 0 or not out.is_file():
+        return fail
+    try:
+        data = json.loads(out.read_text(encoding="utf-8"))
+    except Exception:
+        return fail
+    return {
+        "score": int(data.get("score_total") or 0),
+        "verdict": str(data.get("verdict") or "REVISE"),
+        "spine_blocking": data.get("spine_blocking"),
+        "revision_instructions": list(data.get("revision_instructions") or []),
+    }
