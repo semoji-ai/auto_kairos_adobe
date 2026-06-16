@@ -103,17 +103,21 @@ function akBuildFromJson() {
             for (var k = 0; k < 3; k++) grp.push(makeRRect(comp, { color: "#E8E8EA", w: 34, h: 34, x: barX + 40 + k * 52, y: barY + barH - 44, round: 8 }));
             var send = makeRRect(comp, { color: "#E4002B", w: 44, h: 44, x: barX + barW - 56, y: barY + barH - 44, round: 22 });
             grp.push(send);
-            // 텍스트(박스 내부 좌측 상단) — 타이핑. redText는 앞부분 빨강.
-            var tx = barX + 50, ty = cy - 28;
+            // 텍스트(박스 내부 좌측) — 박스 폭에 맞춰 크기 동적 조정(넘침 방지). 타이핑. redText 앞부분 빨강.
+            var tx = barX + 50, ty = cy - 24, maxTextW = barW - 110;
             var full = cut.text || "", red = cut.redText || "";
+            // 한글 ~0.55·size, 공백/영문 ~0.3·size → 기준 폰트 46에서 폭 추정해 초과 시 축소
+            var sz = 46, estW = full.length * sz * 0.52;
+            if (estW > maxTextW) sz = Math.max(24, Math.floor(maxTextW / (full.length * 0.52)));
+            ty = cy - sz / 2;
             var textLayers = [];
             if (red && full.indexOf(red) === 0) {        // 빨강이 맨 앞
-                var tr = makeText(comp, { text: red, color: "#E4002B", size: 46, x: tx, y: ty, align: "left" });
+                var tr = makeText(comp, { text: red, color: "#E4002B", size: sz, x: tx, y: ty, align: "left" });
                 var rw = tr.sourceRectAtTime(0, false).width;
-                var tk = makeText(comp, { text: full.substr(red.length), color: "#333333", size: 46, x: tx + rw + 4, y: ty, align: "left" });
+                var tk = makeText(comp, { text: full.substr(red.length), color: "#333333", size: sz, x: tx + rw + 4, y: ty, align: "left" });
                 textLayers = [tr, tk];
             } else {
-                textLayers = [makeText(comp, { text: full, color: "#333333", size: 46, x: tx, y: ty, align: "left" })];
+                textLayers = [makeText(comp, { text: full, color: "#333333", size: sz, x: tx, y: ty, align: "left" })];
             }
             // 슬라이드인(0~0.3s): 박스+아이콘+버튼 좌→우
             for (var g = 0; g < grp.length; g++) {
