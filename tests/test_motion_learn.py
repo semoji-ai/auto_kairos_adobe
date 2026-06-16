@@ -34,3 +34,26 @@ def test_collect_skips_existing(tmp_path, monkeypatch):
     assert len(r1) == 1 and len(calls) == 1
     r2 = collect.collect(["https://youtu.be/AbC123xyz"], refs)   # 이미 받음 → 스킵
     assert len(calls) == 1 and r2[0]["slug"] == r1[0]["slug"]
+
+
+def test_merge_presets(tmp_path):
+    from scripts.motion_learn import merge_presets
+    lib = tmp_path / "motion_presets.json"
+    lib.write_text(json.dumps({"presets": {"fade_scale_in": {"props": ["opacity"], "ease": "easeOut"}}}), encoding="utf-8")
+    candidates = [
+        {"name": "wipe_in", "props": ["trimEnd"], "ease": "easeInOut", "params": {}},
+        {"name": "fade_scale_in", "props": ["opacity"], "ease": "easeOut"},   # 중복 → 스킵
+        {"name": "particle_burst", "props": ["particles"], "ease": "easeOut"}  # 새 props → 빌더확장 플래그
+    ]
+    res = merge_presets.merge(lib, candidates, approved=["wipe_in", "fade_scale_in", "particle_burst"])
+    d = json.loads(lib.read_text())
+    assert "wipe_in" in d["presets"]
+    assert res["skipped_duplicate"] == ["fade_scale_in"]
+    assert res["needs_builder"] == ["particle_burst"]
+    assert "particle_burst" in d["presets"]
+
+
+def test_merge_known_props_only():
+    from scripts.motion_learn import merge_presets
+    assert merge_presets.is_builder_supported({"props": ["opacity", "scale"]})
+    assert not merge_presets.is_builder_supported({"props": ["particles"]})
