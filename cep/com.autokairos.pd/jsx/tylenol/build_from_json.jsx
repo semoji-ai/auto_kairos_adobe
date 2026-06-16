@@ -57,10 +57,10 @@ function akBuildFromJson() {
         function makeText(comp, L) {
             var tl = comp.layers.addText(String(L.text || ""));
             var td = tl.property("Source Text").value;
-            td.fontSize = L.size || 48; td.fillColor = hex(L.color || "#FFFFFF");
+            td.fontSize = L.size || 48; td.fillColor = L.rgb || hex(L.color && L.color.charAt(0) === "#" ? L.color : "#FFFFFF");
             var left = (L.align === "left");
             td.justification = left ? ParagraphJustification.LEFT_JUSTIFY : ParagraphJustification.CENTER_JUSTIFY;
-            var ff = ["OTSBAggroM", "Cafe24Ssurround", "AppleSDGothicNeo-Bold"];
+            var ff = L._fontResolved ? [L._fontResolved, "AppleSDGothicNeo-Bold"] : ["OTSBAggroM", "Cafe24Ssurround", "AppleSDGothicNeo-Bold"];
             for (var i = 0; i < ff.length; i++) { try { td.font = ff[i]; } catch (e) {} }
             tl.property("Source Text").setValue(td);
             var r = tl.sourceRectAtTime(0, false);
@@ -74,7 +74,7 @@ function akBuildFromJson() {
             var rc = g.property("Contents").addProperty("ADBE Vector Shape - Rect");
             rc.property("Size").setValue([L.w || 200, L.h || 80]);
             rc.property("Roundness").setValue(L.round || 0);
-            var f = g.property("Contents").addProperty("ADBE Vector Graphic - Fill"); f.property("Color").setValue(hex(L.color || "#FFFFFF"));
+            var f = g.property("Contents").addProperty("ADBE Vector Graphic - Fill"); f.property("Color").setValue(L.rgb || hex(L.color && L.color.charAt(0) === "#" ? L.color : "#FFFFFF"));
             if (L.stroke) { var s = g.property("Contents").addProperty("ADBE Vector Graphic - Stroke"); s.property("Color").setValue(hex(L.stroke)); s.property("Stroke Width").setValue(L.size || 2); }
             sl.property("Anchor Point").setValue([0, 0]);   // 그룹 원점 = 중심 → 스케일 팝 제자리
             sl.property("Position").setValue([L.x == null ? W / 2 : L.x, L.y == null ? H / 2 : L.y]);
@@ -92,7 +92,7 @@ function akBuildFromJson() {
             var x = L.x == null ? W / 2 : L.x, y = L.y == null ? H / 2 : L.y, w = L.w || W, h = L.h || 0;
             sh.vertices = [[x - w / 2, y - h / 2], [x + w / 2, y + h / 2]]; sh.closed = false; p.property("Path").setValue(sh);
             var st = g.property("Contents").addProperty("ADBE Vector Graphic - Stroke");
-            st.property("Color").setValue(hex(L.color || "#CCCCCC")); st.property("Stroke Width").setValue(L.size || 1);
+            st.property("Color").setValue(L.rgb || hex(L.color && L.color.charAt(0) === "#" ? L.color : "#CCCCCC")); st.property("Stroke Width").setValue(L.size || 1);
             return sl;
         }
         function makeImage(comp, L) {
@@ -249,6 +249,7 @@ function akBuildFromJson() {
             if (!anims) return;
             for (var a = 0; a < anims.length; a++) {
                 var an = anims[a], t0 = an.t0 || 0, t1 = an.t1 == null ? t0 + 0.5 : an.t1;
+                if (an.preset) { applyPreset(layer, isText, an.preset, t0, (an.dur || (t1 - t0)), an.params); continue; }
                 var fr = an.from || [0], to = an.to || [100];
                 try {
                     if (an.prop === "opacity") {
@@ -292,6 +293,8 @@ function akBuildFromJson() {
             //  정순으로 add해야 text(전경)가 rrect(배경) 위에 보임.
             for (var li = 0; li < layers.length; li++) {
                 var L = layers[li], lay = null, isText = false;
+                if (L.font) L._fontResolved = resolveFont(L.font);
+                var lc = resolveColor(L.color); if (lc) L.rgb = lc;
                 try {
                     if (L.type === "text") { lay = makeText(comp, L); isText = true; }
                     else if (L.type === "rrect") lay = makeRRect(comp, L);
@@ -299,7 +302,9 @@ function akBuildFromJson() {
                     else if (L.type === "image" || L.type === "live") lay = makeImage(comp, L);
                 } catch (eL) { log.push((cut.id) + "/" + L.type + ": " + eL.toString()); }
                 if (lay) applyAnim(lay, isText, L.anim);
+                if (lay && L.detail) applyDetail(lay, L.detail);
             }
+            if (cut.grain) addGrainAdjustment(comp);
             comps.push({ c: comp, dur: cut.dur || 2 });
         }
 

@@ -615,3 +615,11 @@ def test_builder_apply_detail():
     jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
     assert "function applyDetail" in jsx
     assert "ADBE Drop Shadow" in jsx and "ADBE Glo2" in jsx and "ADBE Add Grain" in jsx
+
+
+def test_builder_routes_preset_font_color():
+    """anim.preset → applyPreset, layer.font → resolveFont, detail → applyDetail 라우팅 + 기존 prop 하위호환."""
+    jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
+    assert "applyPreset(" in jsx and "applyDetail(" in jsx
+    assert "resolveFont(" in jsx and "resolveColor(" in jsx
+    assert "an.preset" in jsx
