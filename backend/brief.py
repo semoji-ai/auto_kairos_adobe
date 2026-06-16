@@ -41,3 +41,40 @@ def parse_plan(proj_dir) -> dict:
         "duration": fields["분량"],
         "tone": fields["톤"],
     }
+
+
+def _load_skill(name: str) -> str:
+    md = _SKILLS / name / "SKILL.md"
+    return md.read_text(encoding="utf-8") if md.is_file() else f"skill: {name}"
+
+
+def _dna_text() -> str:
+    p = _ROOT / "data" / "brief-dna.md"
+    return p.read_text(encoding="utf-8") if p.is_file() else ""
+
+
+def generate_brief(proj_dir, *, version: int, prev_brief=None, revisions=None,
+                   on_event=None) -> Path | None:
+    """brief-interview 스킬로 editorial_brief.v{version}.json 생성. 실패 시 None."""
+    proj_dir = Path(proj_dir)
+    plan = parse_plan(proj_dir)
+    out = proj_dir / f"editorial_brief.v{version}.json"
+    parts = [
+        _load_skill("brief-interview"),
+        "\n\n## DNA 레버 정의\n" + _dna_text(),
+        f"\n\n## 기획 입력\ntopic: {plan['topic']}\nwriting_style: {plan['writing_style']}\n"
+        f"duration: {plan['duration']}\ntone: {plan['tone']}\n",
+    ]
+    if prev_brief and Path(prev_brief).is_file():
+        parts.append("\n\n## 직전 brief(개선 대상)\n" + Path(prev_brief).read_text(encoding="utf-8"))
+    if revisions:
+        parts.append("\n\n## REVISE 지시(반드시 반영)\n" + "\n".join(f"- {r}" for r in revisions))
+    parts.append(f"\n\neditorial_brief JSON만 출력. project_id={proj_dir.name}.")
+    prompt = "".join(parts)
+    if on_event:
+        on_event(f"브리프 생성 v{version}")
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_BRIEF_SCHEMA),
+                               output_last=str(out), on_line=on_event)
+    if res.get("returncode") == 0 and out.is_file():
+        return out
+    return None
