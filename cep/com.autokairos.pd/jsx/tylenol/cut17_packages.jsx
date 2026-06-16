@@ -58,13 +58,8 @@ function akTylenolPackages() {
             } catch (eD) {}
         }
 
-        // (3) 3D 카메라 — 살짝 푸시인(깊이감)
-        var cam = comp.layers.addCamera("cam", [W / 2, H / 2]);
-        var cp = cam.property("ADBE Transform Group").property("ADBE Position");
-        cp.setValueAtTime(0, [W / 2, H / 2, -1650]);
-        cp.setValueAtTime(DUR, [W / 2, H / 2, -1350]);
-        try { cp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 50), new KeyframeEase(0, 50), new KeyframeEase(0, 50)]);
-              cp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 50), new KeyframeEase(0, 50), new KeyframeEase(0, 50)]); } catch (e) {}
+        // (3) 카메라 없음 — 원본은 평면 UI(gemini: 전 컷 "카메라/줌 없음").
+        //     2.5D 깊이는 레이어 Y 기울임 + Drop Shadow로만 표현(잘림·왜곡 없음).
 
         // (4) 그레인 — 조정 레이어
         var grain = comp.layers.addSolid([1, 1, 1], "grain", W, H, 1.0);
