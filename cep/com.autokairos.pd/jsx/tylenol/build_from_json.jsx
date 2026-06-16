@@ -89,6 +89,60 @@ function akBuildFromJson() {
             return L2;
         }
 
+        // ── 컴포넌트: 검색창 — 내부 요소(박스/아이콘/텍스트/전송버튼)를 상대좌표 규칙으로 자체 정렬.
+        //  gemini 좌표 추정 오차와 무관하게 정렬 보장. 박스 좌→우 슬라이드인 + 텍스트 타이핑.
+        function makeSearchbar(comp, cut) {
+            var cy = cut.y == null ? H * 0.5 : cut.y;
+            var barW = W * 0.62, barH = 200, barX = W / 2 - barW / 2, barY = cy - barH / 2;
+            var GRAY = [0.80, 0.80, 0.82], RED = hex("#E4002B"), INK = hex("#333333");
+            var grp = [];
+            // 박스
+            var box = makeRRect(comp, { color: "#FFFFFF", w: barW, h: barH, x: W / 2, y: cy, round: 28, stroke: "#E0E0E0", size: 2 });
+            grp.push(box);
+            // 하단 아이콘 3개(좌하단) + 전송버튼(우하단) — 박스 기준 상대좌표
+            for (var k = 0; k < 3; k++) grp.push(makeRRect(comp, { color: "#E8E8EA", w: 34, h: 34, x: barX + 40 + k * 52, y: barY + barH - 44, round: 8 }));
+            var send = makeRRect(comp, { color: "#E4002B", w: 44, h: 44, x: barX + barW - 56, y: barY + barH - 44, round: 22 });
+            grp.push(send);
+            // 텍스트(박스 내부 좌측 상단) — 타이핑. redText는 앞부분 빨강.
+            var tx = barX + 50, ty = cy - 28;
+            var full = cut.text || "", red = cut.redText || "";
+            var textLayers = [];
+            if (red && full.indexOf(red) === 0) {        // 빨강이 맨 앞
+                var tr = makeText(comp, { text: red, color: "#E4002B", size: 46, x: tx, y: ty, align: "left" });
+                var rw = tr.sourceRectAtTime(0, false).width;
+                var tk = makeText(comp, { text: full.substr(red.length), color: "#333333", size: 46, x: tx + rw + 4, y: ty, align: "left" });
+                textLayers = [tr, tk];
+            } else {
+                textLayers = [makeText(comp, { text: full, color: "#333333", size: 46, x: tx, y: ty, align: "left" })];
+            }
+            // 슬라이드인(0~0.3s): 박스+아이콘+버튼 좌→우
+            for (var g = 0; g < grp.length; g++) {
+                var L = grp[g], p = L.property("Position"), pv = p.value;
+                p.setValueAtTime(0, [pv[0] - W * 0.5, pv[1]]); p.setValueAtTime(0.3, [pv[0], pv[1]]);
+                try { p.setTemporalEaseAtKey(2, [new KeyframeEase(0, 80), new KeyframeEase(0, 80)]); } catch (e) {}
+                L.motionBlur = true;
+            }
+            // 타이핑(0.4s~) — 텍스트 순차
+            var tt = 0.4;
+            for (var ti = 0; ti < textLayers.length; ti++) {
+                applyAnim(textLayers[ti], true, [{ prop: "typeOn", from: [0], to: [100], t0: tt, t1: tt + (ti === 0 ? 0.4 : 1.4) }]);
+                tt += (ti === 0 ? 0.45 : 0);
+            }
+        }
+        // ── 컴포넌트: 버튼 — 둥근 회색 버튼 + 중앙 라벨, 스케일 팝(박스·라벨 동반).
+        function makeButton(comp, cut) {
+            var label = cut.text || "", w = Math.max(220, label.length * 60 + 100), h = 110;
+            var box = makeRRect(comp, { color: "#EDEDED", w: w, h: h, x: W / 2, y: H / 2, round: h / 2 });
+            var lab = makeText(comp, { text: label, color: "#333333", size: 44, x: W / 2, y: H / 2, align: "center" });
+            var pair = [box, lab];
+            for (var i = 0; i < pair.length; i++) {
+                var sc = pair[i].property("Scale");
+                sc.setValueAtTime(0, [60, 60]); sc.setValueAtTime(0.28, [100, 100]);
+                try { sc.setTemporalEaseAtKey(2, [new KeyframeEase(0, 78), new KeyframeEase(0, 78)]); } catch (e) {}
+                pair[i].motionBlur = true;
+            }
+        }
+
         function applyAnim(layer, isText, anims) {
             if (!anims) return;
             for (var a = 0; a < anims.length; a++) {
@@ -128,6 +182,9 @@ function akBuildFromJson() {
             var comp = proj.items.addComp("TYL_" + (cut.id || ci), W, H, 1.0, Math.max(0.4, cut.dur || 2), FPS);
             comp.motionBlur = true;
             comp.layers.addSolid(hex(cut.bg || "#FFFFFF"), "bg", W, H, 1.0);
+            // 컴포넌트 타입 — 검색창/버튼은 내부 자체 정렬(좌표 추정 무관)
+            if (cut.type === "searchbar") { try { makeSearchbar(comp, cut); } catch (eS) { log.push(cut.id + ": searchbar " + eS); } comps.push({ c: comp, dur: cut.dur || 2 }); continue; }
+            if (cut.type === "button") { try { makeButton(comp, cut); } catch (eB) { log.push(cut.id + ": button " + eB); } comps.push({ c: comp, dur: cut.dur || 2 }); continue; }
             var layers = cut.layers || [];
             // 정순: layers[0]=배경(먼저 add=아래), 뒤일수록 전경(위). AE는 나중 add가 위라
             //  정순으로 add해야 text(전경)가 rrect(배경) 위에 보임.
