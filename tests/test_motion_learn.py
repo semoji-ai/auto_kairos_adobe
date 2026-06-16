@@ -117,3 +117,25 @@ def test_smoothness_to_influence_interp_and_clamp():
     # 범위 밖 클램프
     assert smoothness_to_influence(-1.0) == 0
     assert smoothness_to_influence(2.0) == 95
+
+
+def test_gemini_client_compare_videos(monkeypatch):
+    from scripts.motion_learn import gemini_client as gc
+    monkeypatch.setattr(gc, "_client", lambda: object())
+    monkeypatch.setattr(gc, "_upload", lambda client, p: "FILE:" + p)
+    captured = {}
+    monkeypatch.setattr(gc, "_generate_json",
+                        lambda client, contents, models=None: (captured.update(contents=contents), {"score": 88})[1])
+    out = gc.compare_videos("orig.mp4", "render.mp4", "PROMPT")
+    assert out == {"score": 88}
+    assert captured["contents"] == ["FILE:orig.mp4", "FILE:render.mp4", "PROMPT"]
+
+
+def test_gemini_client_analyze_video(monkeypatch):
+    from scripts.motion_learn import gemini_client as gc
+    monkeypatch.setattr(gc, "_client", lambda: object())
+    monkeypatch.setattr(gc, "_upload", lambda client, p: "F:" + p)
+    monkeypatch.setattr(gc, "_generate_json",
+                        lambda client, contents, models=None: {"cuts": [], "contents_len": len(contents)})
+    out = gc.analyze_video("v.mp4", "PROMPT")
+    assert out["contents_len"] == 2  # [file, prompt]
