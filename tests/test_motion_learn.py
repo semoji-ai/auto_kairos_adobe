@@ -99,3 +99,21 @@ def test_cli_merge_syncs_jsx(tmp_path, monkeypatch):
     (ref / "new_presets.json").write_text(json.dumps([{"name": "wipe_in", "props": ["trimEnd"], "ease": "easeInOut"}]), encoding="utf-8")
     cli.main(["merge", "--slug", "s1", "--approve", "wipe_in"])
     assert "wipe_in" in json.loads((jsxdir / "motion_presets.json").read_text())["presets"]
+
+
+def test_smoothness_to_influence_anchors():
+    from scripts.motion_learn.curve import smoothness_to_influence
+    assert smoothness_to_influence(0.0) == 0
+    assert smoothness_to_influence(0.5) == 33
+    assert smoothness_to_influence(0.75) == 75
+    assert smoothness_to_influence(0.9) == 90
+    assert smoothness_to_influence(1.0) == 95
+
+
+def test_smoothness_to_influence_interp_and_clamp():
+    from scripts.motion_learn.curve import smoothness_to_influence
+    # 0.5~0.75 구간 중앙(0.625): 33 + (75-33)*0.5 = 54
+    assert smoothness_to_influence(0.625) == 54
+    # 범위 밖 클램프
+    assert smoothness_to_influence(-1.0) == 0
+    assert smoothness_to_influence(2.0) == 95
