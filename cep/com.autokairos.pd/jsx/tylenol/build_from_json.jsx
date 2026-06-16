@@ -164,9 +164,26 @@ function akBuildFromJson() {
         }
 
         // 프리셋명 → AE 키프레임+이징. params는 프리셋 기본값 + 컷별 오버라이드 병합.
-        function easeKeys(prop, dim, ease) {
+        function easeDefaultSmoothness(ease) {
+            if (ease === "linear") return 0.0;
+            return 0.75; // easeOut/easeInOut/overshoot → 현행 influence 75
+        }
+        function smoothnessToInfluence(s) {
+            if (s === undefined || s === null) return 75;
+            if (s <= 0.0) return 0.1;   // AE influence 최소 0.1
+            if (s >= 1.0) return 95;
+            var ax = [0.0, 0.5, 0.75, 0.9, 1.0], ay = [0, 33, 75, 90, 95];
+            for (var i = 0; i < ax.length - 1; i++) {
+                if (s > ax[i] && s <= ax[i + 1]) {
+                    return Math.round(ay[i] + (ay[i + 1] - ay[i]) * (s - ax[i]) / (ax[i + 1] - ax[i]));
+                }
+            }
+            return 75;
+        }
+        function easeKeys(prop, dim, ease, smoothness) {
             try {
-                var inf = (ease === "linear") ? 0.1 : 75;
+                var s = (smoothness === undefined || smoothness === null) ? easeDefaultSmoothness(ease) : smoothness;
+                var inf = smoothnessToInfluence(s);
                 var arr = []; for (var d = 0; d < dim; d++) arr.push(new KeyframeEase(0, inf));
                 var n = prop.numKeys;
                 if (ease === "easeOut" || ease === "overshoot") prop.setTemporalEaseAtKey(n, arr, arr);
