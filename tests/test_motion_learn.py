@@ -83,3 +83,19 @@ def test_cli_help_lists_commands():
     p = cli.build_parser()
     sub = p._subparsers._group_actions[0].choices
     assert "collect" in sub and "analyze" in sub and "merge" in sub
+
+
+def test_cli_merge_syncs_jsx(tmp_path, monkeypatch):
+    """merge 후 jsx 빌더 복사본 동기화 — 새 프리셋이 빌더에도 반영."""
+    import scripts.motion_learn.__main__ as cli
+    # ROOT 하위 구조 모킹
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    lib = tmp_path / "data" / "artstyle" / "motion" / "motion_presets.json"; lib.parent.mkdir(parents=True)
+    lib.write_text(json.dumps({"presets": {}}), encoding="utf-8")
+    monkeypatch.setattr(cli, "LIB", lib)
+    jsxdir = tmp_path / "cep" / "com.autokairos.pd" / "jsx" / "tylenol"; jsxdir.mkdir(parents=True)
+    ref = tmp_path / "refs" / "s1"; ref.mkdir(parents=True)
+    monkeypatch.setattr(cli, "REFS", tmp_path / "refs")
+    (ref / "new_presets.json").write_text(json.dumps([{"name": "wipe_in", "props": ["trimEnd"], "ease": "easeInOut"}]), encoding="utf-8")
+    cli.main(["merge", "--slug", "s1", "--approve", "wipe_in"])
+    assert "wipe_in" in json.loads((jsxdir / "motion_presets.json").read_text())["presets"]

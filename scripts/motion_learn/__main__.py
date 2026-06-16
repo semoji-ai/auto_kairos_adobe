@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,6 +41,10 @@ def main(argv=None):
         cands = merge_presets.list_candidates(REFS / args.slug / "new_presets.json")
         res = merge_presets.merge(LIB, cands, args.approve)
         print("머지:", res)
+        jsx_lib = ROOT / "cep" / "com.autokairos.pd" / "jsx" / "tylenol" / "motion_presets.json"
+        if jsx_lib.parent.is_dir():
+            shutil.copy(LIB, jsx_lib)
+            print("동기화: jsx 빌더 라이브러리 갱신")
 
 
 if __name__ == "__main__":

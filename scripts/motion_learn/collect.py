@@ -32,8 +32,9 @@ def _probe_meta(path: Path) -> dict:
         j = json.loads(r.stdout)
         st = (j.get("streams") or [{}])[0]
         fmt = j.get("format") or {}
+        title = (fmt.get("tags") or {}).get("title", "")
         return {"width": st.get("width"), "height": st.get("height"),
-                "duration": float(fmt.get("duration", 0) or 0)}
+                "duration": float(fmt.get("duration", 0) or 0), "title": title}
     except (json.JSONDecodeError, ValueError):
         return {}
 
