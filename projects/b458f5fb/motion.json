@@ -1,0 +1,4589 @@
+{
+  "cuts": [
+    {
+      "id": "cut01",
+      "start": 0.0,
+      "dur": 1.3,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "TYLENOL",
+          "color": "#FFFFFF",
+          "size": 100,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut02",
+      "start": 1.3,
+      "dur": 1.7,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "타이레놀을 다",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 1.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.4,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.4,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.4,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut03",
+      "start": 3.0,
+      "dur": 1.2,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "타이레놀을 다들 쉽게 알아보면 좋겠어.",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 1.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut04",
+      "start": 4.2,
+      "dur": 1.2,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "rrect",
+          "w": 200,
+          "h": 100,
+          "x": 100,
+          "y": 100,
+          "round": 0,
+          "color": "#C80024",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 200,
+          "h": 100,
+          "x": 300,
+          "y": 200,
+          "round": 0,
+          "color": "#96001B",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 200,
+          "h": 100,
+          "x": 500,
+          "y": 300,
+          "round": 0,
+          "color": "#E4002B",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 400,
+          "h": 200,
+          "x": 960,
+          "y": 540,
+          "round": 0,
+          "color": "#E4002B",
+          "z": 0,
+          "size": 4,
+          "stroke": "#FFFFFF",
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.5,
+              "t1": 0.8,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut05",
+      "start": 5.4,
+      "dur": 1.3,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "타이레놀",
+          "color": "#FFFFFF",
+          "size": 100,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "x": 960,
+          "y": 0,
+          "w": 960,
+          "h": 1080,
+          "color": "#FFFFFF",
+          "size": 2,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "x": 0,
+          "y": 540,
+          "w": 1920,
+          "h": 540,
+          "color": "#FFFFFF",
+          "size": 2,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut06",
+      "start": 6.7,
+      "dur": 1.3,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "타이레놀",
+          "color": "#FFFFFF",
+          "size": 50,
+          "x": 300,
+          "y": 200,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                300,
+                100
+              ],
+              "to": [
+                300,
+                200
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "500 밀리그램",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 300,
+          "y": 250,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                300,
+                150
+              ],
+              "to": [
+                300,
+                250
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "10 정",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 500,
+          "y": 250,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                500,
+                150
+              ],
+              "to": [
+                500,
+                250
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "타이레놀",
+          "color": "#FFFFFF",
+          "size": 50,
+          "x": 900,
+          "y": 500,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                900,
+                400
+              ],
+              "to": [
+                900,
+                500
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "30 정",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 1100,
+          "y": 550,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                1100,
+                450
+              ],
+              "to": [
+                1100,
+                550
+              ],
+              "t0": 0.5,
+              "t1": 0.8,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "110 정",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 1700,
+          "y": 850,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                1700,
+                750
+              ],
+              "to": [
+                1700,
+                850
+              ],
+              "t0": 0.8,
+              "t1": 1.1,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut07",
+      "start": 8.0,
+      "dur": 1.1,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "line",
+          "x": 0,
+          "y": 540,
+          "w": 1920,
+          "h": 540,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "line",
+          "x": 960,
+          "y": 0,
+          "w": 960,
+          "h": 1080,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#00000000",
+          "w": 1000,
+          "h": 120,
+          "x": 960,
+          "y": 540,
+          "round": 15,
+          "size": 2,
+          "stroke": "#E4002B",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "500 밀리그램",
+          "color": "#E4002B",
+          "size": 80,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.8,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut08",
+      "start": 9.1,
+      "dur": 1.7,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#00000000",
+          "w": 1000,
+          "h": 120,
+          "x": 960,
+          "y": 540,
+          "round": 15,
+          "size": 2,
+          "stroke": "#E4002B",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "500 밀리그램",
+          "color": "#E4002B",
+          "size": 80,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0
+        },
+        {
+          "type": "line",
+          "x": 1400,
+          "y": 480,
+          "w": 1480,
+          "h": 600,
+          "color": "#E4002B",
+          "size": 2,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 40,
+          "h": 20,
+          "x": 1460,
+          "y": 460,
+          "round": 5,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.7,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut09",
+      "start": 10.8,
+      "dur": 1.0,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "좋아.",
+          "color": "#333333",
+          "size": 40,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut10",
+      "start": 11.8,
+      "dur": 1.4,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "어떤 증상",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.8,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut11",
+      "start": 13.2,
+      "dur": 2.4,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "어떤 증상에 효과적인지 잘 보이게 강조해줘!",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 1.8,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut12",
+      "start": 15.6,
+      "dur": 1.4,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "line",
+          "x": 0,
+          "y": 540,
+          "w": 1920,
+          "h": 540,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "line",
+          "x": 960,
+          "y": 0,
+          "w": 960,
+          "h": 1080,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "500 밀리그램",
+          "color": "#E4002B",
+          "size": 80,
+          "x": 960,
+          "y": 300,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                960,
+                200
+              ],
+              "to": [
+                960,
+                300
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "아세트아미노펜",
+          "color": "#333333",
+          "size": 40,
+          "x": 960,
+          "y": 450,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                960,
+                350
+              ],
+              "to": [
+                960,
+                450
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "두통·발열·근육통",
+          "color": "#333333",
+          "size": 50,
+          "x": 960,
+          "y": 600,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.8,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "월경통·관절통·치통",
+          "color": "#333333",
+          "size": 50,
+          "x": 960,
+          "y": 700,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.6,
+              "t1": 1.0,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut13",
+      "start": 17.0,
+      "dur": 3.0,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "line",
+          "x": 0,
+          "y": 540,
+          "w": 1920,
+          "h": 540,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "line",
+          "x": 960,
+          "y": 0,
+          "w": 960,
+          "h": 1080,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "8시간 이알서방정",
+          "color": "#E4002B",
+          "size": 80,
+          "x": 960,
+          "y": 300,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                960,
+                200
+              ],
+              "to": [
+                960,
+                300
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "근육통, 허리통증, 관절통",
+          "color": "#333333",
+          "size": 50,
+          "x": 960,
+          "y": 700,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.5,
+              "t1": 1.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "아세트아미노펜 650mg",
+          "color": "#E4002B",
+          "size": 40,
+          "x": 960,
+          "y": 450,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                960,
+                350
+              ],
+              "to": [
+                960,
+                450
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut14",
+      "start": 20.0,
+      "dur": 3.0,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "line",
+          "x": 0,
+          "y": 540,
+          "w": 1920,
+          "h": 540,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "line",
+          "x": 960,
+          "y": 0,
+          "w": 960,
+          "h": 1080,
+          "color": "#DDDDDD",
+          "size": 1,
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "우먼스",
+          "color": "#7B4397",
+          "size": 80,
+          "x": 960,
+          "y": 300,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                960,
+                200
+              ],
+              "to": [
+                960,
+                300
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "월경 전 긴장증",
+          "color": "#333333",
+          "size": 50,
+          "x": 960,
+          "y": 600,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.5,
+              "t1": 1.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "생리통·부종·경련",
+          "color": "#333333",
+          "size": 50,
+          "x": 960,
+          "y": 700,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.7,
+              "t1": 1.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "아세트아미노펜 500mg+파마브롬 25mg",
+          "color": "#E4002B",
+          "size": 40,
+          "x": 960,
+          "y": 450,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                960,
+                350
+              ],
+              "to": [
+                960,
+                450
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut15",
+      "start": 23.0,
+      "dur": 1.3,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "음..",
+          "color": "#333333",
+          "size": 40,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut16",
+      "start": 24.3,
+      "dur": 1.4,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "타이레놀 제품이 다양하니까",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 1.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut17",
+      "start": 25.7,
+      "dur": 2.4,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "서로 구별하기 쉽게 해주는 건 어때",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 1.8,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut18",
+      "start": 28.1,
+      "dur": 1.9,
+      "bg": "#000000",
+      "layers": [
+        {
+          "type": "rrect",
+          "w": 400,
+          "h": 200,
+          "x": 700,
+          "y": 400,
+          "round": 5,
+          "color": "#E4002B",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "TYLENOL RED",
+          "color": "#FFFFFF",
+          "size": 24,
+          "x": 700,
+          "y": 360,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "#E4002B",
+          "color": "#FFFFFF",
+          "size": 20,
+          "x": 700,
+          "y": 440,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 400,
+          "h": 200,
+          "x": 1220,
+          "y": 400,
+          "round": 5,
+          "color": "#FEDD00",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "GOLDEN YELLOW",
+          "color": "#333333",
+          "size": 24,
+          "x": 1220,
+          "y": 360,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "#FEDD00",
+          "color": "#333333",
+          "size": 20,
+          "x": 1220,
+          "y": 440,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.7,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut19",
+      "start": 30.0,
+      "dur": 1.0,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "text",
+          "text": "TYLENOL GUIDE",
+          "color": "#333333",
+          "size": 24,
+          "x": 100,
+          "y": 100,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 100,
+          "h": 100,
+          "x": 400,
+          "y": 400,
+          "round": 5,
+          "color": "#E4002B",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 100,
+          "h": 100,
+          "x": 550,
+          "y": 400,
+          "round": 5,
+          "color": "#FEDD00",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 100,
+          "h": 100,
+          "x": 700,
+          "y": 400,
+          "round": 5,
+          "color": "#7B4397",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 100,
+          "h": 100,
+          "x": 850,
+          "y": 400,
+          "round": 5,
+          "color": "#FFB6C1",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.6,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 100,
+          "h": 100,
+          "x": 1000,
+          "y": 400,
+          "round": 5,
+          "color": "#FFD1D7",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.5,
+              "t1": 0.7,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 100,
+          "h": 100,
+          "x": 1150,
+          "y": 400,
+          "round": 5,
+          "color": "#FFFFFF",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.6,
+              "t1": 0.8,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "w": 100,
+          "h": 100,
+          "x": 1300,
+          "y": 400,
+          "round": 5,
+          "color": "#76D7EA",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.7,
+              "t1": 0.9,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut20",
+      "start": 31.0,
+      "dur": 1.4,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "멋진데!",
+          "color": "#333333",
+          "size": 40,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut21",
+      "start": 32.4,
+      "dur": 1.6,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "어떤 타이레놀 제품",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 1.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut22",
+      "start": 34.0,
+      "dur": 1.8,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "모든 각도에서 잘 드러나도록 해줘",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 1.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut23",
+      "start": 35.8,
+      "dur": 2.2,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#76D7EA",
+          "w": 960,
+          "h": 1080,
+          "x": 480,
+          "y": 540,
+          "round": 0,
+          "z": -1,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                100
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_cold",
+          "w": 700,
+          "h": 700,
+          "x": 480,
+          "y": 600,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#FEDD00",
+          "w": 960,
+          "h": 1080,
+          "x": 1440,
+          "y": 540,
+          "round": 0,
+          "z": -1,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                100
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_er",
+          "w": 700,
+          "h": 700,
+          "x": 1440,
+          "y": 600,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "콜드-에스정",
+          "color": "#E4002B",
+          "size": 40,
+          "x": 480,
+          "y": 200,
+          "align": "center",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "8시간 이알서방정",
+          "color": "#E4002B",
+          "size": 40,
+          "x": 1440,
+          "y": 200,
+          "align": "center",
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut24",
+      "start": 38.0,
+      "dur": 0.8,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 960,
+          "h": 1080,
+          "x": 480,
+          "y": 540,
+          "round": 0,
+          "z": -1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_500mg",
+          "w": 700,
+          "h": 700,
+          "x": 480,
+          "y": 600,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#7B4397",
+          "w": 960,
+          "h": 1080,
+          "x": 1440,
+          "y": 540,
+          "round": 0,
+          "z": -1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_womens",
+          "w": 700,
+          "h": 700,
+          "x": 1440,
+          "y": 600,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "500 밀리그램",
+          "color": "#FFFFFF",
+          "size": 40,
+          "x": 480,
+          "y": 200,
+          "align": "center",
+          "z": 0
+        },
+        {
+          "type": "text",
+          "text": "우먼스",
+          "color": "#FFFFFF",
+          "size": 40,
+          "x": 1440,
+          "y": 200,
+          "align": "center",
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut25",
+      "start": 38.8,
+      "dur": 2.0,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "그래! 복용법도 알기 쉽게 넣어줘",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 1.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut26",
+      "start": 40.8,
+      "dur": 2.1,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#76D7EA",
+          "w": 960,
+          "h": 1080,
+          "x": 1440,
+          "y": 540,
+          "round": 0,
+          "z": -1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#FDD85F",
+          "w": 300,
+          "h": 80,
+          "x": 1440,
+          "y": 400,
+          "round": 40,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "TYLENOL",
+          "color": "#333333",
+          "size": 28,
+          "x": 1440,
+          "y": 400,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.7,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "1회 1정",
+          "color": "#FFFFFF",
+          "size": 60,
+          "x": 1440,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.6,
+              "t1": 0.9,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut27",
+      "start": 42.9,
+      "dur": 2.1,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 10,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "TYLENOL",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "x": 960,
+          "y": 590,
+          "w": 960,
+          "h": 800,
+          "color": "#FFFFFF",
+          "size": 30,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                100,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.5,
+              "t1": 0.8,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "달콤한 베리향",
+          "color": "#333333",
+          "size": 24,
+          "x": 960,
+          "y": 400,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut28",
+      "start": 45.0,
+      "dur": 1.4,
+      "bg": "#FFFFFF",
+      "layers": [
+        {
+          "type": "image",
+          "asset": "pkg_500mg",
+          "w": 300,
+          "h": 400,
+          "x": 500,
+          "y": 540,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                400,
+                540
+              ],
+              "to": [
+                500,
+                540
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 20,
+          "h": 20,
+          "x": 300,
+          "y": 400,
+          "round": 5,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "물 없이 바로 복용",
+          "color": "#E4002B",
+          "size": 30,
+          "x": 500,
+          "y": 350,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 400,
+          "x": 1420,
+          "y": 540,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                1520,
+                540
+              ],
+              "to": [
+                1420,
+                540
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 20,
+          "h": 20,
+          "x": 1220,
+          "y": 400,
+          "round": 5,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "물 없이 바로 복용",
+          "color": "#E4002B",
+          "size": 30,
+          "x": 1420,
+          "y": 350,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.6,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut29",
+      "start": 46.4,
+      "dur": 2.6,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "image",
+          "asset": "character_clip",
+          "w": 300,
+          "h": 400,
+          "x": 960,
+          "y": 540,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.4,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "새로워진 일러스트",
+          "color": "#E4002B",
+          "size": 30,
+          "x": 1400,
+          "y": 800,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.6,
+              "t1": 0.9,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 600,
+          "x": 960,
+          "y": 540,
+          "z": -1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.7,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "어린이 타이레놀 현탁액",
+          "color": "#FFFFFF",
+          "size": 24,
+          "x": 960,
+          "y": 200,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.5,
+              "t1": 0.8,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut30",
+      "start": 49.0,
+      "dur": 5.0,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 1200,
+          "h": 100,
+          "x": 960,
+          "y": 540,
+          "round": 28,
+          "size": 2,
+          "stroke": "#E0E0E0",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "타이레놀 제품 전체의 통일감과 제품별 특징이 명확한지 최종 확인하고 싶어",
+          "color": "#333333",
+          "size": 40,
+          "x": 420,
+          "y": 540,
+          "align": "left",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 4.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 340,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 390,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        },
+        {
+          "type": "rrect",
+          "color": "#E0E0E0",
+          "w": 40,
+          "h": 40,
+          "x": 440,
+          "y": 540,
+          "round": 10,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut31",
+      "start": 54.0,
+      "dur": 1.0,
+      "bg": "#F8F8F8",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 400,
+          "h": 50,
+          "x": 760,
+          "y": 540,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                100
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 50,
+          "h": 200,
+          "x": 585,
+          "y": 540,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                100,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut32",
+      "start": 55.0,
+      "dur": 1.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "rrect",
+          "color": "#FEDD00",
+          "w": 200,
+          "h": 100,
+          "x": 300,
+          "y": 200,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#76D7EA",
+          "w": 200,
+          "h": 100,
+          "x": 600,
+          "y": 200,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#7B4397",
+          "w": 200,
+          "h": 100,
+          "x": 900,
+          "y": 200,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#E4002B",
+          "w": 200,
+          "h": 100,
+          "x": 300,
+          "y": 500,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#FFFFFF",
+          "w": 200,
+          "h": 100,
+          "x": 600,
+          "y": 500,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.7,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "rrect",
+          "color": "#FFB6C1",
+          "w": 200,
+          "h": 100,
+          "x": 900,
+          "y": 500,
+          "round": 0,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.5,
+              "t1": 0.8,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "TYLENOL",
+          "color": "#FFFFFF",
+          "size": 50,
+          "x": 100,
+          "y": 900,
+          "align": "left",
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut33",
+      "start": 56.0,
+      "dur": 2.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "image",
+          "asset": "pkg_er",
+          "w": 300,
+          "h": 300,
+          "x": 300,
+          "y": 200,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_cold",
+          "w": 300,
+          "h": 300,
+          "x": 600,
+          "y": 200,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.1,
+              "t1": 0.4,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_womens",
+          "w": 300,
+          "h": 300,
+          "x": 900,
+          "y": 200,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_500mg",
+          "w": 300,
+          "h": 300,
+          "x": 300,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.3,
+              "t1": 0.6,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 300,
+          "x": 600,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.7,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 300,
+          "x": 900,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.5,
+              "t1": 0.8,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 300,
+          "x": 1200,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.6,
+              "t1": 0.9,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "TYLENOL",
+          "color": "#FFFFFF",
+          "size": 50,
+          "x": 100,
+          "y": 900,
+          "align": "left",
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut34",
+      "start": 58.0,
+      "dur": 4.8,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 320,
+          "y": 180,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 960,
+          "y": 180,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 1600,
+          "y": 180,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 320,
+          "y": 540,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 960,
+          "y": 540,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 1600,
+          "y": 540,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 320,
+          "y": 900,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 960,
+          "y": 900,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "live",
+          "asset": "live_clip",
+          "w": 600,
+          "h": 320,
+          "x": 1600,
+          "y": 900,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_500mg",
+          "w": 200,
+          "h": 200,
+          "x": 1600,
+          "y": 180,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                1700,
+                180
+              ],
+              "to": [
+                1600,
+                180
+              ],
+              "t0": 0.5,
+              "t1": 0.8,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "#두통",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 1600,
+          "y": 300,
+          "align": "center",
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.6,
+              "t1": 0.9,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_er",
+          "w": 200,
+          "h": 200,
+          "x": 1600,
+          "y": 540,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                1700,
+                540
+              ],
+              "to": [
+                1600,
+                540
+              ],
+              "t0": 1.0,
+              "t1": 1.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "#기침 #인후통",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 1600,
+          "y": 660,
+          "align": "center",
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 1.1,
+              "t1": 1.4,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_cold",
+          "w": 200,
+          "h": 200,
+          "x": 1600,
+          "y": 900,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                1700,
+                900
+              ],
+              "to": [
+                1600,
+                900
+              ],
+              "t0": 1.5,
+              "t1": 1.8,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "#다양한통증",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 1600,
+          "y": 1020,
+          "align": "center",
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 1.6,
+              "t1": 1.9,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_womens",
+          "w": 200,
+          "h": 200,
+          "x": 320,
+          "y": 900,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                220,
+                900
+              ],
+              "to": [
+                320,
+                900
+              ],
+              "t0": 2.0,
+              "t1": 2.3,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "#생리통",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 320,
+          "y": 1020,
+          "align": "center",
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 2.1,
+              "t1": 2.4,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 200,
+          "h": 200,
+          "x": 960,
+          "y": 900,
+          "z": 1,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                860,
+                900
+              ],
+              "to": [
+                960,
+                900
+              ],
+              "t0": 2.5,
+              "t1": 2.8,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "#어린이해열",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 960,
+          "y": 1020,
+          "align": "center",
+          "z": 1,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 2.6,
+              "t1": 2.9,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut35",
+      "start": 62.8,
+      "dur": 1.4,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "image",
+          "asset": "pkg_er",
+          "w": 300,
+          "h": 300,
+          "x": 300,
+          "y": 200,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_cold",
+          "w": 300,
+          "h": 300,
+          "x": 600,
+          "y": 200,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_womens",
+          "w": 300,
+          "h": 300,
+          "x": 900,
+          "y": 200,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_500mg",
+          "w": 300,
+          "h": 300,
+          "x": 300,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 300,
+          "x": 600,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 300,
+          "x": 900,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 300,
+          "h": 300,
+          "x": 1200,
+          "y": 500,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "TYLENOL",
+          "color": "#FFFFFF",
+          "size": 50,
+          "x": 100,
+          "y": 900,
+          "align": "left",
+          "z": 0
+        }
+      ]
+    },
+    {
+      "id": "cut36",
+      "start": 64.2,
+      "dur": 4.3,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "image",
+          "asset": "pkg_er",
+          "w": 200,
+          "h": 200,
+          "x": 300,
+          "y": 800,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                300,
+                200
+              ],
+              "to": [
+                300,
+                800
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            },
+            {
+              "prop": "scale",
+              "from": [
+                100
+              ],
+              "to": [
+                67
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_cold",
+          "w": 200,
+          "h": 200,
+          "x": 500,
+          "y": 800,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                600,
+                200
+              ],
+              "to": [
+                500,
+                800
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            },
+            {
+              "prop": "scale",
+              "from": [
+                100
+              ],
+              "to": [
+                67
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_womens",
+          "w": 200,
+          "h": 200,
+          "x": 700,
+          "y": 800,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                900,
+                200
+              ],
+              "to": [
+                700,
+                800
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            },
+            {
+              "prop": "scale",
+              "from": [
+                100
+              ],
+              "to": [
+                67
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_500mg",
+          "w": 200,
+          "h": 200,
+          "x": 900,
+          "y": 800,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                300,
+                500
+              ],
+              "to": [
+                900,
+                800
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            },
+            {
+              "prop": "scale",
+              "from": [
+                100
+              ],
+              "to": [
+                67
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 200,
+          "h": 200,
+          "x": 1100,
+          "y": 800,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                600,
+                500
+              ],
+              "to": [
+                1100,
+                800
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            },
+            {
+              "prop": "scale",
+              "from": [
+                100
+              ],
+              "to": [
+                67
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 200,
+          "h": 200,
+          "x": 1300,
+          "y": 800,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                900,
+                500
+              ],
+              "to": [
+                1300,
+                800
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            },
+            {
+              "prop": "scale",
+              "from": [
+                100
+              ],
+              "to": [
+                67
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "asset": "pkg_kids",
+          "w": 200,
+          "h": 200,
+          "x": 1500,
+          "y": 800,
+          "z": 0,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                1200,
+                500
+              ],
+              "to": [
+                1500,
+                800
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            },
+            {
+              "prop": "scale",
+              "from": [
+                100
+              ],
+              "to": [
+                67
+              ],
+              "t0": 0.0,
+              "t1": 0.5,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "다양한 통증에 그 누구든,",
+          "color": "#FFFFFF",
+          "size": 60,
+          "x": 960,
+          "y": 400,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.5,
+              "t1": 2.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "70년 케어를 변함없이",
+          "color": "#FFFFFF",
+          "size": 60,
+          "x": 960,
+          "y": 500,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 2.0,
+              "t1": 3.5,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut37",
+      "start": 68.5,
+      "dur": 1.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "70",
+          "color": "#FFFFFF",
+          "size": 200,
+          "x": 960,
+          "y": 450,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0,
+                0
+              ],
+              "to": [
+                100,
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "ANNIVERSARY",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 960,
+          "y": 550,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.2,
+              "t1": 0.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "새로워진",
+          "color": "#FFFFFF",
+          "size": 60,
+          "x": 960,
+          "y": 650,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.4,
+              "t1": 0.7,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut38",
+      "start": 69.5,
+      "dur": 1.5,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "TYLENOL",
+          "color": "#FFFFFF",
+          "size": 100,
+          "x": 960,
+          "y": 540,
+          "align": "center",
+          "z": 0,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                100
+              ],
+              "t0": 0.0,
+              "t1": 0.3,
+              "ease": "out"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
