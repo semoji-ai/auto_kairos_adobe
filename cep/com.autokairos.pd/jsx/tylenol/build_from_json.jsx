@@ -11,6 +11,22 @@ function akBuildFromJson() {
         if (!jf.exists) return "ERROR: motion.json 없음";
         jf.open("r"); var raw = jf.read(); jf.close();
         var D = (typeof JSON === "object" && JSON.parse) ? JSON.parse(raw) : eval("(" + raw + ")");
+        function loadJson(name) {
+            var f = new File(here.fsName + "/" + name);
+            if (!f.exists) return {};
+            f.open("r"); var t = f.read(); f.close();
+            try { return (typeof JSON === "object" && JSON.parse) ? JSON.parse(t) : eval("(" + t + ")"); }
+            catch (e) { return {}; }
+        }
+        var PRESETS = (loadJson("motion_presets.json").presets) || {};
+        var FONTMAP = loadJson("font_map.json");
+        var COLORS = loadJson("color_tokens.json");
+        function resolveFont(role) { return FONTMAP[role] || role || FONTMAP.fallback || "AppleSDGothicNeo-Bold"; }
+        function resolveColor(key) {
+            if (!key) return null;
+            var v = (key.charAt(0) === "#") ? key : COLORS[key];
+            return v ? hex(v) : null;
+        }
         var W = (D.comp && D.comp.w) || 1920, H = (D.comp && D.comp.h) || 1080, FPS = (D.comp && D.comp.fps) || 30;
         var proj = app.project || app.newProject();
         app.beginUndoGroup("TYL Build from JSON");

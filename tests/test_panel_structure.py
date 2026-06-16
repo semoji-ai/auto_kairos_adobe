@@ -592,3 +592,10 @@ def test_kinetic_typo_animator():
     # Offset 0→100(등장) — -100→0(퇴장) 역방향 금지
     assert "setValueAtTime(t0, 0)" in jsx and "setValueAtTime(t0 + dur, 100)" in jsx
     assert 'setValue(3)' in jsx                         # word_stagger Units=Words(3)
+
+
+def test_builder_loads_motion_lib():
+    """빌더가 motion_presets/font_map/color_tokens 로드 + resolve 함수."""
+    jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
+    assert "motion_presets.json" in jsx and "font_map.json" in jsx and "color_tokens.json" in jsx
+    assert "function resolveFont" in jsx and "function resolveColor" in jsx
