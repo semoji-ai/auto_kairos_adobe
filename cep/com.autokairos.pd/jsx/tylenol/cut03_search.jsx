@@ -99,6 +99,37 @@ function akTylenolSearch() {
         typeAnim(t1, 0.35, 0.4);          // "타이레놀" 먼저
         typeAnim(t2, 0.75, 1.3);          // 나머지 이어서
 
+        // (4) Drop Shadow — 검색창/아이콘/버튼에 부드러운 그림자(UI 입체감)
+        function dropShadow(layer, opacity, dist, soft) {
+            try {
+                var ds = layer.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");
+                ds.property("ADBE Drop Shadow-0001").setValue([0, 0, 0]);       // 색
+                ds.property("ADBE Drop Shadow-0002").setValue(opacity);          // 불투명도(0~255)
+                ds.property("ADBE Drop Shadow-0003").setValue(135);              // 방향
+                ds.property("ADBE Drop Shadow-0004").setValue(dist);             // 거리
+                ds.property("ADBE Drop Shadow-0005").setValue(soft);             // 부드러움
+            } catch (e) {}
+        }
+        dropShadow(bar, 38, 16, 50);                                            // 검색창 — 넓고 부드러운 그림자
+        for (var di = 0; di < slideGrp.length; di++) {
+            if (slideGrp[di] !== bar) dropShadow(slideGrp[di], 28, 6, 16);
+        }
+
+        // (5) 그레인 — 조정 레이어 전체에 필름 질감(약하게)
+        var grain = comp.layers.addSolid([1, 1, 1], "grain", W, H, 1.0);
+        grain.adjustmentLayer = true;
+        try {
+            var ag = grain.property("ADBE Effect Parade").addProperty("ADBE Add Grain");
+            ag.property("ADBE AddGrain-0002").setValue(0.4);                     // Intensity(약하게)
+            ag.property("ADBE AddGrain-0003").setValue(0.6);                     // Size
+        } catch (eg) {
+            try {                                                               // Add Grain 없으면 Noise 폴백
+                var nz = grain.property("ADBE Effect Parade").addProperty("ADBE Noise2");
+                nz.property("ADBE Noise2-0001").setValue(6);                     // Amount
+                grain.property("Opacity").setValue(40);
+            } catch (eN) {}
+        }
+
         comp.openInViewer();
         app.endUndoGroup();
         return "OK: TYL_03_Search (검색창 UI 재현)";
