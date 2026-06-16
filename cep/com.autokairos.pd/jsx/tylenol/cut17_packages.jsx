@@ -22,13 +22,13 @@ function akTylenolPackages() {
         var gst = gc.addProperty("ADBE Vector Graphic - Stroke"); gst.property("Color").setValue([0.90, 0.90, 0.92]); gst.property("Stroke Width").setValue(1);
         grid.property("Opacity").setValue(55);
 
-        // (2) 4 패키지 — 2.5D(3D 레이어 + Y축 약간 기울임), 각기 다른 방향 슬라이드인
-        // gemini: 좌상=좌측에서, 우상=우측에서, 좌하=좌측에서, 우하=우측에서
+        // (2) 4 패키지 — 3D 레이어 + Z축 깊이 분리(입체 쇼케이스). 각기 다른 방향 슬라이드인.
+        // 깊이: 앞(Z 음수)일수록 카메라에 가까워 크고, 카메라 횡이동 시 더 많이 움직임(패럴랙스).
         var items = [
-            { f: "assets/pkg_cold.png", gx: W * 0.30, gy: H * 0.34, from: "left", tilt: -12 },
-            { f: "assets/pkg_er.png", gx: W * 0.70, gy: H * 0.34, from: "right", tilt: 12 },
-            { f: "assets/pkg_500mg.png", gx: W * 0.30, gy: H * 0.66, from: "left", tilt: -8 },
-            { f: "assets/pkg_womens.png", gx: W * 0.70, gy: H * 0.66, from: "right", tilt: 8 }
+            { f: "assets/pkg_cold.png", gx: W * 0.30, gy: H * 0.34, from: "left", z: -140, tilt: -8 },
+            { f: "assets/pkg_er.png", gx: W * 0.70, gy: H * 0.34, from: "right", z: 120, tilt: 8 },
+            { f: "assets/pkg_500mg.png", gx: W * 0.30, gy: H * 0.66, from: "left", z: 60, tilt: -6 },
+            { f: "assets/pkg_womens.png", gx: W * 0.70, gy: H * 0.66, from: "right", z: -80, tilt: 6 }
         ];
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
@@ -36,30 +36,39 @@ function akTylenolPackages() {
             if (!ff.exists) continue;
             var item = proj.importFile(new ImportOptions(ff));
             var pkg = comp.layers.add(item);
-            pkg.threeDLayer = true;                                  // 3D 레이어
-            var s = (W * 0.26 / item.width) * 100;                   // 화면 26% 폭
+            pkg.threeDLayer = true;
+            var s = (W * 0.24 / item.width) * 100;
             var tg = pkg.property("ADBE Transform Group");
             tg.property("ADBE Scale").setValue([s, s, s]);
-            tg.property("ADBE Rotate Y").setValue(it.tilt);          // 2.5D 기울임(Y축)
-            var t0 = 0.1 + i * 0.18, t1 = t0 + 0.5;                  // 스태거 슬라이드인
+            tg.property("ADBE Rotate Y").setValue(it.tilt);          // 살짝 기울임(원근으로 입체)
+            var t0 = 0.1 + i * 0.18, t1 = t0 + 0.45, t2 = t0 + 0.6;  // 슬라이드인 + 오버슈트 정착
             var pos = tg.property("ADBE Position");
-            var offx = it.from === "left" ? -W * 0.4 : W * 0.4;
-            pos.setValueAtTime(t0, [it.gx + offx, it.gy, 0]);
-            pos.setValueAtTime(t1, [it.gx, it.gy, 0]);
-            try { pos.setTemporalEaseAtKey(2, [new KeyframeEase(0, 80), new KeyframeEase(0, 80), new KeyframeEase(0, 80)]); } catch (e) {}
-            var op = tg.property("ADBE Opacity"); op.setValueAtTime(t0, 0); op.setValueAtTime(t0 + 0.2, 100);
+            var offx = it.from === "left" ? -W * 0.45 : W * 0.45;
+            var over = it.from === "left" ? 18 : -18;                // 목표 살짝 넘었다 정착(생동감)
+            pos.setValueAtTime(t0, [it.gx + offx, it.gy, it.z]);
+            pos.setValueAtTime(t1, [it.gx + over, it.gy, it.z]);
+            pos.setValueAtTime(t2, [it.gx, it.gy, it.z]);
+            try { pos.setTemporalEaseAtKey(2, [new KeyframeEase(0, 85), new KeyframeEase(0, 85), new KeyframeEase(0, 85)]); } catch (e) {}
+            var op = tg.property("ADBE Opacity"); op.setValueAtTime(t0, 0); op.setValueAtTime(t0 + 0.18, 100);
             pkg.motionBlur = true;
-            // 패키지 그림자(Drop Shadow) — 2.5D 입체감
             try {
                 var ds = pkg.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");
-                ds.property("ADBE Drop Shadow-0002").setValue(60);   // opacity
-                ds.property("ADBE Drop Shadow-0004").setValue(28);   // distance
-                ds.property("ADBE Drop Shadow-0005").setValue(60);   // softness
+                ds.property("ADBE Drop Shadow-0002").setValue(70);
+                ds.property("ADBE Drop Shadow-0004").setValue(30);
+                ds.property("ADBE Drop Shadow-0005").setValue(70);
             } catch (eD) {}
         }
 
-        // (3) 카메라 없음 — 원본은 평면 UI(gemini: 전 컷 "카메라/줌 없음").
-        //     2.5D 깊이는 레이어 Y 기울임 + Drop Shadow로만 표현(잘림·왜곡 없음).
+        // (3) 목적 있는 카메라 — 제품군 입체 쇼케이스(패럴랙스).
+        //  잘림 방지: 기본 Z 거리(Z=0 레이어 1:1) 유지, X만 미세 횡이동 → 깊이별 패키지가
+        //  다르게 움직여 입체감이 드러난다. 무브 작게(±36px).
+        var cam = comp.layers.addCamera("cam", [W / 2, H / 2]);
+        var cpos = cam.property("ADBE Transform Group").property("ADBE Position").value;   // 기본 거리 보존
+        var cp = cam.property("ADBE Transform Group").property("ADBE Position");
+        cp.setValueAtTime(0, [W / 2 - 36, H / 2, cpos[2]]);
+        cp.setValueAtTime(DUR, [W / 2 + 36, H / 2, cpos[2]]);
+        try { cp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 40), new KeyframeEase(0, 40), new KeyframeEase(0, 40)]);
+              cp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 40), new KeyframeEase(0, 40), new KeyframeEase(0, 40)]); } catch (e) {}
 
         // (4) 그레인 — 조정 레이어
         var grain = comp.layers.addSolid([1, 1, 1], "grain", W, H, 1.0);
