@@ -129,7 +129,9 @@ function akBuildFromJson() {
             comp.motionBlur = true;
             comp.layers.addSolid(hex(cut.bg || "#FFFFFF"), "bg", W, H, 1.0);
             var layers = cut.layers || [];
-            for (var li = layers.length - 1; li >= 0; li--) {     // 뒤 배열이 위로 — 순서 보존
+            // 정순: layers[0]=배경(먼저 add=아래), 뒤일수록 전경(위). AE는 나중 add가 위라
+            //  정순으로 add해야 text(전경)가 rrect(배경) 위에 보임.
+            for (var li = 0; li < layers.length; li++) {
                 var L = layers[li], lay = null, isText = false;
                 try {
                     if (L.type === "text") { lay = makeText(comp, L); isText = true; }
