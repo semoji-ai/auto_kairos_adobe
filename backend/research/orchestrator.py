@@ -1,5 +1,5 @@
 """리서치 오케스트레이션 — 브리프→쿼리→레인(P1)+웹 fan-out→종합 research_report.
-run_research는 Task 4. 여기는 유틸·상수."""
+run_research가 지휘, 나머지는 유틸·종합 헬퍼. 런타임 v3 의존 없음."""
 from __future__ import annotations
 
 import json
@@ -139,7 +139,8 @@ def run_research(proj_dir, *, max_workers: int = 3, on_event=None) -> dict:
         json.dumps(digest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     if report is None:                       # 종합 실패 → digest-only 폴백 리포트
-        report = {"topic": brief.get("real_topic", ""), "queries": [q["query"] for q in queries],
+        report = {"topic": brief.get("real_topic") or brief.get("core_question") or "",
+                  "queries": [q["query"] for q in queries],
                   "sources": sources, "web_findings": [], "digest": digest}
         if on_event:
             on_event("종합 실패 — digest 기반 최소 리포트")
