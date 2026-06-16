@@ -57,3 +57,21 @@ def test_merge_known_props_only():
     from scripts.motion_learn import merge_presets
     assert merge_presets.is_builder_supported({"props": ["opacity", "scale"]})
     assert not merge_presets.is_builder_supported({"props": ["particles"]})
+
+
+def test_analyze_splits_output(tmp_path, monkeypatch):
+    """gemini 응답(JSON)을 motion.json + new_presets.json으로 분리 저장."""
+    from scripts.motion_learn import analyze, state
+    refs = tmp_path / "refs"; ref = refs / "slug1"; ref.mkdir(parents=True)
+    (refs / "slug1.mp4").write_bytes(b"x")
+    state.set_stage(ref, "collected", {"url": "u"})
+    lib = tmp_path / "motion_presets.json"
+    lib.write_text(json.dumps({"presets": {"fade_scale_in": {}}}), encoding="utf-8")
+    fake = {"cuts": [{"type": "cut", "start": 0, "dur": 1, "layers": []}],
+            "new_presets": [{"name": "wipe_in", "props": ["trimEnd"], "ease": "easeInOut"}]}
+    monkeypatch.setattr(analyze, "_gemini_analyze", lambda mp4, lib_keys: fake)
+    res = analyze.analyze("slug1", refs, lib)
+    assert json.loads((ref / "motion.json").read_text())["cuts"][0]["dur"] == 1
+    assert json.loads((ref / "new_presets.json").read_text())[0]["name"] == "wipe_in"
+    assert state.get_state(ref)["stage"] == "analyzed"
+    assert res["new_preset_count"] == 1
