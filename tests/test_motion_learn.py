@@ -174,3 +174,40 @@ def test_verify_commands():
     assert build_ae_command("/AE", "/x/verify.jsx") == ["/AE", "-r", "/x/verify.jsx"]
     assert build_ffmpeg_command("a.mov", "b.mp4")[:3] == ["ffmpeg", "-y", "-i"]
     assert build_ffmpeg_command("a.mov", "b.mp4")[-1] == "b.mp4"
+
+
+def test_verify_orchestration(tmp_path, monkeypatch):
+    import subprocess
+    from scripts.motion_learn import verify as V, gemini_client, state
+    refs = tmp_path / "refs"; ref = refs / "s1"; ref.mkdir(parents=True)
+    (refs / "s1.mp4").write_bytes(b"orig")
+    (ref / "motion.json").write_text(json.dumps({"cuts": [{"layers": [{"anim": [{"preset": "fade_scale_in"}]}]}]}), encoding="utf-8")
+    lib = tmp_path / "motion_presets.json"
+    lib.write_text(json.dumps({"presets": {"fade_scale_in": {}}}), encoding="utf-8")
+
+    # AE/ffmpeg subprocess 모킹: 호출되면 출력 파일 생성
+    def fake_run(cmd, **kw):
+        cmd = [str(a) for a in cmd]
+        if "-r" in cmd:                      # AE 헤드리스 렌더 호출 → env 경로에 mov 생성
+            p = (kw.get("env") or {}).get("AK_VERIFY_OUT")
+            if p:
+                open(p, "wb").write(b"mov")
+        elif cmd and cmd[0] == "ffmpeg":     # ffmpeg 변환 호출 → 마지막 인자(mp4) 생성
+            open(cmd[-1], "wb").write(b"mp4")
+        return subprocess.CompletedProcess(cmd, 0)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(gemini_client, "compare_videos",
+                        lambda a, b, prompt, **kw: {"score": 80, "diffs": [], "summary": "good"})
+
+    out = V.verify("s1", refs, lib, threshold=75)
+    assert out["passed"] is True and out["score"] == 80
+    assert (ref / "verify" / "verdict.json").is_file()
+    assert state.get_state(ref)["stage"] == "verified"
+
+
+def test_verify_missing_inputs(tmp_path):
+    from scripts.motion_learn import verify as V
+    refs = tmp_path / "refs"; (refs / "s2").mkdir(parents=True)
+    lib = tmp_path / "lib.json"; lib.write_text('{"presets":{}}', encoding="utf-8")
+    out = V.verify("s2", refs, lib)
+    assert "error" in out
