@@ -139,3 +139,38 @@ def test_gemini_client_analyze_video(monkeypatch):
                         lambda client, contents, models=None: {"cuts": [], "contents_len": len(contents)})
     out = gc.analyze_video("v.mp4", "PROMPT")
     assert out["contents_len"] == 2  # [file, prompt]
+
+
+def test_verify_structural_check():
+    from scripts.motion_learn.verify import structural_check
+    lib = {"presets": {"fade_scale_in": {}, "slide_in": {}}}
+    motion_ok = {"cuts": [{"layers": [{"anim": [{"preset": "fade_scale_in"}]}]}]}
+    r = structural_check(motion_ok, lib)
+    assert r["pass"] is True and r["cut_count"] == 1 and r["issues"] == []
+    motion_bad = {"cuts": [{"layers": [{"anim": [{"preset": "nope"}]}]}]}
+    r2 = structural_check(motion_bad, lib)
+    assert r2["pass"] is False and any("nope" in i for i in r2["issues"])
+    r3 = structural_check({"cuts": []}, lib)
+    assert r3["pass"] is False
+
+
+def test_verify_passes_gate():
+    from scripts.motion_learn.verify import passes_gate
+    assert passes_gate(True, 80, 75) is True
+    assert passes_gate(True, 70, 75) is False
+    assert passes_gate(False, 99, 75) is False
+
+
+def test_verify_parse_verdict():
+    from scripts.motion_learn.verify import parse_verdict
+    v = parse_verdict('{"score": 82, "diffs": [{"cut": 0, "kind": "easing", "detail": "x"}], "summary": "ok"}')
+    assert v["score"] == 82 and v["diffs"][0]["kind"] == "easing" and v["summary"] == "ok"
+    v2 = parse_verdict({"score": "50"})
+    assert v2["score"] == 50 and v2["diffs"] == []
+
+
+def test_verify_commands():
+    from scripts.motion_learn.verify import build_ae_command, build_ffmpeg_command
+    assert build_ae_command("/AE", "/x/verify.jsx") == ["/AE", "-r", "/x/verify.jsx"]
+    assert build_ffmpeg_command("a.mov", "b.mp4")[:3] == ["ffmpeg", "-y", "-i"]
+    assert build_ffmpeg_command("a.mov", "b.mp4")[-1] == "b.mp4"
