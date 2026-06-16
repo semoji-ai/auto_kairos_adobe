@@ -3,7 +3,7 @@ from backend.research import web_agent
 
 
 def test_run_web_research_returns_note(tmp_path, monkeypatch):
-    def fake_run(cmd, *, input=None, capture_output=None, text=None, timeout=None, env=None):
+    def fake_run(cmd, *, input=None, cwd=None, capture_output=None, text=None, timeout=None, env=None):
         assert "--allowedTools" in cmd
         class R:
             returncode = 0
@@ -17,7 +17,7 @@ def test_run_web_research_returns_note(tmp_path, monkeypatch):
 
 def test_run_web_research_strips_nesting_env(tmp_path, monkeypatch):
     seen = {}
-    def fake_run(cmd, *, input=None, capture_output=None, text=None, timeout=None, env=None):
+    def fake_run(cmd, *, input=None, cwd=None, capture_output=None, text=None, timeout=None, env=None):
         seen["env"] = env
         class R:
             returncode = 0; stdout = "ok"; stderr = ""

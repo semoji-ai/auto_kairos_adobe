@@ -15,7 +15,7 @@ def run_web_research(cwd, prompt: str, *, on_line=None, timeout: int = 600) -> s
     cmd = [claude_bin, "-p", "--output-format", "text",
            "--allowedTools", "WebSearch,WebFetch"]
     try:
-        r = subprocess.run(cmd, input=prompt, capture_output=True,
+        r = subprocess.run(cmd, input=prompt, cwd=str(cwd), capture_output=True,
                            text=True, timeout=timeout, env=env)
     except Exception as e:  # noqa: BLE001 — 타임아웃/실행오류 모두 격리
         if on_line:
