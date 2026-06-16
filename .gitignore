@@ -48,3 +48,7 @@ projects/*/vault/
 projects/*/.vault_distill.md
 projects/*/subtitles.json
 projects/*/subtitles.srt
+
+# 타이레놀 재현 에셋(NAS 소스 복사본 — 로컬 유지)
+cep/com.autokairos.pd/jsx/tylenol/assets/
+.claude/worktrees/

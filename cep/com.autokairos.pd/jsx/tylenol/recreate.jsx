@@ -125,6 +125,78 @@ function akTylenolRecreate() {
                 box: [W * 0.8, H * 0.5], fonts: ["GyeonggiBatangR", "Cafe24Ssurround"] });
             kineticAnim(t, "word_stagger", 0.3, 1.2);
         }
+        // 에셋 import(중복 방지 캐시) — jsx 폴더 기준 상대경로
+        var _imported = {};
+        function importAsset(rel) {
+            if (_imported[rel]) return _imported[rel];
+            var f = new File(here.fsName + "/" + rel);
+            if (!f.exists) return null;
+            var it = proj.importFile(new ImportOptions(f));
+            _imported[rel] = it;
+            return it;
+        }
+        // 3D 카메라 — Z 푸시인(원본 카메라 무브 재현)
+        function addPushinCamera(comp, dur, z0, z1) {
+            var cam = comp.layers.addCamera("cam", [W / 2, H / 2]);
+            var cp = cam.property("ADBE Transform Group").property("ADBE Position");
+            cp.setValueAtTime(0, [W / 2, H / 2, z0]);
+            cp.setValueAtTime(dur, [W / 2, H / 2, z1]);
+            try {
+                cp.setTemporalEaseAtKey(1, easeXYZ(60)); cp.setTemporalEaseAtKey(2, easeXYZ(60));
+            } catch (e) {}
+            return cam;
+        }
+        function easeXYZ(v) { return [new KeyframeEase(0, v), new KeyframeEase(0, v), new KeyframeEase(0, v)]; }
+        function fitScale(item) {                                  // 패키지를 화면 60% 폭에 맞춤
+            var target = W * 0.55;
+            return (target / item.width) * 100;
+        }
+        // 패키지 3D — Y축 회전 + 카메라 푸시인(제품 입체 등장)
+        function renderPackage3d(comp, cut) {
+            var item = importAsset(cut.asset);
+            if (!item) { renderImage(comp, cut); return; }
+            var pkg = comp.layers.add(item);
+            pkg.threeDLayer = true;
+            var s = fitScale(item);
+            pkg.property("ADBE Transform Group").property("ADBE Scale").setValue([s, s, s]);
+            pkg.property("ADBE Transform Group").property("ADBE Position").setValue([W / 2, H * 0.52, 0]);
+            var ry = pkg.property("ADBE Transform Group").property("ADBE Rotate Y");
+            ry.setValueAtTime(0, -28); ry.setValueAtTime(cut.dur, 12);     // 살짝 돌며 정면
+            var op = pkg.property("ADBE Transform Group").property("ADBE Opacity");
+            op.setValueAtTime(0, 0); op.setValueAtTime(0.4, 100);
+            pkg.motionBlur = true;
+            addPushinCamera(comp, cut.dur, -1700, -1150);
+        }
+        // 라인업 3D — 패키지 여러 개 스태거 등장 + 카메라 푸시인(제품군 쇼케이스)
+        function renderLineup3d(comp, cut) {
+            var assets = cut.assets || [], n = assets.length;
+            var spread = W * 0.66, x0 = W / 2 - spread / 2, gap = n > 1 ? spread / (n - 1) : 0;
+            for (var i = 0; i < n; i++) {
+                var item = importAsset(assets[i]); if (!item) continue;
+                var pkg = comp.layers.add(item);
+                pkg.threeDLayer = true;
+                var s = (W * 0.22 / item.width) * 100;
+                pkg.property("ADBE Transform Group").property("ADBE Scale").setValue([s, s, s]);
+                pkg.property("ADBE Transform Group").property("ADBE Position").setValue([x0 + i * gap, H * 0.55, (i % 2 === 0 ? 60 : -60)]);
+                pkg.property("ADBE Transform Group").property("ADBE Rotate Y").setValue(-14 + i * 4);
+                var t0 = 0.3 + i * 0.4;                            // 스태거 등장(팝)
+                var sc = pkg.property("ADBE Transform Group").property("ADBE Scale");
+                sc.setValueAtTime(t0, [0, 0, 0]); sc.setValueAtTime(t0 + 0.3, [s * 1.08, s * 1.08, s * 1.08]); sc.setValueAtTime(t0 + 0.42, [s, s, s]);
+                pkg.motionBlur = true;
+            }
+            addPushinCamera(comp, cut.dur, -1500, -1200);
+        }
+        // 실사/캐릭터 영상 — 푸티지 + Ken Burns(슬로우 줌)
+        function renderVideo(comp, cut) {
+            var item = importAsset(cut.asset);
+            if (!item) { renderImage(comp, cut); return; }
+            var v = comp.layers.add(item);
+            var fsc = Math.max(W / item.width, H / item.height) * 100;
+            var sc = v.property("Scale");
+            sc.setValueAtTime(0, [fsc * 1.0, fsc * 1.0]); sc.setValueAtTime(cut.dur, [fsc * 1.12, fsc * 1.12]);  // 슬로우 줌인
+            v.property("Position").setValue([W / 2, H / 2]);
+            v.motionBlur = true;
+        }
         function renderImage(comp, cut) {                          // 에셋 연결 전 placeholder
             addText(comp, "[" + (cut.text || "이미지") + "]", { size: 70,
                 rgb: cut.bg === "red" ? [1, 1, 1] : col("ink"), fonts: ["OTSBAggroM"] });
@@ -146,6 +218,9 @@ function akTylenolRecreate() {
                 else if (cut.type === "metric") renderMetric(comp, cut);
                 else if (cut.type === "color_grid") renderColorGrid(comp, cut);
                 else if (cut.type === "quote") renderQuote(comp, cut);
+                else if (cut.type === "package3d") renderPackage3d(comp, cut);
+                else if (cut.type === "package_lineup3d") renderLineup3d(comp, cut);
+                else if (cut.type === "video") renderVideo(comp, cut);
                 else renderImage(comp, cut);
             } catch (eC) { log.push(cut.id + ": " + eC.toString()); }
             comps.push({ comp: comp, dur: cut.dur, t: cut.t });
