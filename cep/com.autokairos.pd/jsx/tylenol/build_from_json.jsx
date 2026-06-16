@@ -7,8 +7,9 @@
 function akBuildFromJson() {
     try {
         var here = new File($.fileName).parent;
-        var jf = new File(here.fsName + "/motion.json");
-        if (!jf.exists) return "ERROR: motion.json 없음";
+        var envMotion = $.getenv("AK_VERIFY_MOTION");
+        var jf = (envMotion && String(envMotion).length) ? new File(envMotion) : new File(here.fsName + "/motion.json");
+        if (!jf.exists) return "ERROR: motion.json 없음: " + jf.fsName;
         jf.open("r"); var raw = jf.read(); jf.close();
         var D = (typeof JSON === "object" && JSON.parse) ? JSON.parse(raw) : eval("(" + raw + ")");
         function loadJson(name) {
