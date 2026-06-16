@@ -106,10 +106,11 @@ def review_brief(proj_dir, brief_path, *, prev_path=None, on_event=None) -> dict
         return fail
     try:
         data = json.loads(out.read_text(encoding="utf-8"))
+        score = int(float(data.get("score_total") or 0))   # 숫자 아닌 값이면 except→fail
     except Exception:
         return fail
     return {
-        "score": int(data.get("score_total") or 0),
+        "score": score,
         "verdict": str(data.get("verdict") or "REVISE"),
         "spine_blocking": data.get("spine_blocking"),
         "revision_instructions": list(data.get("revision_instructions") or []),
