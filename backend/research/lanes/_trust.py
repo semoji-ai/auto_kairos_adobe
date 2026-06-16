@@ -1,4 +1,4 @@
-"""Tier 분류 — auto_agent/research/trust_tiers.json 기반."""
+"""Tier 분류 — backend/research/lanes/trust_tiers.json 기반."""
 from __future__ import annotations
 
 import json
