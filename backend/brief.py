@@ -115,3 +115,39 @@ def review_brief(proj_dir, brief_path, *, prev_path=None, on_event=None) -> dict
         "spine_blocking": data.get("spine_blocking"),
         "revision_instructions": list(data.get("revision_instructions") or []),
     }
+
+
+def run_brief_ratchet(proj_dir, *, threshold: int = 90, max_rounds: int = 3,
+                      on_event=None) -> dict:
+    """기획 brief 평가·개선 래칫. 90점↑+PASS면 잠금·종료, 미달은 REVISE로 다음 버전.
+    최대 max_rounds. 점수 단조증가(하락 버전 폐기). 미PASS면 최고점 채택(비블로킹).
+    채택본을 editorial_brief.json으로 잠금. 반환 {brief, score, verdict, rounds, history}."""
+    proj_dir = Path(proj_dir)
+    history: list[dict] = []
+    best = None                      # (path, score, verdict)
+    last_revisions = None
+
+    for n in range(1, max_rounds + 1):
+        prev_path = best[0] if best else None
+        out = generate_brief(proj_dir, version=n, prev_brief=prev_path,
+                             revisions=last_revisions, on_event=on_event)
+        if out is None:              # 생성 실패 — best 있으면 잠그고 종료, 없으면 error
+            if best:
+                break
+            return {"error": "브리프 생성 실패", "rounds": n - 1, "history": history}
+        rv = review_brief(proj_dir, out, prev_path=prev_path, on_event=on_event)
+        history.append({"version": n, "score": rv["score"], "verdict": rv["verdict"]})
+        last_revisions = rv["revision_instructions"]
+        passed = rv["score"] >= threshold and rv["verdict"] == "PASS"
+        if best is None or rv["score"] > best[1]:    # 단조증가 — 더 높을 때만 채택
+            best = (out, rv["score"], rv["verdict"])
+        if passed:
+            break
+
+    rounds = len(history)
+    locked = proj_dir / "editorial_brief.json"
+    shutil.copy(best[0], locked)     # 무삭제: v{N} 원본 보존, json은 채택본 복사
+    if on_event:
+        on_event(f"브리프 확정 — {best[1]}점 {best[2]} ({rounds}라운드)")
+    return {"brief": str(locked), "score": best[1], "verdict": best[2],
+            "rounds": rounds, "history": history}
