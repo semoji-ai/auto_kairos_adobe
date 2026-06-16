@@ -225,7 +225,7 @@ function akBuildFromJson() {
                 try {
                     if (d === "shadow") {
                         var ds = layer.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");
-                        ds.property("ADBE Drop Shadow-0002").setValue(60); ds.property("ADBE Drop Shadow-0004").setValue(20); ds.property("ADBE Drop Shadow-0005").setValue(50);
+                        ds.property("ADBE Drop Shadow-0002").setValue(55); ds.property("ADBE Drop Shadow-0004").setValue(18); ds.property("ADBE Drop Shadow-0005").setValue(120);   // 리서치: 부드러운 섀도(softness 120)가 프리미엄
                     } else if (d === "glow") {
                         layer.property("ADBE Effect Parade").addProperty("ADBE Glo2");
                     } else if (d === "depth_blur") {
