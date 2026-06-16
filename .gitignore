@@ -52,3 +52,6 @@ projects/*/subtitles.srt
 # 타이레놀 재현 에셋(NAS 소스 복사본 — 로컬 유지)
 cep/com.autokairos.pd/jsx/tylenol/assets/
 .claude/worktrees/
+
+# 모션 학습 레퍼런스 영상(로컬, 내부 분석용)
+refs/

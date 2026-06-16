@@ -75,3 +75,11 @@ def test_analyze_splits_output(tmp_path, monkeypatch):
     assert json.loads((ref / "new_presets.json").read_text())[0]["name"] == "wipe_in"
     assert state.get_state(ref)["stage"] == "analyzed"
     assert res["new_preset_count"] == 1
+
+
+def test_cli_help_lists_commands():
+    """CLI가 collect/analyze/merge 서브커맨드를 제공."""
+    import scripts.motion_learn.__main__ as cli
+    p = cli.build_parser()
+    sub = p._subparsers._group_actions[0].choices
+    assert "collect" in sub and "analyze" in sub and "merge" in sub
