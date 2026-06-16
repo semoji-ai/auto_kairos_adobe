@@ -1,20 +1,19 @@
 {
   "cuts": [
     {
-      "id": "cut01",
+      "type": "cut",
       "start": 0.0,
-      "dur": 1.3,
+      "dur": 1.1,
       "bg": "#E4002B",
       "layers": [
         {
           "type": "text",
           "text": "TYLENOL",
           "color": "#FFFFFF",
-          "size": 100,
+          "size": 90,
           "x": 960,
           "y": 540,
           "align": "center",
-          "z": 0,
           "anim": [
             {
               "prop": "opacity",
@@ -22,317 +21,156 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
               "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut02",
-      "start": 1.3,
-      "dur": 1.7,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "타이레놀을 다",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 1.5,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.4,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.4,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.4,
-              "ease": "linear"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut03",
-      "start": 3.0,
-      "dur": 1.2,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "타이레놀을 다들 쉽게 알아보면 좋겠어.",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 1.0,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut04",
-      "start": 4.2,
-      "dur": 1.2,
-      "bg": "#E4002B",
-      "layers": [
-        {
-          "type": "rrect",
-          "w": 200,
-          "h": 100,
-          "x": 100,
-          "y": 100,
-          "round": 0,
-          "color": "#C80024",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 200,
-          "h": 100,
-          "x": 300,
-          "y": 200,
-          "round": 0,
-          "color": "#96001B",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 200,
-          "h": 100,
-          "x": 500,
-          "y": 300,
-          "round": 0,
-          "color": "#E4002B",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.2,
               "t1": 0.5,
-              "ease": "out"
+              "ease": "linear"
             }
           ]
+        }
+      ]
+    },
+    {
+      "type": "searchbar",
+      "start": 1.1,
+      "dur": 0.9,
+      "bg": "#F3F3F3",
+      "text": "새로워진 타이레놀",
+      "redText": "타이레놀",
+      "y": 540
+    },
+    {
+      "type": "searchbar",
+      "start": 2.0,
+      "dur": 2.4,
+      "bg": "#F3F3F3",
+      "text": "타이레놀을 다들 쉽게 알아보면 좋겠어.",
+      "redText": "타이레놀을",
+      "y": 540
+    },
+    {
+      "type": "cut",
+      "start": 4.4,
+      "dur": 1.6,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "rrect",
+          "x": 300,
+          "y": 150,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#800000"
+        },
+        {
+          "type": "text",
+          "text": "RGB 128, 000, 000\n#800000",
+          "color": "#FFFFFF",
+          "size": 18,
+          "x": 300,
+          "y": 150,
+          "align": "center"
         },
         {
           "type": "rrect",
-          "w": 400,
-          "h": 200,
+          "x": 600,
+          "y": 150,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#C00000"
+        },
+        {
+          "type": "text",
+          "text": "RGB 192, 000, 000\n#C00000",
+          "color": "#FFFFFF",
+          "size": 18,
+          "x": 600,
+          "y": 150,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 900,
+          "y": 150,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "text",
+          "text": "RGB 228, 000, 043\n#E4002B",
+          "color": "#FFFFFF",
+          "size": 18,
+          "x": 900,
+          "y": 150,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 1200,
+          "y": 150,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#FF8080"
+        },
+        {
+          "type": "text",
+          "text": "RGB 255, 128, 128\n#FF8080",
+          "color": "#424242",
+          "size": 18,
+          "x": 1200,
+          "y": 150,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 1500,
+          "y": 150,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#B00000"
+        },
+        {
+          "type": "text",
+          "text": "RGB 176, 000, 000\n#B00000",
+          "color": "#FFFFFF",
+          "size": 18,
+          "x": 1500,
+          "y": 150,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 900,
+          "y": 450,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "text",
+          "text": "RGB 228, 000, 043\n#E4002B",
+          "color": "#FFFFFF",
+          "size": 18,
+          "x": 900,
+          "y": 450,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
           "x": 960,
           "y": 540,
-          "round": 0,
+          "w": 250,
+          "h": 250,
+          "round": 15,
           "color": "#E4002B",
-          "z": 0,
-          "size": 4,
-          "stroke": "#FFFFFF",
           "anim": [
             {
               "prop": "scale",
@@ -341,152 +179,52 @@
                 0
               ],
               "to": [
-                100,
-                100
+                1,
+                1
               ],
-              "t0": 0.5,
-              "t1": 0.8,
-              "ease": "out"
+              "t0": 4.6,
+              "t1": 5.2,
+              "ease": "over"
             }
           ]
         }
       ]
     },
     {
-      "id": "cut05",
-      "start": 5.4,
-      "dur": 1.3,
+      "type": "cut",
+      "start": 6.0,
+      "dur": 2.4,
       "bg": "#E4002B",
       "layers": [
         {
           "type": "text",
           "text": "타이레놀",
           "color": "#FFFFFF",
-          "size": 100,
+          "size": 90,
           "x": 960,
-          "y": 540,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "line",
-          "x": 960,
-          "y": 0,
-          "w": 960,
-          "h": 1080,
-          "color": "#FFFFFF",
-          "size": 2,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "line",
-          "x": 0,
-          "y": 540,
-          "w": 1920,
-          "h": 540,
-          "color": "#FFFFFF",
-          "size": 2,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "linear"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut06",
-      "start": 6.7,
-      "dur": 1.3,
-      "bg": "#E4002B",
-      "layers": [
-        {
-          "type": "text",
-          "text": "타이레놀",
-          "color": "#FFFFFF",
-          "size": 50,
-          "x": 300,
-          "y": 200,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                300,
-                100
-              ],
-              "to": [
-                300,
-                200
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
+          "y": 400,
+          "align": "center"
         },
         {
           "type": "text",
           "text": "500 밀리그램",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 300,
-          "y": 250,
+          "x": 1200,
+          "y": 400,
           "align": "left",
-          "z": 0,
           "anim": [
             {
-              "prop": "position",
+              "prop": "opacity",
               "from": [
-                300,
-                150
+                0
               ],
               "to": [
-                300,
-                250
+                1
               ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "out"
+              "t0": 6.5,
+              "t1": 7.0,
+              "ease": "linear"
             }
           ]
         },
@@ -495,50 +233,21 @@
           "text": "10 정",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 500,
-          "y": 250,
-          "align": "left",
-          "z": 0,
+          "x": 280,
+          "y": 700,
+          "align": "center",
           "anim": [
             {
-              "prop": "position",
+              "prop": "opacity",
               "from": [
-                500,
-                150
+                0
               ],
               "to": [
-                500,
-                250
+                1
               ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "타이레놀",
-          "color": "#FFFFFF",
-          "size": 50,
-          "x": 900,
-          "y": 500,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                900,
-                400
-              ],
-              "to": [
-                900,
-                500
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "out"
+              "t0": 7.0,
+              "t1": 7.5,
+              "ease": "linear"
             }
           ]
         },
@@ -547,24 +256,21 @@
           "text": "30 정",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 1100,
-          "y": 550,
-          "align": "left",
-          "z": 0,
+          "x": 680,
+          "y": 700,
+          "align": "center",
           "anim": [
             {
-              "prop": "position",
+              "prop": "opacity",
               "from": [
-                1100,
-                450
+                0
               ],
               "to": [
-                1100,
-                550
+                1
               ],
-              "t0": 0.5,
-              "t1": 0.8,
-              "ease": "out"
+              "t0": 7.2,
+              "t1": 7.7,
+              "ease": "linear"
             }
           ]
         },
@@ -573,146 +279,9 @@
           "text": "110 정",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 1700,
-          "y": 850,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                1700,
-                750
-              ],
-              "to": [
-                1700,
-                850
-              ],
-              "t0": 0.8,
-              "t1": 1.1,
-              "ease": "out"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut07",
-      "start": 8.0,
-      "dur": 1.1,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "line",
-          "x": 0,
-          "y": 540,
-          "w": 1920,
-          "h": 540,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
-        },
-        {
-          "type": "line",
-          "x": 960,
-          "y": 0,
-          "w": 960,
-          "h": 1080,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#00000000",
-          "w": 1000,
-          "h": 120,
-          "x": 960,
-          "y": 540,
-          "round": 15,
-          "size": 2,
-          "stroke": "#E4002B",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.4,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "500 밀리그램",
-          "color": "#E4002B",
-          "size": 80,
-          "x": 960,
-          "y": 540,
+          "x": 1080,
+          "y": 700,
           "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.8,
-              "ease": "linear"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut08",
-      "start": 9.1,
-      "dur": 1.7,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#00000000",
-          "w": 1000,
-          "h": 120,
-          "x": 960,
-          "y": 540,
-          "round": 15,
-          "size": 2,
-          "stroke": "#E4002B",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "500 밀리그램",
-          "color": "#E4002B",
-          "size": 80,
-          "x": 960,
-          "y": 540,
-          "align": "center",
-          "z": 0
-        },
-        {
-          "type": "line",
-          "x": 1400,
-          "y": 480,
-          "w": 1480,
-          "h": 600,
-          "color": "#E4002B",
-          "size": 2,
-          "z": 0,
           "anim": [
             {
               "prop": "opacity",
@@ -720,59 +289,30 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.3,
-              "t1": 0.6,
+              "t0": 7.4,
+              "t1": 7.9,
               "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 40,
-          "h": 20,
-          "x": 1460,
-          "y": 460,
-          "round": 5,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.4,
-              "t1": 0.7,
-              "ease": "out"
             }
           ]
         }
       ]
     },
     {
-      "id": "cut09",
-      "start": 10.8,
-      "dur": 1.0,
+      "type": "cut",
+      "start": 8.4,
+      "dur": 1.6,
       "bg": "#F3F3F3",
       "layers": [
         {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
+          "type": "text",
+          "text": "500 밀리그램",
+          "color": "#E4002B",
+          "size": 80,
           "x": 960,
           "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0,
+          "align": "center",
           "anim": [
             {
               "prop": "opacity",
@@ -780,418 +320,149 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.2,
+              "t0": 8.6,
+              "t1": 9.0,
               "ease": "linear"
             }
           ]
-        },
-        {
-          "type": "text",
-          "text": "좋아.",
-          "color": "#333333",
-          "size": 40,
-          "x": 960,
-          "y": 540,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
         }
       ]
     },
     {
-      "id": "cut10",
-      "start": 11.8,
-      "dur": 1.4,
+      "type": "button",
+      "start": 10.0,
+      "dur": 0.8,
+      "bg": "#F3F3F3",
+      "text": "좋아"
+    },
+    {
+      "type": "searchbar",
+      "start": 11.0,
+      "dur": 4.2,
+      "bg": "#F3F3F3",
+      "text": "좋아! 제품 별로 어떤 증상에 효과적인지 잘 보이게 강조해줘!",
+      "redText": "어떤 증상에 효과적인지",
+      "y": 540
+    },
+    {
+      "type": "cut",
+      "start": 15.2,
+      "dur": 5.0,
       "bg": "#F3F3F3",
       "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "어떤 증상",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.8,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut11",
-      "start": 13.2,
-      "dur": 2.4,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "어떤 증상에 효과적인지 잘 보이게 강조해줘!",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 1.8,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut12",
-      "start": 15.6,
-      "dur": 1.4,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "line",
-          "x": 0,
-          "y": 540,
-          "w": 1920,
-          "h": 540,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
-        },
-        {
-          "type": "line",
-          "x": 960,
-          "y": 0,
-          "w": 960,
-          "h": 1080,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
-        },
         {
           "type": "text",
           "text": "500 밀리그램",
           "color": "#E4002B",
-          "size": 80,
+          "size": 60,
           "x": 960,
           "y": 300,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "position",
+              "prop": "opacity",
               "from": [
-                960,
-                200
+                0
               ],
               "to": [
-                960,
-                300
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
+              "t0": 15.2,
+              "t1": 15.7,
+              "ease": "linear"
             }
           ]
         },
         {
           "type": "text",
           "text": "아세트아미노펜",
-          "color": "#333333",
+          "color": "#424242",
           "size": 40,
           "x": 960,
-          "y": 450,
+          "y": 400,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "position",
-              "from": [
-                960,
-                350
-              ],
-              "to": [
-                960,
-                450
-              ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "두통·발열·근육통",
-          "color": "#333333",
-          "size": 50,
-          "x": 960,
-          "y": 600,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
+              "prop": "opacity",
               "from": [
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.4,
-              "t1": 0.8,
+              "t0": 16.0,
+              "t1": 16.5,
               "ease": "linear"
             }
           ]
         },
         {
           "type": "text",
-          "text": "월경통·관절통·치통",
-          "color": "#333333",
+          "text": "두통 · 발열 · 근육통",
+          "color": "#424242",
           "size": 50,
           "x": 960,
-          "y": 700,
+          "y": 550,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "typeOn",
+              "prop": "opacity",
               "from": [
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.6,
-              "t1": 1.0,
+              "t0": 17.0,
+              "t1": 17.5,
               "ease": "linear"
             }
           ]
-        }
-      ]
-    },
-    {
-      "id": "cut13",
-      "start": 17.0,
-      "dur": 3.0,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "line",
-          "x": 0,
-          "y": 540,
-          "w": 1920,
-          "h": 540,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
-        },
-        {
-          "type": "line",
-          "x": 960,
-          "y": 0,
-          "w": 960,
-          "h": 1080,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
         },
         {
           "type": "text",
-          "text": "8시간 이알서방정",
+          "text": "월경통 · 관절통 · 치통",
+          "color": "#424242",
+          "size": 50,
+          "x": 960,
+          "y": 620,
+          "align": "center",
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 17.5,
+              "t1": 18.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "8시간 이알 서방정",
           "color": "#E4002B",
-          "size": 80,
+          "size": 60,
           "x": 960,
           "y": 300,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "position",
-              "from": [
-                960,
-                200
-              ],
-              "to": [
-                960,
-                300
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "근육통, 허리통증, 관절통",
-          "color": "#333333",
-          "size": 50,
-          "x": 960,
-          "y": 700,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
+              "prop": "opacity",
               "from": [
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.5,
-              "t1": 1.0,
+              "t0": 18.5,
+              "t1": 19.0,
               "ease": "linear"
             }
           ]
@@ -1199,127 +470,76 @@
         {
           "type": "text",
           "text": "아세트아미노펜 650mg",
-          "color": "#E4002B",
+          "color": "#424242",
           "size": 40,
           "x": 960,
-          "y": 450,
+          "y": 400,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "position",
-              "from": [
-                960,
-                350
-              ],
-              "to": [
-                960,
-                450
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "out"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut14",
-      "start": 20.0,
-      "dur": 3.0,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "line",
-          "x": 0,
-          "y": 540,
-          "w": 1920,
-          "h": 540,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
-        },
-        {
-          "type": "line",
-          "x": 960,
-          "y": 0,
-          "w": 960,
-          "h": 1080,
-          "color": "#DDDDDD",
-          "size": 1,
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "우먼스",
-          "color": "#7B4397",
-          "size": 80,
-          "x": 960,
-          "y": 300,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                960,
-                200
-              ],
-              "to": [
-                960,
-                300
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "월경 전 긴장증",
-          "color": "#333333",
-          "size": 50,
-          "x": 960,
-          "y": 600,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
+              "prop": "opacity",
               "from": [
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.5,
-              "t1": 1.0,
+              "t0": 19.0,
+              "t1": 19.5,
               "ease": "linear"
             }
           ]
         },
         {
           "type": "text",
-          "text": "생리통·부종·경련",
-          "color": "#333333",
+          "text": "근육통, 허리통증, 관절통",
+          "color": "#424242",
           "size": 50,
           "x": 960,
-          "y": 700,
+          "y": 550,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "typeOn",
+              "prop": "opacity",
               "from": [
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.7,
-              "t1": 1.2,
+              "t0": 19.5,
+              "t1": 20.0,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 20.2,
+      "dur": 2.8,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "text",
+          "text": "우먼스",
+          "color": "#7B46B9",
+          "size": 60,
+          "x": 960,
+          "y": 300,
+          "align": "center",
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 20.2,
+              "t1": 20.7,
               "ease": "linear"
             }
           ]
@@ -1327,48 +547,11 @@
         {
           "type": "text",
           "text": "아세트아미노펜 500mg+파마브롬 25mg",
-          "color": "#E4002B",
-          "size": 40,
+          "color": "#424242",
+          "size": 35,
           "x": 960,
-          "y": 450,
+          "y": 400,
           "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                960,
-                350
-              ],
-              "to": [
-                960,
-                450
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "out"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut15",
-      "start": 23.0,
-      "dur": 1.3,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0,
           "anim": [
             {
               "prop": "opacity",
@@ -1376,1225 +559,450 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.2,
+              "t0": 20.7,
+              "t1": 21.2,
               "ease": "linear"
             }
           ]
         },
         {
           "type": "text",
-          "text": "음..",
-          "color": "#333333",
-          "size": 40,
+          "text": "월경 전 긴장증",
+          "color": "#424242",
+          "size": 50,
           "x": 960,
-          "y": 540,
+          "y": 550,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "typeOn",
+              "prop": "opacity",
               "from": [
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.2,
-              "t1": 0.5,
+              "t0": 21.2,
+              "t1": 21.7,
               "ease": "linear"
             }
           ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut16",
-      "start": 24.3,
-      "dur": 1.4,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0
         },
         {
           "type": "text",
-          "text": "타이레놀 제품이 다양하니까",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 1.0,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut17",
-      "start": 25.7,
-      "dur": 2.4,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
+          "text": "생리통 · 부종 · 경련",
+          "color": "#424242",
+          "size": 50,
           "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "서로 구별하기 쉽게 해주는 건 어때",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
+          "y": 620,
+          "align": "center",
           "anim": [
             {
-              "prop": "typeOn",
+              "prop": "opacity",
               "from": [
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.0,
-              "t1": 1.8,
+              "t0": 21.7,
+              "t1": 22.2,
               "ease": "linear"
             }
           ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
         }
       ]
     },
     {
-      "id": "cut18",
-      "start": 28.1,
-      "dur": 1.9,
+      "type": "button",
+      "start": 23.0,
+      "dur": 1.0,
+      "bg": "#F3F3F3",
+      "text": "음."
+    },
+    {
+      "type": "searchbar",
+      "start": 24.0,
+      "dur": 3.4,
+      "bg": "#F3F3F3",
+      "text": "음.. 타이레놀 제품이 다양하니까 서로 구별하기 쉽게 해주는 건 어때",
+      "redText": "서로 구별하기 쉽게",
+      "y": 540
+    },
+    {
+      "type": "cut",
+      "start": 27.4,
+      "dur": 2.9,
       "bg": "#000000",
       "layers": [
         {
           "type": "rrect",
-          "w": 400,
+          "x": 300,
+          "y": 250,
+          "w": 300,
           "h": 200,
-          "x": 700,
-          "y": 400,
-          "round": 5,
-          "color": "#E4002B",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
+          "round": 10,
+          "color": "#E4002B"
         },
         {
           "type": "text",
-          "text": "TYLENOL RED",
-          "color": "#FFFFFF",
-          "size": 24,
-          "x": 700,
-          "y": 360,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "#E4002B",
+          "text": "TYLENOL\nRED\n#E4002B",
           "color": "#FFFFFF",
           "size": 20,
-          "x": 700,
-          "y": 440,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "linear"
-            }
-          ]
+          "x": 300,
+          "y": 250,
+          "align": "center"
         },
         {
           "type": "rrect",
-          "w": 400,
+          "x": 700,
+          "y": 250,
+          "w": 300,
           "h": 200,
-          "x": 1220,
-          "y": 400,
-          "round": 5,
-          "color": "#FEDD00",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "out"
-            }
-          ]
+          "round": 10,
+          "color": "#FEDD00"
         },
         {
           "type": "text",
-          "text": "GOLDEN YELLOW",
-          "color": "#333333",
-          "size": 24,
-          "x": 1220,
-          "y": 360,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "#FEDD00",
-          "color": "#333333",
+          "text": "GOLDEN\nYELLOW\n#FEDD00",
+          "color": "#424242",
           "size": 20,
-          "x": 1220,
-          "y": 440,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.4,
-              "t1": 0.7,
-              "ease": "linear"
-            }
-          ]
+          "x": 700,
+          "y": 250,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 1100,
+          "y": 250,
+          "w": 300,
+          "h": 200,
+          "round": 10,
+          "color": "#F072A0"
+        },
+        {
+          "type": "text",
+          "text": "PINK\n#F072A0",
+          "color": "#FFFFFF",
+          "size": 20,
+          "x": 1100,
+          "y": 250,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 1500,
+          "y": 250,
+          "w": 300,
+          "h": 200,
+          "round": 10,
+          "color": "#9494FF"
+        },
+        {
+          "type": "text",
+          "text": "PACIFIC\nBLUE\n#9494FF",
+          "color": "#FFFFFF",
+          "size": 20,
+          "x": 1500,
+          "y": 250,
+          "align": "center"
         }
       ]
     },
     {
-      "id": "cut19",
-      "start": 30.0,
+      "type": "cut",
+      "start": 30.3,
       "dur": 1.0,
-      "bg": "#F8F8F8",
+      "bg": "#F3F3F3",
       "layers": [
         {
+          "type": "rrect",
+          "x": 300,
+          "y": 540,
+          "w": 150,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
           "type": "text",
-          "text": "TYLENOL GUIDE",
-          "color": "#333333",
-          "size": 24,
-          "x": 100,
-          "y": 100,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.2,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 100,
-          "h": 100,
-          "x": 400,
-          "y": 400,
-          "round": 5,
-          "color": "#E4002B",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 100,
-          "h": 100,
-          "x": 550,
-          "y": 400,
-          "round": 5,
-          "color": "#FEDD00",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.4,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 100,
-          "h": 100,
-          "x": 700,
-          "y": 400,
-          "round": 5,
-          "color": "#7B4397",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 100,
-          "h": 100,
-          "x": 850,
-          "y": 400,
-          "round": 5,
-          "color": "#FFB6C1",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.4,
-              "t1": 0.6,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 100,
-          "h": 100,
-          "x": 1000,
-          "y": 400,
-          "round": 5,
-          "color": "#FFD1D7",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.5,
-              "t1": 0.7,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "w": 100,
-          "h": 100,
-          "x": 1150,
-          "y": 400,
-          "round": 5,
+          "text": "TYLENOL\nRED\n#E4002B",
           "color": "#FFFFFF",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.6,
-              "t1": 0.8,
-              "ease": "out"
-            }
-          ]
+          "size": 15,
+          "x": 300,
+          "y": 540,
+          "align": "center"
         },
         {
           "type": "rrect",
-          "w": 100,
+          "x": 480,
+          "y": 540,
+          "w": 150,
           "h": 100,
-          "x": 1300,
-          "y": 400,
           "round": 5,
-          "color": "#76D7EA",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.7,
-              "t1": 0.9,
-              "ease": "out"
-            }
-          ]
+          "color": "#FEDD00"
+        },
+        {
+          "type": "text",
+          "text": "GOLDEN\nYELLOW\n#FEDD00",
+          "color": "#424242",
+          "size": 15,
+          "x": 480,
+          "y": 540,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 660,
+          "y": 540,
+          "w": 150,
+          "h": 100,
+          "round": 5,
+          "color": "#7B46B9"
+        },
+        {
+          "type": "text",
+          "text": "MEDIUM\nPURPLE\n#7B46B9",
+          "color": "#FFFFFF",
+          "size": 15,
+          "x": 660,
+          "y": 540,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 840,
+          "y": 540,
+          "w": 150,
+          "h": 100,
+          "round": 5,
+          "color": "#F072A0"
+        },
+        {
+          "type": "text",
+          "text": "PINK\n#F072A0",
+          "color": "#FFFFFF",
+          "size": 15,
+          "x": 840,
+          "y": 540,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 1020,
+          "y": 540,
+          "w": 150,
+          "h": 100,
+          "round": 5,
+          "color": "#FFC0CB"
+        },
+        {
+          "type": "text",
+          "text": "CUPID\n#FFC0CB",
+          "color": "#424242",
+          "size": 15,
+          "x": 1020,
+          "y": 540,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 1200,
+          "y": 540,
+          "w": 150,
+          "h": 100,
+          "round": 5,
+          "color": "#FFFFFF"
+        },
+        {
+          "type": "text",
+          "text": "WHITE\n#FFFFFF",
+          "color": "#424242",
+          "size": 15,
+          "x": 1200,
+          "y": 540,
+          "align": "center"
+        },
+        {
+          "type": "rrect",
+          "x": 1380,
+          "y": 540,
+          "w": 150,
+          "h": 100,
+          "round": 5,
+          "color": "#00B0F0"
+        },
+        {
+          "type": "text",
+          "text": "PACIFIC\nBLUE\n#00B0F0",
+          "color": "#FFFFFF",
+          "size": 15,
+          "x": 1380,
+          "y": 540,
+          "align": "center"
         }
       ]
     },
     {
-      "id": "cut20",
-      "start": 31.0,
+      "type": "button",
+      "start": 31.3,
+      "dur": 1.0,
+      "bg": "#F3F3F3",
+      "text": "멋진데!"
+    },
+    {
+      "type": "searchbar",
+      "start": 32.3,
+      "dur": 3.7,
+      "bg": "#F3F3F3",
+      "text": "멋진데! 어떤 타이레놀 제품인지 모든 각도에서 잘 드러나도록 해줘",
+      "redText": "어떤 타이레놀 제품인지 모든 각도에서 잘 드러나도록",
+      "y": 540
+    },
+    {
+      "type": "cut",
+      "start": 36.0,
       "dur": 1.4,
       "bg": "#F3F3F3",
       "layers": [
         {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.2,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "멋진데!",
-          "color": "#333333",
-          "size": 40,
-          "x": 960,
-          "y": 540,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut21",
-      "start": 32.4,
-      "dur": 1.6,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "어떤 타이레놀 제품",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 1.0,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut22",
-      "start": 34.0,
-      "dur": 1.8,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "모든 각도에서 잘 드러나도록 해줘",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 1.5,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut23",
-      "start": 35.8,
-      "dur": 2.2,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#76D7EA",
-          "w": 960,
-          "h": 1080,
-          "x": 480,
-          "y": 540,
-          "round": 0,
-          "z": -1,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                100
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "image",
+          "type": "asset",
           "asset": "pkg_cold",
-          "w": 700,
-          "h": 700,
           "x": 480,
-          "y": 600,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#FEDD00",
-          "w": 960,
-          "h": 1080,
-          "x": 1440,
           "y": 540,
-          "round": 0,
-          "z": -1,
+          "w": 600,
+          "h": 600,
           "anim": [
             {
               "prop": "scale",
               "from": [
-                0,
-                100
+                0.8,
+                0.8
               ],
               "to": [
-                100,
-                100
+                1,
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_er",
-          "w": 700,
-          "h": 700,
-          "x": 1440,
-          "y": 600,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "콜드-에스정",
-          "color": "#E4002B",
-          "size": 40,
-          "x": 480,
-          "y": 200,
-          "align": "center",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "8시간 이알서방정",
-          "color": "#E4002B",
-          "size": 40,
-          "x": 1440,
-          "y": 200,
-          "align": "center",
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut24",
-      "start": 38.0,
-      "dur": 0.8,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 960,
-          "h": 1080,
-          "x": 480,
-          "y": 540,
-          "round": 0,
-          "z": -1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.2,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_500mg",
-          "w": 700,
-          "h": 700,
-          "x": 480,
-          "y": 600,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#7B4397",
-          "w": 960,
-          "h": 1080,
-          "x": 1440,
-          "y": 540,
-          "round": 0,
-          "z": -1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.2,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_womens",
-          "w": 700,
-          "h": 700,
-          "x": 1440,
-          "y": 600,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "500 밀리그램",
-          "color": "#FFFFFF",
-          "size": 40,
-          "x": 480,
-          "y": 200,
-          "align": "center",
-          "z": 0
-        },
-        {
-          "type": "text",
-          "text": "우먼스",
-          "color": "#FFFFFF",
-          "size": 40,
-          "x": 1440,
-          "y": 200,
-          "align": "center",
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut25",
-      "start": 38.8,
-      "dur": 2.0,
-      "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.2,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "그래! 복용법도 알기 쉽게 넣어줘",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 1.5,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut26",
-      "start": 40.8,
-      "dur": 2.1,
-      "bg": "#E4002B",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#76D7EA",
-          "w": 960,
-          "h": 1080,
-          "x": 1440,
-          "y": 540,
-          "round": 0,
-          "z": -1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.2,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#FDD85F",
-          "w": 300,
-          "h": 80,
-          "x": 1440,
-          "y": 400,
-          "round": 40,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
+              "t0": 36.0,
+              "t1": 36.5,
               "ease": "over"
             }
           ]
         },
         {
-          "type": "text",
-          "text": "TYLENOL",
-          "color": "#333333",
-          "size": 28,
+          "type": "asset",
+          "asset": "pkg_er",
           "x": 1440,
-          "y": 400,
-          "align": "center",
-          "z": 0,
+          "y": 540,
+          "w": 600,
+          "h": 600,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0.8,
+                0.8
+              ],
+              "to": [
+                1,
+                1
+              ],
+              "t0": 36.2,
+              "t1": 36.7,
+              "ease": "over"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 37.4,
+      "dur": 0.8,
+      "bg": "#F3F3F3",
+      "layers": [
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 480,
+          "y": 540,
+          "w": 600,
+          "h": 600,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0.8,
+                0.8
+              ],
+              "to": [
+                1,
+                1
+              ],
+              "t0": 37.4,
+              "t1": 37.8,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_womens",
+          "x": 1440,
+          "y": 540,
+          "w": 600,
+          "h": 600,
+          "anim": [
+            {
+              "prop": "scale",
+              "from": [
+                0.8,
+                0.8
+              ],
+              "to": [
+                1,
+                1
+              ],
+              "t0": 37.6,
+              "t1": 38.0,
+              "ease": "over"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "start": 38.2,
+      "dur": 0.8,
+      "bg": "#F3F3F3",
+      "text": "그래!"
+    },
+    {
+      "type": "searchbar",
+      "start": 39.0,
+      "dur": 1.2,
+      "bg": "#F3F3F3",
+      "text": "그래! 복용법도 알기 쉽게 넣어줘",
+      "redText": "복용법도 알기 쉽게 넣어줘",
+      "y": 540
+    },
+    {
+      "type": "cut",
+      "start": 40.2,
+      "dur": 2.8,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "rrect",
+          "x": 960,
+          "y": 540,
+          "w": 1800,
+          "h": 400,
+          "round": 20,
+          "color": "#00B0F0",
           "anim": [
             {
               "prop": "opacity",
@@ -2602,11 +1010,35 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.4,
-              "t1": 0.7,
+              "t0": 40.2,
+              "t1": 40.7,
               "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_cold",
+          "x": 960,
+          "y": 440,
+          "w": 500,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "position",
+              "from": [
+                960,
+                440
+              ],
+              "to": [
+                960,
+                490
+              ],
+              "t0": 40.7,
+              "t1": 41.2,
+              "ease": "over"
             }
           ]
         },
@@ -2614,11 +1046,10 @@
           "type": "text",
           "text": "1회 1정",
           "color": "#FFFFFF",
-          "size": 60,
-          "x": 1440,
-          "y": 540,
+          "size": 50,
+          "x": 960,
+          "y": 640,
           "align": "center",
-          "z": 0,
           "anim": [
             {
               "prop": "opacity",
@@ -2626,10 +1057,10 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.6,
-              "t1": 0.9,
+              "t0": 41.2,
+              "t1": 41.7,
               "ease": "linear"
             }
           ]
@@ -2637,238 +1068,56 @@
       ]
     },
     {
-      "id": "cut27",
-      "start": 42.9,
-      "dur": 2.1,
-      "bg": "#F8F8F8",
+      "type": "cut",
+      "start": 43.0,
+      "dur": 3.0,
+      "bg": "#F3F3F3",
       "layers": [
         {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 10,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "TYLENOL",
-          "color": "#FFFFFF",
-          "size": 30,
-          "x": 960,
-          "y": 540,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "line",
-          "x": 960,
-          "y": 590,
-          "w": 960,
-          "h": 800,
-          "color": "#FFFFFF",
-          "size": 30,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                100,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.5,
-              "t1": 0.8,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "달콤한 베리향",
-          "color": "#333333",
-          "size": 24,
-          "x": 960,
-          "y": 400,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "linear"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut28",
-      "start": 45.0,
-      "dur": 1.4,
-      "bg": "#FFFFFF",
-      "layers": [
-        {
-          "type": "image",
+          "type": "asset",
           "asset": "pkg_500mg",
-          "w": 300,
-          "h": 400,
-          "x": 500,
+          "x": 600,
           "y": 540,
-          "z": 0,
+          "w": 500,
+          "h": 500,
           "anim": [
             {
-              "prop": "position",
+              "prop": "scale",
               "from": [
-                400,
-                540
+                0.8,
+                0.8
               ],
               "to": [
-                500,
-                540
+                1,
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
+              "t0": 43.0,
+              "t1": 43.5,
+              "ease": "over"
             }
           ]
         },
         {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 20,
-          "h": 20,
-          "x": 300,
-          "y": 400,
-          "round": 5,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.5,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "물 없이 바로 복용",
-          "color": "#E4002B",
-          "size": 30,
-          "x": 500,
-          "y": 350,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.4,
-              "t1": 0.6,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
+          "type": "asset",
           "asset": "pkg_kids",
-          "w": 300,
-          "h": 400,
-          "x": 1420,
+          "x": 1320,
           "y": 540,
-          "z": 0,
+          "w": 500,
+          "h": 500,
           "anim": [
             {
-              "prop": "position",
+              "prop": "scale",
               "from": [
-                1520,
-                540
+                0.8,
+                0.8
               ],
               "to": [
-                1420,
-                540
+                1,
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 20,
-          "h": 20,
-          "x": 1220,
-          "y": 400,
-          "round": 5,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.5,
-              "ease": "linear"
+              "t0": 43.2,
+              "t1": 43.7,
+              "ease": "over"
             }
           ]
         },
@@ -2876,11 +1125,10 @@
           "type": "text",
           "text": "물 없이 바로 복용",
           "color": "#E4002B",
-          "size": 30,
-          "x": 1420,
-          "y": 350,
+          "size": 40,
+          "x": 960,
+          "y": 200,
           "align": "center",
-          "z": 0,
           "anim": [
             {
               "prop": "opacity",
@@ -2888,10 +1136,10 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.4,
-              "t1": 0.6,
+              "t0": 44.0,
+              "t1": 44.5,
               "ease": "linear"
             }
           ]
@@ -2899,33 +1147,54 @@
       ]
     },
     {
-      "id": "cut29",
-      "start": 46.4,
-      "dur": 2.6,
-      "bg": "#F8F8F8",
+      "type": "cut",
+      "start": 46.0,
+      "dur": 3.0,
+      "bg": "#F3F3F3",
       "layers": [
         {
-          "type": "image",
+          "type": "asset",
           "asset": "character_clip",
-          "w": 300,
-          "h": 400,
           "x": 960,
           "y": 540,
-          "z": 0,
+          "w": 400,
+          "h": 400,
           "anim": [
             {
               "prop": "scale",
               "from": [
-                0,
+                0.8,
+                0.8
+              ],
+              "to": [
+                1,
+                1
+              ],
+              "t0": 46.0,
+              "t1": 46.5,
+              "ease": "over"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 960,
+          "y": 540,
+          "w": 400,
+          "h": 600,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
                 0
               ],
               "to": [
-                100,
-                100
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.4,
-              "ease": "over"
+              "t0": 47.0,
+              "t1": 47.5,
+              "ease": "linear"
             }
           ]
         },
@@ -2934,10 +1203,9 @@
           "text": "새로워진 일러스트",
           "color": "#E4002B",
           "size": 30,
-          "x": 1400,
-          "y": 800,
-          "align": "center",
-          "z": 0,
+          "x": 1500,
+          "y": 600,
+          "align": "left",
           "anim": [
             {
               "prop": "opacity",
@@ -2945,33 +1213,10 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.6,
-              "t1": 0.9,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 300,
-          "h": 600,
-          "x": 960,
-          "y": 540,
-          "z": -1,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.4,
-              "t1": 0.7,
+              "t0": 47.5,
+              "t1": 48.0,
               "ease": "linear"
             }
           ]
@@ -2979,12 +1224,11 @@
         {
           "type": "text",
           "text": "어린이 타이레놀 현탁액",
-          "color": "#FFFFFF",
-          "size": 24,
-          "x": 960,
-          "y": 200,
-          "align": "center",
-          "z": 0,
+          "color": "#424242",
+          "size": 30,
+          "x": 300,
+          "y": 500,
+          "align": "left",
           "anim": [
             {
               "prop": "opacity",
@@ -2992,10 +1236,10 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.5,
-              "t1": 0.8,
+              "t0": 48.0,
+              "t1": 48.5,
               "ease": "linear"
             }
           ]
@@ -3003,755 +1247,520 @@
       ]
     },
     {
-      "id": "cut30",
+      "type": "button",
       "start": 49.0,
-      "dur": 5.0,
+      "dur": 1.0,
       "bg": "#F3F3F3",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 1200,
-          "h": 100,
-          "x": 960,
-          "y": 540,
-          "round": 28,
-          "size": 2,
-          "stroke": "#E0E0E0",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.2,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "타이레놀 제품 전체의 통일감과 제품별 특징이 명확한지 최종 확인하고 싶어",
-          "color": "#333333",
-          "size": 40,
-          "x": 420,
-          "y": 540,
-          "align": "left",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 4.0,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 340,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 390,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        },
-        {
-          "type": "rrect",
-          "color": "#E0E0E0",
-          "w": 40,
-          "h": 40,
-          "x": 440,
-          "y": 540,
-          "round": 10,
-          "z": 0
-        }
-      ]
+      "text": "타이레놀"
     },
     {
-      "id": "cut31",
+      "type": "searchbar",
+      "start": 50.0,
+      "dur": 4.0,
+      "bg": "#F3F3F3",
+      "text": "타이레놀 제품 전체의 통일감과 제품별 특징이 명확한지 최종 확인하고 싶어",
+      "redText": "통일감과 제품별 특징이 명확한지",
+      "y": 540
+    },
+    {
+      "type": "cut",
       "start": 54.0,
-      "dur": 1.0,
-      "bg": "#F8F8F8",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 400,
-          "h": 50,
-          "x": 760,
-          "y": 540,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                100
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 50,
-          "h": 200,
-          "x": 585,
-          "y": 540,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                100,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "out"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut32",
-      "start": 55.0,
-      "dur": 1.0,
-      "bg": "#E4002B",
-      "layers": [
-        {
-          "type": "rrect",
-          "color": "#FEDD00",
-          "w": 200,
-          "h": 100,
-          "x": 300,
-          "y": 200,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#76D7EA",
-          "w": 200,
-          "h": 100,
-          "x": 600,
-          "y": 200,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#7B4397",
-          "w": 200,
-          "h": 100,
-          "x": 900,
-          "y": 200,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#E4002B",
-          "w": 200,
-          "h": 100,
-          "x": 300,
-          "y": 500,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#FFFFFF",
-          "w": 200,
-          "h": 100,
-          "x": 600,
-          "y": 500,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.4,
-              "t1": 0.7,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "rrect",
-          "color": "#FFB6C1",
-          "w": 200,
-          "h": 100,
-          "x": 900,
-          "y": 500,
-          "round": 0,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.5,
-              "t1": 0.8,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "TYLENOL",
-          "color": "#FFFFFF",
-          "size": 50,
-          "x": 100,
-          "y": 900,
-          "align": "left",
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut33",
-      "start": 56.0,
-      "dur": 2.0,
-      "bg": "#E4002B",
-      "layers": [
-        {
-          "type": "image",
-          "asset": "pkg_er",
-          "w": 300,
-          "h": 300,
-          "x": 300,
-          "y": 200,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_cold",
-          "w": 300,
-          "h": 300,
-          "x": 600,
-          "y": 200,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.1,
-              "t1": 0.4,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_womens",
-          "w": 300,
-          "h": 300,
-          "x": 900,
-          "y": 200,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.2,
-              "t1": 0.5,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_500mg",
-          "w": 300,
-          "h": 300,
-          "x": 300,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.3,
-              "t1": 0.6,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 300,
-          "h": 300,
-          "x": 600,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.4,
-              "t1": 0.7,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 300,
-          "h": 300,
-          "x": 900,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.5,
-              "t1": 0.8,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 300,
-          "h": 300,
-          "x": 1200,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "scale",
-              "from": [
-                0,
-                0
-              ],
-              "to": [
-                100,
-                100
-              ],
-              "t0": 0.6,
-              "t1": 0.9,
-              "ease": "over"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "TYLENOL",
-          "color": "#FFFFFF",
-          "size": 50,
-          "x": 100,
-          "y": 900,
-          "align": "left",
-          "z": 0
-        }
-      ]
-    },
-    {
-      "id": "cut34",
-      "start": 58.0,
-      "dur": 4.8,
+      "dur": 3.0,
       "bg": "#F3F3F3",
       "layers": [
         {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 320,
-          "y": 180,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 960,
-          "y": 180,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 1600,
-          "y": 180,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 320,
-          "y": 540,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 960,
-          "y": 540,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 1600,
-          "y": 540,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 320,
-          "y": 900,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 960,
-          "y": 900,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "live",
-          "asset": "live_clip",
-          "w": 600,
-          "h": 320,
-          "x": 1600,
-          "y": 900,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_500mg",
+          "type": "rrect",
+          "x": 300,
+          "y": 200,
           "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#FEDD00"
+        },
+        {
+          "type": "rrect",
+          "x": 600,
+          "y": 200,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#00B0F0"
+        },
+        {
+          "type": "rrect",
+          "x": 900,
+          "y": 200,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#F072A0"
+        },
+        {
+          "type": "rrect",
+          "x": 1200,
+          "y": 200,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#7B46B9"
+        },
+        {
+          "type": "rrect",
+          "x": 300,
+          "y": 400,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "rrect",
+          "x": 600,
+          "y": 400,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "rrect",
+          "x": 900,
+          "y": 400,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "rrect",
+          "x": 1200,
+          "y": 400,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "rrect",
+          "x": 300,
+          "y": 600,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "rrect",
+          "x": 600,
+          "y": 600,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "rrect",
+          "x": 900,
+          "y": 600,
+          "w": 200,
+          "h": 100,
+          "round": 5,
+          "color": "#E4002B"
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_er",
+          "x": 360,
+          "y": 280,
+          "w": 300,
           "h": 200,
-          "x": 1600,
-          "y": 180,
-          "z": 1,
           "anim": [
             {
-              "prop": "position",
+              "prop": "opacity",
               "from": [
-                1700,
-                180
+                0
               ],
               "to": [
-                1600,
-                180
+                1
               ],
-              "t0": 0.5,
-              "t1": 0.8,
-              "ease": "out"
+              "t0": 55.0,
+              "t1": 55.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_cold",
+          "x": 660,
+          "y": 280,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 55.2,
+              "t1": 55.7,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_womens",
+          "x": 960,
+          "y": 280,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 55.4,
+              "t1": 55.9,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 1260,
+          "y": 280,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 55.6,
+              "t1": 56.1,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 480,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 55.8,
+              "t1": 56.3,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 780,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 56.0,
+              "t1": 56.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 1080,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 56.2,
+              "t1": 56.7,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 1380,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 56.4,
+              "t1": 56.9,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 800,
+          "y": 820,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 56.6,
+              "t1": 57.1,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 57.0,
+      "dur": 1.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "asset",
+          "asset": "pkg_er",
+          "x": 360,
+          "y": 280,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_cold",
+          "x": 660,
+          "y": 280,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_womens",
+          "x": 960,
+          "y": 280,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 1260,
+          "y": 280,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 480,
+          "y": 550,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 780,
+          "y": 550,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 1080,
+          "y": 550,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 1380,
+          "y": 550,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 800,
+          "y": 820,
+          "w": 300,
+          "h": 200
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 58.0,
+      "dur": 1.0,
+      "bg": "#000000",
+      "layers": [
+        {
+          "type": "asset",
+          "asset": "live_clip",
+          "x": 960,
+          "y": 540,
+          "w": 1920,
+          "h": 1080
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 59.0,
+      "dur": 3.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "asset",
+          "asset": "live_clip",
+          "x": 320,
+          "y": 290,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 960,
+          "y": 290,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "live_clip",
+          "x": 1600,
+          "y": 290,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "live_clip",
+          "x": 320,
+          "y": 650,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_cold",
+          "x": 960,
+          "y": 650,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "live_clip",
+          "x": 1600,
+          "y": 650,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_er",
+          "x": 960,
+          "y": 1010,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_womens",
+          "x": 1600,
+          "y": 1010,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 320,
+          "y": 1010,
+          "w": 640,
+          "h": 360
+        },
+        {
+          "type": "text",
+          "text": "#근육통",
+          "color": "#FFFFFF",
+          "size": 30,
+          "x": 320,
+          "y": 480,
+          "align": "center",
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 59.5,
+              "t1": 60.0,
+              "ease": "linear"
             }
           ]
         },
@@ -3760,10 +1769,9 @@
           "text": "#두통",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 1600,
-          "y": 300,
+          "x": 960,
+          "y": 480,
           "align": "center",
-          "z": 1,
           "anim": [
             {
               "prop": "opacity",
@@ -3771,36 +1779,11 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.6,
-              "t1": 0.9,
+              "t0": 59.8,
+              "t1": 60.3,
               "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_er",
-          "w": 200,
-          "h": 200,
-          "x": 1600,
-          "y": 540,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                1700,
-                540
-              ],
-              "to": [
-                1600,
-                540
-              ],
-              "t0": 1.0,
-              "t1": 1.3,
-              "ease": "out"
             }
           ]
         },
@@ -3810,9 +1793,8 @@
           "color": "#FFFFFF",
           "size": 30,
           "x": 1600,
-          "y": 660,
+          "y": 480,
           "align": "center",
-          "z": 1,
           "anim": [
             {
               "prop": "opacity",
@@ -3820,36 +1802,11 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 1.1,
-              "t1": 1.4,
+              "t0": 60.1,
+              "t1": 60.6,
               "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_cold",
-          "w": 200,
-          "h": 200,
-          "x": 1600,
-          "y": 900,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                1700,
-                900
-              ],
-              "to": [
-                1600,
-                900
-              ],
-              "t0": 1.5,
-              "t1": 1.8,
-              "ease": "out"
             }
           ]
         },
@@ -3858,10 +1815,9 @@
           "text": "#다양한통증",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 1600,
-          "y": 1020,
+          "x": 320,
+          "y": 840,
           "align": "center",
-          "z": 1,
           "anim": [
             {
               "prop": "opacity",
@@ -3869,36 +1825,11 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 1.6,
-              "t1": 1.9,
+              "t0": 60.4,
+              "t1": 60.9,
               "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_womens",
-          "w": 200,
-          "h": 200,
-          "x": 320,
-          "y": 900,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                220,
-                900
-              ],
-              "to": [
-                320,
-                900
-              ],
-              "t0": 2.0,
-              "t1": 2.3,
-              "ease": "out"
             }
           ]
         },
@@ -3907,10 +1838,9 @@
           "text": "#생리통",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 320,
-          "y": 1020,
+          "x": 960,
+          "y": 840,
           "align": "center",
-          "z": 1,
           "anim": [
             {
               "prop": "opacity",
@@ -3918,36 +1848,11 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 2.1,
-              "t1": 2.4,
+              "t0": 60.7,
+              "t1": 61.2,
               "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 200,
-          "h": 200,
-          "x": 960,
-          "y": 900,
-          "z": 1,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                860,
-                900
-              ],
-              "to": [
-                960,
-                900
-              ],
-              "t0": 2.5,
-              "t1": 2.8,
-              "ease": "out"
             }
           ]
         },
@@ -3956,10 +1861,9 @@
           "text": "#어린이해열",
           "color": "#FFFFFF",
           "size": 30,
-          "x": 960,
-          "y": 1020,
+          "x": 1600,
+          "y": 840,
           "align": "center",
-          "z": 1,
           "anim": [
             {
               "prop": "opacity",
@@ -3967,551 +1871,186 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 2.6,
-              "t1": 2.9,
-              "ease": "linear"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cut35",
-      "start": 62.8,
-      "dur": 1.4,
-      "bg": "#E4002B",
-      "layers": [
-        {
-          "type": "image",
-          "asset": "pkg_er",
-          "w": 300,
-          "h": 300,
-          "x": 300,
-          "y": 200,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_cold",
-          "w": 300,
-          "h": 300,
-          "x": 600,
-          "y": 200,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_womens",
-          "w": 300,
-          "h": 300,
-          "x": 900,
-          "y": 200,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_500mg",
-          "w": 300,
-          "h": 300,
-          "x": 300,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 300,
-          "h": 300,
-          "x": 600,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 300,
-          "h": 300,
-          "x": 900,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 300,
-          "h": 300,
-          "x": 1200,
-          "y": 500,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "opacity",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.0,
-              "t1": 0.3,
+              "t0": 61.0,
+              "t1": 61.5,
               "ease": "linear"
             }
           ]
         },
         {
           "type": "text",
-          "text": "TYLENOL",
+          "text": "70\nANNIVERSARY",
           "color": "#FFFFFF",
-          "size": 50,
+          "size": 25,
           "x": 100,
-          "y": 900,
+          "y": 100,
           "align": "left",
-          "z": 0
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 61.3,
+              "t1": 61.8,
+              "ease": "linear"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "cut36",
-      "start": 64.2,
-      "dur": 4.3,
+      "type": "cut",
+      "start": 62.0,
+      "dur": 2.0,
       "bg": "#E4002B",
       "layers": [
         {
-          "type": "image",
+          "type": "asset",
           "asset": "pkg_er",
-          "w": 200,
-          "h": 200,
-          "x": 300,
-          "y": 800,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                300,
-                200
-              ],
-              "to": [
-                300,
-                800
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            },
-            {
-              "prop": "scale",
-              "from": [
-                100
-              ],
-              "to": [
-                67
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
+          "x": 360,
+          "y": 280,
+          "w": 300,
+          "h": 200
         },
         {
-          "type": "image",
+          "type": "asset",
           "asset": "pkg_cold",
-          "w": 200,
-          "h": 200,
-          "x": 500,
-          "y": 800,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                600,
-                200
-              ],
-              "to": [
-                500,
-                800
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            },
-            {
-              "prop": "scale",
-              "from": [
-                100
-              ],
-              "to": [
-                67
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
+          "x": 660,
+          "y": 280,
+          "w": 300,
+          "h": 200
         },
         {
-          "type": "image",
+          "type": "asset",
           "asset": "pkg_womens",
-          "w": 200,
-          "h": 200,
-          "x": 700,
-          "y": 800,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                900,
-                200
-              ],
-              "to": [
-                700,
-                800
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            },
-            {
-              "prop": "scale",
-              "from": [
-                100
-              ],
-              "to": [
-                67
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
+          "x": 960,
+          "y": 280,
+          "w": 300,
+          "h": 200
         },
         {
-          "type": "image",
+          "type": "asset",
           "asset": "pkg_500mg",
-          "w": 200,
-          "h": 200,
-          "x": 900,
-          "y": 800,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                300,
-                500
-              ],
-              "to": [
-                900,
-                800
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            },
-            {
-              "prop": "scale",
-              "from": [
-                100
-              ],
-              "to": [
-                67
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
+          "x": 1260,
+          "y": 280,
+          "w": 300,
+          "h": 200
         },
         {
-          "type": "image",
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 480,
+          "y": 550,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 780,
+          "y": 550,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
           "asset": "pkg_kids",
-          "w": 200,
-          "h": 200,
-          "x": 1100,
-          "y": 800,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                600,
-                500
-              ],
-              "to": [
-                1100,
-                800
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            },
-            {
-              "prop": "scale",
-              "from": [
-                100
-              ],
-              "to": [
-                67
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
+          "x": 1080,
+          "y": 550,
+          "w": 300,
+          "h": 200
         },
         {
-          "type": "image",
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 1380,
+          "y": 550,
+          "w": 300,
+          "h": 200
+        },
+        {
+          "type": "asset",
           "asset": "pkg_kids",
-          "w": 200,
-          "h": 200,
-          "x": 1300,
-          "y": 800,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                900,
-                500
-              ],
-              "to": [
-                1300,
-                800
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            },
-            {
-              "prop": "scale",
-              "from": [
-                100
-              ],
-              "to": [
-                67
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "asset": "pkg_kids",
-          "w": 200,
-          "h": 200,
-          "x": 1500,
-          "y": 800,
-          "z": 0,
-          "anim": [
-            {
-              "prop": "position",
-              "from": [
-                1200,
-                500
-              ],
-              "to": [
-                1500,
-                800
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            },
-            {
-              "prop": "scale",
-              "from": [
-                100
-              ],
-              "to": [
-                67
-              ],
-              "t0": 0.0,
-              "t1": 0.5,
-              "ease": "out"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "다양한 통증에 그 누구든,",
-          "color": "#FFFFFF",
-          "size": 60,
-          "x": 960,
-          "y": 400,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 0.5,
-              "t1": 2.0,
-              "ease": "linear"
-            }
-          ]
-        },
-        {
-          "type": "text",
-          "text": "70년 케어를 변함없이",
-          "color": "#FFFFFF",
-          "size": 60,
-          "x": 960,
-          "y": 500,
-          "align": "center",
-          "z": 0,
-          "anim": [
-            {
-              "prop": "typeOn",
-              "from": [
-                0
-              ],
-              "to": [
-                100
-              ],
-              "t0": 2.0,
-              "t1": 3.5,
-              "ease": "linear"
-            }
-          ]
+          "x": 800,
+          "y": 820,
+          "w": 300,
+          "h": 200
         }
       ]
     },
     {
-      "id": "cut37",
-      "start": 68.5,
+      "type": "cut",
+      "start": 64.0,
       "dur": 1.0,
       "bg": "#E4002B",
       "layers": [
         {
           "type": "text",
-          "text": "70",
+          "text": "다",
           "color": "#FFFFFF",
-          "size": 200,
+          "size": 120,
           "x": 960,
-          "y": 450,
+          "y": 540,
           "align": "center",
-          "z": 0,
           "anim": [
             {
-              "prop": "scale",
+              "prop": "typeOn",
               "from": [
-                0,
                 0
               ],
               "to": [
-                100,
-                100
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "over"
+              "t0": 64.0,
+              "t1": 64.5,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 65.0,
+      "dur": 2.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "다양한 통증에 그 누구든,",
+          "color": "#FFFFFF",
+          "size": 70,
+          "x": 960,
+          "y": 500,
+          "align": "center",
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 65.0,
+              "t1": 66.0,
+              "ease": "linear"
             }
           ]
         },
         {
-          "type": "text",
-          "text": "ANNIVERSARY",
-          "color": "#FFFFFF",
-          "size": 30,
-          "x": 960,
-          "y": 550,
-          "align": "center",
-          "z": 0,
+          "type": "asset",
+          "asset": "pkg_er",
+          "x": 360,
+          "y": 280,
+          "w": 300,
+          "h": 200,
           "anim": [
             {
               "prop": "opacity",
@@ -4519,10 +2058,248 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.2,
-              "t1": 0.5,
+              "t0": 66.0,
+              "t1": 66.5,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_cold",
+          "x": 660,
+          "y": 280,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.1,
+              "t1": 66.6,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_womens",
+          "x": 960,
+          "y": 280,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.2,
+              "t1": 66.7,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 1260,
+          "y": 280,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.3,
+              "t1": 66.8,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 480,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.4,
+              "t1": 66.9,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 780,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.5,
+              "t1": 67.0,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 1080,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.6,
+              "t1": 67.1,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_500mg",
+          "x": 1380,
+          "y": 550,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.7,
+              "t1": 67.2,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "asset": "pkg_kids",
+          "x": 800,
+          "y": 820,
+          "w": 300,
+          "h": 200,
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 66.8,
+              "t1": 67.3,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 67.0,
+      "dur": 1.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "70년 케어를 변함없이",
+          "color": "#FFFFFF",
+          "size": 70,
+          "x": 960,
+          "y": 580,
+          "align": "center",
+          "anim": [
+            {
+              "prop": "typeOn",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 67.0,
+              "t1": 67.8,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cut",
+      "start": 68.0,
+      "dur": 1.0,
+      "bg": "#E4002B",
+      "layers": [
+        {
+          "type": "text",
+          "text": "70\nANNIVERSARY",
+          "color": "#FFFFFF",
+          "size": 60,
+          "x": 960,
+          "y": 480,
+          "align": "center",
+          "anim": [
+            {
+              "prop": "opacity",
+              "from": [
+                0
+              ],
+              "to": [
+                1
+              ],
+              "t0": 68.0,
+              "t1": 68.5,
               "ease": "linear"
             }
           ]
@@ -4531,11 +2308,10 @@
           "type": "text",
           "text": "새로워진",
           "color": "#FFFFFF",
-          "size": 60,
+          "size": 70,
           "x": 960,
-          "y": 650,
+          "y": 580,
           "align": "center",
-          "z": 0,
           "anim": [
             {
               "prop": "opacity",
@@ -4543,10 +2319,10 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.4,
-              "t1": 0.7,
+              "t0": 68.3,
+              "t1": 68.8,
               "ease": "linear"
             }
           ]
@@ -4554,20 +2330,19 @@
       ]
     },
     {
-      "id": "cut38",
-      "start": 69.5,
-      "dur": 1.5,
+      "type": "cut",
+      "start": 69.0,
+      "dur": 1.0,
       "bg": "#E4002B",
       "layers": [
         {
           "type": "text",
           "text": "TYLENOL",
           "color": "#FFFFFF",
-          "size": 100,
+          "size": 90,
           "x": 960,
           "y": 540,
           "align": "center",
-          "z": 0,
           "anim": [
             {
               "prop": "opacity",
@@ -4575,11 +2350,11 @@
                 0
               ],
               "to": [
-                100
+                1
               ],
-              "t0": 0.0,
-              "t1": 0.3,
-              "ease": "out"
+              "t0": 69.0,
+              "t1": 69.5,
+              "ease": "linear"
             }
           ]
         }
