@@ -608,3 +608,10 @@ def test_builder_apply_preset():
     for p in ("type_on", "fade_scale_in", "slide_in", "pop_bounce", "mask_reveal", "tilt_2_5d"):
         assert p in jsx, p
     assert "KeyframeEase" in jsx
+
+
+def test_builder_apply_detail():
+    """applyDetail — shadow/glow/grain 이펙트."""
+    jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
+    assert "function applyDetail" in jsx
+    assert "ADBE Drop Shadow" in jsx and "ADBE Glo2" in jsx and "ADBE Add Grain" in jsx

@@ -218,6 +218,33 @@ function akBuildFromJson() {
                 }
             } catch (eP) {}
         }
+        function applyDetail(layer, details) {
+            if (!details || !details.length) return;
+            for (var i = 0; i < details.length; i++) {
+                var d = details[i];
+                try {
+                    if (d === "shadow") {
+                        var ds = layer.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");
+                        ds.property("ADBE Drop Shadow-0002").setValue(60); ds.property("ADBE Drop Shadow-0004").setValue(20); ds.property("ADBE Drop Shadow-0005").setValue(50);
+                    } else if (d === "glow") {
+                        layer.property("ADBE Effect Parade").addProperty("ADBE Glo2");
+                    } else if (d === "depth_blur") {
+                        var gb = layer.property("ADBE Effect Parade").addProperty("ADBE Gaussian Blur 2");
+                        gb.property("ADBE Gaussian Blur 2-0001").setValue(4);
+                    } else if (d === "motion_blur") {
+                        layer.motionBlur = true;
+                    }
+                } catch (e) {}
+            }
+        }
+        function addGrainAdjustment(comp) {
+            try {
+                var g = comp.layers.addSolid([1, 1, 1], "grain", comp.width, comp.height, 1.0);
+                g.adjustmentLayer = true;
+                try { var ag = g.property("ADBE Effect Parade").addProperty("ADBE Add Grain"); ag.property("ADBE AddGrain-0002").setValue(0.4); }
+                catch (eA) { var nz = g.property("ADBE Effect Parade").addProperty("ADBE Noise2"); nz.property("ADBE Noise2-0001").setValue(6); g.property("Opacity").setValue(40); }
+            } catch (e) {}
+        }
         function applyAnim(layer, isText, anims) {
             if (!anims) return;
             for (var a = 0; a < anims.length; a++) {
