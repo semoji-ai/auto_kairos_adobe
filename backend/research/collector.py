@@ -128,3 +128,67 @@ def _append_jsonl(path: Path, record: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def collect_topic(proj_dir: Path, *, topic_slug: str, query: str,
+                  limit_per_lane: int = 8, on_event=None) -> dict[str, Any]:
+    """단일 토픽(=쿼리) 수집 → research/raw + manifests 적재. run_record 반환."""
+    research_dir = Path(proj_dir) / "research"
+    run_id = _run_id()
+    manifests_dir = research_dir / "manifests" / topic_slug
+    sources_jsonl = manifests_dir / "sources.jsonl"
+    runs_jsonl = manifests_dir / "runs.jsonl"
+
+    if on_event:
+        on_event(f"리서치 '{topic_slug}' 수집 시작 (query={query})")
+    lane_results = collect_lanes_parallel(query, limit_per_lane=limit_per_lane)
+
+    saved = 0
+    errors: list[dict] = []
+    tier_counts: dict[str, int] = {}
+    lane_counts: dict[str, int] = {}
+    for lane_name, items in lane_results.items():
+        for item in items:
+            if item.get("error"):
+                errors.append({"lane": lane_name, "error": item["error"]})
+                continue
+            source = _normalize_source(item, run_id=run_id, topic_slug=topic_slug)
+            if not source:
+                continue
+            _write_source_note(research_dir, source)
+            _append_jsonl(sources_jsonl, source)
+            tier_counts[source["tier_hint"]] = tier_counts.get(source["tier_hint"], 0) + 1
+            lane_counts[source["lane"]] = lane_counts.get(source["lane"], 0) + 1
+            saved += 1
+
+    run_record = {
+        "run_id": run_id, "topic_slug": topic_slug, "query": query,
+        "started_at": _now_iso(), "lanes": list(lane_results.keys()),
+        "saved": saved, "errors": errors,
+        "tier_counts": tier_counts, "lane_counts": lane_counts,
+    }
+    _append_jsonl(runs_jsonl, run_record)
+    if on_event:
+        on_event(f"리서치 '{topic_slug}' 완료 — {saved}개 source, errors={len(errors)}")
+    return run_record
+
+
+def collect_queries(proj_dir, queries: list, *, limit_per_lane: int = 8,
+                    on_event=None) -> dict[str, Any]:
+    """쿼리 리스트(각 str 또는 {'query':...})를 토픽별 수집. 진입점.
+    반환: {'runs': [run_record...], 'sources': 총 적재수, 'manifest': 마지막 sources.jsonl 경로}."""
+    proj_dir = Path(proj_dir)
+    runs: list[dict] = []
+    total = 0
+    last_manifest = ""
+    for q in queries:
+        query = (q.get("query") if isinstance(q, dict) else str(q or "")).strip()
+        if not query:
+            continue
+        topic_slug = _slug(query)
+        rec = collect_topic(proj_dir, topic_slug=topic_slug, query=query,
+                            limit_per_lane=limit_per_lane, on_event=on_event)
+        runs.append(rec)
+        total += rec.get("saved", 0)
+        last_manifest = str(proj_dir / "research" / "manifests" / topic_slug / "sources.jsonl")
+    return {"runs": runs, "sources": total, "manifest": last_manifest}
