@@ -97,15 +97,19 @@ def verify(slug: str, refs_dir: Path, lib_path: Path, *, threshold: int = 75, ti
     env = dict(os.environ)
     env.update({"AK_VERIFY_MOTION": str(motion_fp), "AK_VERIFY_OUT": str(mov), "AK_VERIFY_AEP": str(aep)})
     try:
-        subprocess.run(build_ae_command(AFTERFX_BIN, str(VERIFY_JSX)), env=env, timeout=timeout)
+        cp = subprocess.run(build_ae_command(AFTERFX_BIN, str(VERIFY_JSX)), env=env, timeout=timeout)
     except (subprocess.SubprocessError, OSError) as e:
         return {"error": "AE 렌더 실패: " + str(e), "structural": structural}
+    if cp.returncode != 0:
+        return {"error": f"AE 렌더 비정상 종료(code {cp.returncode})", "structural": structural}
     if not mov.exists():
         return {"error": "렌더 산출물 없음", "structural": structural}
     try:
-        subprocess.run(build_ffmpeg_command(str(mov), str(mp4)), timeout=timeout)
+        cp = subprocess.run(build_ffmpeg_command(str(mov), str(mp4)), timeout=timeout)
     except (subprocess.SubprocessError, OSError) as e:
         return {"error": "ffmpeg 실패: " + str(e), "structural": structural}
+    if cp.returncode != 0:
+        return {"error": f"ffmpeg 비정상 종료(code {cp.returncode})", "structural": structural}
     if not mp4.exists():
         return {"error": "mp4 변환 실패", "structural": structural}
 

@@ -117,6 +117,8 @@ def test_smoothness_to_influence_interp_and_clamp():
     # 범위 밖 클램프
     assert smoothness_to_influence(-1.0) == 0
     assert smoothness_to_influence(2.0) == 95
+    # .5 경계 반올림은 jsx Math.round(half-up)와 일치해야 함 (Python 기본 round=banker's면 92)
+    assert smoothness_to_influence(0.95) == 93  # 90 + 5*0.5 = 92.5 → half-up 93
 
 
 def test_gemini_client_compare_videos(monkeypatch):
