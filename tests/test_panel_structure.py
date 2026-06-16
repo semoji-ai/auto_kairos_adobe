@@ -623,3 +623,11 @@ def test_builder_routes_preset_font_color():
     assert "applyPreset(" in jsx and "applyDetail(" in jsx
     assert "resolveFont(" in jsx and "resolveColor(" in jsx
     assert "an.preset" in jsx
+
+
+def test_builder_backward_compatible_and_intact():
+    """기존 prop 방식(preset 없는 anim)도 동작 + 빌더 괄호 균형."""
+    jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
+    assert 'an.prop === "opacity"' in jsx and 'an.prop === "typeOn"' in jsx
+    for o, c in [("{", "}"), ("(", ")"), ("[", "]")]:
+        assert jsx.count(o) == jsx.count(c), o + c
