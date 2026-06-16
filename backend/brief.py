@@ -123,6 +123,7 @@ def run_brief_ratchet(proj_dir, *, threshold: int = 90, max_rounds: int = 3,
     최대 max_rounds. 점수 단조증가(하락 버전 폐기). 미PASS면 최고점 채택(비블로킹).
     채택본을 editorial_brief.json으로 잠금. 반환 {brief, score, verdict, rounds, history}."""
     proj_dir = Path(proj_dir)
+    max_rounds = max(1, int(max_rounds))   # 최소 1라운드(0이면 best=None 크래시 방지)
     history: list[dict] = []
     best = None                      # (path, score, verdict)
     last_revisions = None
