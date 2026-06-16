@@ -211,3 +211,15 @@ def test_verify_missing_inputs(tmp_path):
     lib = tmp_path / "lib.json"; lib.write_text('{"presets":{}}', encoding="utf-8")
     out = V.verify("s2", refs, lib)
     assert "error" in out
+
+
+def test_cli_verify_dispatch(tmp_path, monkeypatch):
+    import scripts.motion_learn.__main__ as cli
+    monkeypatch.setattr(cli, "REFS", tmp_path / "refs")
+    monkeypatch.setattr(cli, "LIB", tmp_path / "lib.json")
+    captured = {}
+    from scripts.motion_learn import verify as V
+    monkeypatch.setattr(V, "verify",
+                        lambda slug, refs, lib, **kw: captured.update(slug=slug) or {"passed": True, "score": 90, "structural": {"issues": []}})
+    cli.main(["verify", "--slug", "s9"])
+    assert captured["slug"] == "s9"

@@ -21,11 +21,12 @@ def build_parser() -> argparse.ArgumentParser:
     a = sub.add_parser("analyze"); a.add_argument("--slug", required=True)
     m = sub.add_parser("merge"); m.add_argument("--slug", required=True); m.add_argument("--approve", nargs="*", default=[])
     sub.add_parser("candidates").add_argument("--slug", required=True)
+    v = sub.add_parser("verify"); v.add_argument("--slug", required=True); v.add_argument("--threshold", type=int, default=75)
     return p
 
 
 def main(argv=None):
-    from scripts.motion_learn import collect, analyze, merge_presets
+    from scripts.motion_learn import collect, analyze, merge_presets, verify
     args = build_parser().parse_args(argv)
     if args.cmd == "collect":
         urls = [ln.strip() for ln in Path(args.urls).read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")]
@@ -45,6 +46,13 @@ def main(argv=None):
         if jsx_lib.parent.is_dir():
             shutil.copy(LIB, jsx_lib)
             print("동기화: jsx 빌더 라이브러리 갱신")
+    elif args.cmd == "verify":
+        r = verify.verify(args.slug, REFS, LIB, threshold=args.threshold)
+        if r.get("error"):
+            print("검증 실패:", r["error"])
+        else:
+            print(f"검증: {'통과' if r['passed'] else '재시도'} (점수 {r['score']}/{r.get('threshold', args.threshold)}, "
+                  f"구조 {'OK' if not r['structural']['issues'] else r['structural']['issues']}) → refs/{args.slug}/verify/verdict.json")
 
 
 if __name__ == "__main__":
