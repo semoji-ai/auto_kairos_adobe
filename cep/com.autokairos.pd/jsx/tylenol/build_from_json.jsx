@@ -32,8 +32,8 @@ function akBuildFromJson() {
         app.beginUndoGroup("TYL Build from JSON");
 
         function hex(h) {
-            if (!h) return [0, 0, 0]; h = String(h).replace("#", "");
-            if (h.length < 6) return [0, 0, 0];
+            if (!h) return [1, 1, 1]; h = String(h).replace("#", "");
+            if (!/^[0-9a-fA-F]{6}/.test(h)) return [1, 1, 1];   // 비-hex(토큰키 등) → 흰색 폴백
             return [parseInt(h.substr(0, 2), 16) / 255, parseInt(h.substr(2, 2), 16) / 255, parseInt(h.substr(4, 2), 16) / 255];
         }
         function applyEase(prop, ki, dim, ease) {
@@ -284,7 +284,7 @@ function akBuildFromJson() {
             var cut = D.cuts[ci];
             var comp = proj.items.addComp("TYL_" + (cut.id || ci), W, H, 1.0, Math.max(0.4, cut.dur || 2), FPS);
             comp.motionBlur = true;
-            comp.layers.addSolid(hex(cut.bg || "#FFFFFF"), "bg", W, H, 1.0);
+            comp.layers.addSolid(resolveColor(cut.bg) || hex(cut.bg && cut.bg.charAt(0) === "#" ? cut.bg : "#FFFFFF"), "bg", W, H, 1.0);
             // 컴포넌트 타입 — 검색창/버튼은 내부 자체 정렬(좌표 추정 무관)
             if (cut.type === "searchbar") { try { makeSearchbar(comp, cut); } catch (eS) { log.push(cut.id + ": searchbar " + eS); } comps.push({ c: comp, dur: cut.dur || 2 }); continue; }
             if (cut.type === "button") { try { makeButton(comp, cut); } catch (eB) { log.push(cut.id + ": button " + eB); } comps.push({ c: comp, dur: cut.dur || 2 }); continue; }

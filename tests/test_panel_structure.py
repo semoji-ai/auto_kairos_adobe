@@ -631,3 +631,10 @@ def test_builder_backward_compatible_and_intact():
     assert 'an.prop === "opacity"' in jsx and 'an.prop === "typeOn"' in jsx
     for o, c in [("{", "}"), ("(", ")"), ("[", "]")]:
         assert jsx.count(o) == jsx.count(c), o + c
+
+
+def test_cut_bg_token_safe():
+    """cut.bg 토큰키가 resolveColor 경유(검정 배경 방지) + hex 비-hex 가드."""
+    jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
+    assert "resolveColor(cut.bg)" in jsx
+    assert "[0-9a-fA-F]" in jsx        # hex 유효성 가드
