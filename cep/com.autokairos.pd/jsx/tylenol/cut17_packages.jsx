@@ -22,13 +22,24 @@ function akTylenolPackages() {
         var gst = gc.addProperty("ADBE Vector Graphic - Stroke"); gst.property("Color").setValue([0.90, 0.90, 0.92]); gst.property("Stroke Width").setValue(1);
         grid.property("Opacity").setValue(55);
 
-        // (2) 4 패키지 — 3D 레이어 + Z축 깊이 분리(입체 쇼케이스). 각기 다른 방향 슬라이드인.
-        // 깊이: 앞(Z 음수)일수록 카메라에 가까워 크고, 카메라 횡이동 시 더 많이 움직임(패럴랙스).
+        // (2) 카메라 먼저 만들어 실제 거리(D)를 읽는다 — 3D 공간 스케일 계산의 기준.
+        var cam = comp.layers.addCamera("cam", [W / 2, H / 2]);
+        var camPos = cam.property("ADBE Transform Group").property("ADBE Position");
+        var D = Math.abs(camPos.value[2]);              // AE 기본 카메라 거리(1080 comp ≈ 2666px)
+
+        // 3D 공간에서 화면상 목표 크기를 유지하는 스케일 — Z가 멀면(양수) 원근으로 작아지므로 보정.
+        //  화면 비율 r 폭이 되려면: scale = (W*r/item.width) * ((D + Z) / D)
+        function scaleAt(item, r, z) { return (W * r / item.width) * 100 * ((D + z) / D); }
+        // Z 위치의 레이어가 화면 (px,py)에 보이려면 3D Position xy = (px-W/2)*(D+z)/D + W/2
+        function projX(px, z) { return (px - W / 2) * ((D + z) / D) + W / 2; }
+        function projY(py, z) { return (py - H / 2) * ((D + z) / D) + H / 2; }
+
+        // 패키지 — Z축 깊이로 명확히 분리(카메라 거리의 ±20~28%). 공간 뒤에서 앞으로 날아와 정착.
         var items = [
-            { f: "assets/pkg_cold.png", gx: W * 0.30, gy: H * 0.34, from: "left", z: -140, tilt: -8 },
-            { f: "assets/pkg_er.png", gx: W * 0.70, gy: H * 0.34, from: "right", z: 120, tilt: 8 },
-            { f: "assets/pkg_500mg.png", gx: W * 0.30, gy: H * 0.66, from: "left", z: 60, tilt: -6 },
-            { f: "assets/pkg_womens.png", gx: W * 0.70, gy: H * 0.66, from: "right", z: -80, tilt: 6 }
+            { f: "assets/pkg_cold.png", px: W * 0.30, py: H * 0.34, z: -D * 0.10, tilt: -8 },
+            { f: "assets/pkg_er.png", px: W * 0.70, py: H * 0.34, z: D * 0.22, tilt: 9 },
+            { f: "assets/pkg_500mg.png", px: W * 0.30, py: H * 0.66, z: D * 0.10, tilt: -5 },
+            { f: "assets/pkg_womens.png", px: W * 0.70, py: H * 0.66, z: -D * 0.18, tilt: 7 }
         ];
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
@@ -37,19 +48,25 @@ function akTylenolPackages() {
             var item = proj.importFile(new ImportOptions(ff));
             var pkg = comp.layers.add(item);
             pkg.threeDLayer = true;
-            var s = (W * 0.24 / item.width) * 100;
             var tg = pkg.property("ADBE Transform Group");
-            tg.property("ADBE Scale").setValue([s, s, s]);
-            tg.property("ADBE Rotate Y").setValue(it.tilt);          // 살짝 기울임(원근으로 입체)
-            var t0 = 0.1 + i * 0.18, t1 = t0 + 0.45, t2 = t0 + 0.6;  // 슬라이드인 + 오버슈트 정착
+            // 목표 Z에서 화면 22% 폭이 되도록 원근 보정 스케일(깊이 달라도 크기 일정)
+            var sTarget = scaleAt(item, 0.22, it.z);
+            tg.property("ADBE Rotate Y").setValue(it.tilt);
+            // 등장: 공간 깊숙이(Z = D*0.7 뒤)서 작게 → 목표 Z로 날아와 정착. 원근으로 다가오며 커짐.
+            var zStart = D * 0.7;
+            var sStart = scaleAt(item, 0.22, zStart);           // 시작은 같은 화면비율이지만 더 멀리
+            var sc = tg.property("ADBE Scale");
+            sc.setValueAtTime(0.1 + i * 0.18, [sStart, sStart, sStart]);
+            sc.setValueAtTime(0.1 + i * 0.18 + 0.55, [sTarget, sTarget, sTarget]);
             var pos = tg.property("ADBE Position");
-            var offx = it.from === "left" ? -W * 0.45 : W * 0.45;
-            var over = it.from === "left" ? 18 : -18;                // 목표 살짝 넘었다 정착(생동감)
-            pos.setValueAtTime(t0, [it.gx + offx, it.gy, it.z]);
-            pos.setValueAtTime(t1, [it.gx + over, it.gy, it.z]);
-            pos.setValueAtTime(t2, [it.gx, it.gy, it.z]);
-            try { pos.setTemporalEaseAtKey(2, [new KeyframeEase(0, 85), new KeyframeEase(0, 85), new KeyframeEase(0, 85)]); } catch (e) {}
-            var op = tg.property("ADBE Opacity"); op.setValueAtTime(t0, 0); op.setValueAtTime(t0 + 0.18, 100);
+            var t0 = 0.1 + i * 0.18, t1 = t0 + 0.55;
+            pos.setValueAtTime(t0, [projX(it.px, zStart), projY(it.py, zStart), zStart]);
+            pos.setValueAtTime(t1, [it.px, it.py, it.z]);       // 목표 Z의 3D 좌표(투영 보정 불필요 — 실제 깊이 배치)
+            try {
+                sc.setTemporalEaseAtKey(2, [new KeyframeEase(0, 80), new KeyframeEase(0, 80), new KeyframeEase(0, 80)]);
+                pos.setTemporalEaseAtKey(2, [new KeyframeEase(0, 80), new KeyframeEase(0, 80), new KeyframeEase(0, 80)]);
+            } catch (e) {}
+            var op = tg.property("ADBE Opacity"); op.setValueAtTime(t0, 0); op.setValueAtTime(t0 + 0.2, 100);
             pkg.motionBlur = true;
             try {
                 var ds = pkg.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");
@@ -59,16 +76,12 @@ function akTylenolPackages() {
             } catch (eD) {}
         }
 
-        // (3) 목적 있는 카메라 — 제품군 입체 쇼케이스(패럴랙스).
-        //  잘림 방지: 기본 Z 거리(Z=0 레이어 1:1) 유지, X만 미세 횡이동 → 깊이별 패키지가
-        //  다르게 움직여 입체감이 드러난다. 무브 작게(±36px).
-        var cam = comp.layers.addCamera("cam", [W / 2, H / 2]);
-        var cpos = cam.property("ADBE Transform Group").property("ADBE Position").value;   // 기본 거리 보존
-        var cp = cam.property("ADBE Transform Group").property("ADBE Position");
-        cp.setValueAtTime(0, [W / 2 - 36, H / 2, cpos[2]]);
-        cp.setValueAtTime(DUR, [W / 2 + 36, H / 2, cpos[2]]);
-        try { cp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 40), new KeyframeEase(0, 40), new KeyframeEase(0, 40)]);
-              cp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 40), new KeyframeEase(0, 40), new KeyframeEase(0, 40)]); } catch (e) {}
+        // (3) 카메라 횡이동(패럴랙스) — 무브폭을 거리 비례로(D*0.06 ≈ 160px) 충분히 줘야 깊이가 드러남.
+        var mv = D * 0.06;
+        camPos.setValueAtTime(0, [W / 2 - mv, H / 2, camPos.value[2]]);
+        camPos.setValueAtTime(DUR, [W / 2 + mv, H / 2, camPos.value[2]]);
+        try { camPos.setTemporalEaseAtKey(1, [new KeyframeEase(0, 35), new KeyframeEase(0, 35), new KeyframeEase(0, 35)]);
+              camPos.setTemporalEaseAtKey(2, [new KeyframeEase(0, 35), new KeyframeEase(0, 35), new KeyframeEase(0, 35)]); } catch (e) {}
 
         // (4) 그레인 — 조정 레이어
         var grain = comp.layers.addSolid([1, 1, 1], "grain", W, H, 1.0);
