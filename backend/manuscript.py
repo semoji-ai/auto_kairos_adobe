@@ -136,3 +136,44 @@ def review_manuscript(proj_dir, ms_path, *, prev_path=None, on_event=None) -> di
         return fail
     return {"score": score, "verdict": str(data.get("verdict") or "REVISE"),
             "revision_instructions": list(data.get("revision_instructions") or [])}
+
+
+def run_manuscript_pipeline(proj_dir, *, threshold: int = 90, max_rounds: int = 3,
+                            max_workers: int = 3, on_event=None) -> dict:
+    """초안→타겟리서치→적용→원고 래칫. 채택본을 final_manuscript.md로 잠금.
+    반환 {manuscript, score, verdict, rounds, history, claims} 또는 {error}."""
+    proj_dir = Path(proj_dir)
+    max_rounds = max(1, int(max_rounds))
+    if not (proj_dir / "research_report.json").is_file():
+        return {"error": "research_report.json 필요 (P3 먼저)"}
+
+    draft_path, questions = generate_draft(proj_dir, on_event=on_event)
+    if draft_path is None:
+        return {"error": "초안 생성 실패"}
+    claims = targeted_research(proj_dir, questions, max_workers=max_workers, on_event=on_event) if questions else []
+
+    history: list[dict] = []
+    best = None                      # (path, score, verdict)
+    last_revisions = None
+    for n in range(1, max_rounds + 1):
+        prev_path = best[0] if best else None
+        out = write_manuscript(proj_dir, version=n, prev=prev_path,
+                               revisions=last_revisions, on_event=on_event)
+        if out is None:
+            if best:
+                break
+            return {"error": "원고 작성 실패", "claims": len(claims)}
+        rv = review_manuscript(proj_dir, out, prev_path=prev_path, on_event=on_event)
+        history.append({"version": n, "score": rv["score"], "verdict": rv["verdict"]})
+        last_revisions = rv["revision_instructions"]
+        if best is None or rv["score"] > best[1]:
+            best = (out, rv["score"], rv["verdict"])
+        if rv["score"] >= threshold and rv["verdict"] == "PASS":
+            break
+
+    locked = proj_dir / "final_manuscript.md"
+    shutil.copy(best[0], locked)
+    if on_event:
+        on_event(f"원고 확정 — {best[1]}점 {best[2]} ({len(history)}라운드)")
+    return {"manuscript": str(locked), "score": best[1], "verdict": best[2],
+            "rounds": len(history), "history": history, "claims": len(claims)}
