@@ -103,3 +103,36 @@ def write_manuscript(proj_dir, *, version: int, prev=None, revisions=None, on_ev
     if res.get("returncode") == 0 and out.is_file():
         return out
     return None
+
+
+def review_manuscript(proj_dir, ms_path, *, prev_path=None, on_event=None) -> dict:
+    """manuscript-review 스킬로 채점. 반환 {score:int, verdict, revision_instructions:list}.
+    파싱/실패 시 score=0, verdict='REVISE'."""
+    proj_dir = Path(proj_dir)
+    ms_path = Path(ms_path)
+    m = re.search(r"\.v(\d+)\.md$", ms_path.name)
+    ver = m.group(1) if m else "1"
+    out = proj_dir / f"manuscript_review.v{ver}.json"
+    parts = [
+        _load_skill("manuscript-review"),
+        "\n\n## editorial brief\n" + _read(proj_dir, "editorial_brief.json"),
+        "\n\n## 평가 대상 원고\n" + ms_path.read_text(encoding="utf-8"),
+    ]
+    if prev_path and Path(prev_path).is_file():
+        parts.append("\n\n## 직전 원고(점수 하락 감시용)\n" + Path(prev_path).read_text(encoding="utf-8"))
+    parts.append(f"\n\nmanuscript_review JSON만 출력. project_id={proj_dir.name}.")
+    prompt = "".join(parts)
+    if on_event:
+        on_event(f"원고 채점 v{ver}")
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_REVIEW_SCHEMA),
+                               output_last=str(out), on_line=on_event)
+    fail = {"score": 0, "verdict": "REVISE", "revision_instructions": []}
+    if res.get("returncode") != 0 or not out.is_file():
+        return fail
+    try:
+        data = json.loads(out.read_text(encoding="utf-8"))
+        score = int(float(data.get("score_total") or 0))
+    except Exception:
+        return fail
+    return {"score": score, "verdict": str(data.get("verdict") or "REVISE"),
+            "revision_instructions": list(data.get("revision_instructions") or [])}
