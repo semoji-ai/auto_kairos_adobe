@@ -55,3 +55,27 @@ def generate_draft(proj_dir, *, on_event=None):
     (proj_dir / "research_questions.json").write_text(
         json.dumps({"questions": questions}, ensure_ascii=False, indent=2), encoding="utf-8")
     return draft_path, questions
+
+
+def targeted_research(proj_dir, questions, *, max_workers: int = 3, on_event=None) -> list:
+    """각 타겟 질문을 web_agent로 병렬 웹리서치 → targeted_claims.json. 빈 결과 격리."""
+    proj_dir = Path(proj_dir)
+    qs = [str(q).strip() for q in (questions or []) if str(q).strip()]
+    if not qs:
+        return []
+
+    def _one(q):
+        prompt = (
+            f"너는 리서치 탐색가다. 다음 질문을 웹 검색·열람으로 해결하라: '{q}'. "
+            f"WebSearch/WebFetch를 사용하고, 검증된 답을 출처 URL과 함께 1~3문장으로 보고하라.")
+        note = web_agent.run_web_research(proj_dir, prompt, on_line=on_event)
+        return {"question": q, "claim": note} if note else None
+
+    with ThreadPoolExecutor(max_workers=max(1, int(max_workers))) as ex:
+        results = list(ex.map(_one, qs))
+    claims = [c for c in results if c]
+    (proj_dir / "targeted_claims.json").write_text(
+        json.dumps(claims, ensure_ascii=False, indent=2), encoding="utf-8")
+    if on_event:
+        on_event(f"타겟 리서치 {len(claims)}/{len(qs)}")
+    return claims
