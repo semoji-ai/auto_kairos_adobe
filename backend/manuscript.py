@@ -21,7 +21,14 @@ _REVIEW_SCHEMA = _SCHEMAS / "manuscript_review.schema.json"
 
 def _load_skill(name: str) -> str:
     md = _SKILLS / name / "SKILL.md"
-    return md.read_text(encoding="utf-8") if md.is_file() else f"skill: {name}"
+    if not md.is_file():
+        return f"skill: {name}"
+    text = md.read_text(encoding="utf-8")
+    if text.startswith("---"):              # YAML frontmatter는 프롬프트 주입에서 제거(노이즈·inert)
+        end = text.find("\n---", 3)
+        if end != -1:
+            text = text[end + 4:].lstrip("\n")
+    return text
 
 
 def _read(proj_dir: Path, name: str) -> str:

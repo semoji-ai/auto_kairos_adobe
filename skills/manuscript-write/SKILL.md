@@ -15,8 +15,8 @@ description: 초안(draft.md)과 타겟 리서치(targeted_claims.json)를 바�
 
 ## 입력
 
-- `draft.md` (필수) — 초안. `[[Q:qXXX]]` 마킹이 포함될 수 있음
-- `targeted_claims.json` (필수) — 타겟 리서처가 답변한 WHY/HOW 질문들 (answer, evidence, confidence 포함)
+- `draft.md` (필수) — 초안 prose
+- `targeted_claims.json` (필수) — 타겟 리서치 결과 배열 `[{question, claim}]` (claim은 출처 URL이 담긴 답변 문장)
 - `editorial_brief.json` (있으면) — 편집 방향, 주제, DNA 레버
 
 ---
@@ -24,20 +24,17 @@ description: 초안(draft.md)과 타겟 리서치(targeted_claims.json)를 바�
 ## 해야 할 일
 
 1. **입력 파악**:
-   - `draft.md` — 초안 흐름 + `[[Q:qXXX]]` 마킹 위치 파악
-   - `targeted_claims.json` — 각 질문의 answer, evidence, confidence 확인
+   - `draft.md` — 초안 흐름과 사실 순서 파악
+   - `targeted_claims.json` — 각 항목의 question(의문)과 claim(검증된 답) 확인
    - `editorial_brief.json` — 편집 방향과 핵심 주제 파악
 
-2. **targeted_claims.json으로 `[[Q:qXXX]]` 해소**:
-   - draft.md의 각 `[[Q:qXXX]]` 마킹을 찾아 targeted_claims.json에서 해당 내용의 답변을 확인합니다.
-   - `confidence: "high"` 또는 `"medium"`: 그 answer/evidence를 prose에 자연스럽게 통합하세요.
-   - `confidence: "low"` 또는 `answer: null`: 그 부분은 단정 표현 없이 우회하거나 제거하세요. 확인 못 한 사실을 창작하지 마세요.
-   - 최종 원고에는 `[[Q:qXXX]]` 마킹을 남기지 마세요.
+2. **targeted_claims를 prose에 통합**:
+   - 각 `{question, claim}`의 claim을 초안 흐름의 알맞은 자리에 자연스럽게 녹여 넣으세요(구체 수치·연도·인용).
+   - claim이 비어 있거나 불확실하면 그 부분은 단정 표현 없이 우회하거나 제거하세요. 확인 못 한 사실을 창작하지 마세요.
 
 3. **draft.md는 뼈대, 최종 원고는 살붙이기**:
    - draft.md의 사실 흐름과 순서를 존중하되, prose를 완전히 재작성해 매력적으로 만드세요.
-   - 타겟 리서치의 구체적 수치/인용/에피소드를 직접 박아 넣으세요.
-   - `[[Q:qXXX]]`가 있던 자리에 실제 답변이 들어가면서 prose가 더 풍부해져야 합니다.
+   - 타겟 리서치(claim)의 구체적 수치/인용/에피소드를 직접 박아 넣어 prose를 더 풍부하게 만드세요.
 
 4. **이전 원고(직전 버전)가 있으면**:
    - 이전 원고의 좋은 점을 유지하면서 REVISE 지시를 반드시 반영하세요.
@@ -53,7 +50,7 @@ description: 초안(draft.md)과 타겟 리서치(targeted_claims.json)를 바�
 - **한 호흡 prose**: 씬 구분 없이 자연스럽게 흘러가는 단일 본문.
 - **구체성**: 추상적 서술 대신 수치, 날짜, 인물명, 에피소드를 직접 박아넣으세요.
 - **속도감**: 짧은 문장과 긴 문장을 리드미컬하게 교차하세요.
-- **환각 금지**: targeted_claims에 없는 사실을 창작하지 마세요. confidence:low는 우회.
+- **환각 금지**: targeted_claims에 없는 사실을 창작하지 마세요. claim이 비거나 불확실하면 우회.
 
 ---
 
@@ -62,7 +59,6 @@ description: 초안(draft.md)과 타겟 리서치(targeted_claims.json)를 바�
 - **마크다운 본문만 출력** — JSON 없음, 스키마 없음.
 - `---`와 `# Ch N.` 마커는 사용하지 않습니다. 이 스킬은 순수 prose만 작성합니다.
 - 씬 분할 마커(`---`), 챕터 마커(`# Ch N.`), 캐릭터 마커(`<!-- chars: -->`) 불필요.
-- `[[Q:qXXX]]` 마킹을 최종 원고에 남기지 마세요.
 
 ---
 
@@ -70,7 +66,6 @@ description: 초안(draft.md)과 타겟 리서치(targeted_claims.json)를 바�
 
 - 확인되지 않은 사실 창작 (타겟 리서치에 없는 수치/인용/에피소드)
 - JSON 출력 (이 스킬은 마크다운만)
-- `[[Q:qXXX]]` 마킹 잔존
 - layout/motion/mood/imageAsset 결정
 - headline/items/values 같은 구조화 데이터 출력
 
