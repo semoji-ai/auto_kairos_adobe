@@ -48,3 +48,67 @@ def split_manuscript(text: str) -> list:
         if narration:
             segs.append({"narration": narration, "characters": chars})
     return segs
+
+
+def _direct_scenes(proj_dir: Path, segments: list, *, on_event=None) -> list:
+    """scene-analyze 스킬로 씬별 연출만 받음. 입력 순서 보존 리스트. 실패 시 []."""
+    out = proj_dir / "scene_specs.json"
+    narr = "\n\n".join(f"### 씬 {i + 1}\n{seg['narration']}" for i, seg in enumerate(segments))
+    prompt = (
+        _load_skill("scene-analyze")
+        + "\n\n## editorial brief\n" + _read(proj_dir, "editorial_brief.json")
+        + f"\n\n## 씬별 내레이션({len(segments)}개, 순서·개수 보존)\n{narr}\n\n"
+        + "각 씬의 연출만 scene_specs JSON으로 출력(narration 미포함, 입력과 같은 개수·순서). "
+        + f"project_id={proj_dir.name}."
+    )
+    if on_event:
+        on_event(f"씬 연출 {len(segments)}개")
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_SCENE_SCHEMA),
+                               output_last=str(out), on_line=on_event)
+    if res.get("returncode") != 0 or not out.is_file():
+        return []
+    try:
+        data = json.loads(out.read_text(encoding="utf-8"))
+        return list(data.get("scenes") or [])
+    except Exception:
+        return []
+
+
+def analyze_scenes(proj_dir, *, on_event=None) -> dict:
+    """final_manuscript.md → 마커 분할 + 연출 → adobe scenes.json. {scenes, count} 또는 {error}."""
+    proj_dir = Path(proj_dir)
+    man = proj_dir / "final_manuscript.md"
+    if not man.is_file():
+        return {"error": "final_manuscript.md 필요 (P4a 먼저)"}
+    segments = split_manuscript(man.read_text(encoding="utf-8"))
+    if not segments:
+        return {"error": "원고가 비어 있음"}
+
+    directions = _direct_scenes(proj_dir, segments, on_event=on_event)
+    specs = []
+    for i, seg in enumerate(segments):
+        d = directions[i] if i < len(directions) and isinstance(directions[i], dict) else {}
+        chars = seg["characters"] or list(d.get("characters") or [])
+        specs.append({
+            "sceneNumber": i + 1,
+            "narration": seg["narration"],
+            "visual_summary": str(d.get("visual_summary") or seg["narration"][:60]),
+            "image_prompt": str(d.get("image_prompt") or ""),
+            "characters": chars,
+            "layout": d.get("layout"),
+        })
+
+    from backend.v3_import import _map_scene
+    from backend import scenes as scenes_mod
+    adobe = []
+    for s in specs:
+        m = _map_scene(s)
+        if s.get("layout"):
+            m["layout"] = s["layout"]
+        adobe.append(m)
+    (proj_dir / "scenes.json").write_text(
+        json.dumps({"scenes": adobe}, ensure_ascii=False, indent=2), encoding="utf-8")
+    scenes_mod.ensure_scene_ids(proj_dir)
+    if on_event:
+        on_event(f"씬 분석 완료 — {len(specs)}씬")
+    return {"scenes": str(proj_dir / "scenes.json"), "count": len(specs)}
