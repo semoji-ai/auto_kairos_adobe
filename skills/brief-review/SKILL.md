@@ -35,8 +35,9 @@ Stage 2 `script-reviewer`의 래칫 방식을 기획 단계에 이식한 에이�
 | G3. layer_map 수렴 | act1/act2/act3 중 하나라도 spine_question과 다른 질문을 향함 | REVISE (해당 막 재작성) |
 | G4. spine_link 충실도 | hidden_truth / human_truth / present_connection 중 spine_link 비거나 spine과 무관한 항목 존재 | REVISE (해당 레버 재작성 또는 제거) |
 | G5. must_include_links | must_cover 항목 중 spine_link가 비거나 무관한 것이 1개라도 있음 | REVISE (분리 권고 + must_cover에서 제거) |
+| G6. 비문·오타 | 텍스트 필드(real_topic/core_question/hook_angle/hidden_truth/narrative_arc 등)에 비문(주술 호응 불일치·비문법적 문장)·오타·조사 오류가 있음 | REVISE (해당 필드 문장 교정 — 원문 인용해 지시) |
 
-블로킹 게이트 실패는 `score_breakdown.spine_blocking`에 사유 기록 + `revision_instructions` 최상단에 표시.
+블로킹 게이트 실패는 `score_breakdown.spine_blocking`(G1~G5) / `score_breakdown.bimun`(G6, 건수·예시)에 사유 기록 + `revision_instructions` 최상단에 표시.
 
 ## 채점 루브릭 (100점)
 
