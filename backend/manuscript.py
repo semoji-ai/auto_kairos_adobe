@@ -79,3 +79,27 @@ def targeted_research(proj_dir, questions, *, max_workers: int = 3, on_event=Non
     if on_event:
         on_event(f"타겟 리서치 {len(claims)}/{len(qs)}")
     return claims
+
+
+def write_manuscript(proj_dir, *, version: int, prev=None, revisions=None, on_event=None):
+    """manuscript-write 스킬 → final_manuscript.v{version}.md. 실패 시 None."""
+    proj_dir = Path(proj_dir)
+    out = proj_dir / f"final_manuscript.v{version}.md"
+    parts = [
+        _load_skill("manuscript-write"),
+        "\n\n## editorial brief\n" + _read(proj_dir, "editorial_brief.json"),
+        "\n\n## 초안(draft)\n" + _read(proj_dir, "draft.md"),
+        "\n\n## 타겟 리서치(targeted_claims)\n" + _read(proj_dir, "targeted_claims.json"),
+    ]
+    if prev and Path(prev).is_file():
+        parts.append("\n\n## 직전 원고(개선 대상)\n" + Path(prev).read_text(encoding="utf-8"))
+    if revisions:
+        parts.append("\n\n## REVISE 지시(반드시 반영)\n" + "\n".join(f"- {r}" for r in revisions))
+    parts.append(f"\n\nfinal_manuscript 마크다운 본문만 출력. project_id={proj_dir.name}.")
+    prompt = "".join(parts)
+    if on_event:
+        on_event(f"원고 작성 v{version}")
+    res = llm.run_orchestrator(prompt, proj_dir, output_last=str(out), on_line=on_event)
+    if res.get("returncode") == 0 and out.is_file():
+        return out
+    return None
