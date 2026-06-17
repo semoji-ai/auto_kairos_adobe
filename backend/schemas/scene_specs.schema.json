@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["scenes"],
+  "properties": {
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "visual_summary": { "type": "string" },
+          "image_prompt": { "type": "string" },
+          "characters": { "type": "array" },
+          "layout": { "type": "string" }
+        }
+      }
+    }
+  }
+}
