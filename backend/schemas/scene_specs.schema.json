@@ -12,7 +12,7 @@
           "visual_summary": { "type": "string" },
           "image_prompt": { "type": "string" },
           "characters": { "type": "array" },
-          "layout": { "type": "string" }
+          "layout": { "type": "string", "enum": ["headline_only", "items_list", "metric_spotlight", "quote", "map", "cinematic"] }
         }
       }
     }
