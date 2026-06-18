@@ -27,17 +27,16 @@ def _looks_from_visual(visual: dict) -> str:
 
 
 def build_character_sheet_prompt(name: str, visual: dict, rel_out: str) -> str:
-    """베이스 캐릭터 시트(첨부 1번)를 리스타일 — 레이아웃·포즈·표정·비율 유지, 헤어·의상만 변경."""
+    """베이스 캐릭터 시트(1번 첨부)를 스타일·레이아웃 참조로 새 캐릭터 시트 생성(사용자 확정 공식).
+    1번의 헤어·의상은 복사 금지하고 묘사대로 바꾼다. 비율은 1번과 동일 유지."""
     looks = _looks_from_visual(visual)
     exprs = ", ".join(str(e) for e in (visual or {}).get("expressions") or []) or "기본 표정들"
     return (
-        f"첨부된 1번 이미지는 캐릭터 기준 시트(전신 턴어라운드 + 얼굴 클로즈업 + 표정 5컷)다.\n"
-        f"이 시트의 캐릭터를 '{name}'(이)라는 캐릭터로 변경해서 같은 레이아웃으로 새로 그려줘.\n"
-        f"- 패널 구성·포즈·표정 칸 배치·신체 비율·체형·얼굴 구조·그림체는 1번 시트 그대로 유지.\n"
-        f"- 헤어와 의상만 변경: {looks}\n"
-        f"- 표정 칸은 다음 정서를 반영: {exprs}\n"
-        f"비율을 텍스트로 새로 지정하지 말 것. 글자·로고 없음. "
-        f"image_gen으로 생성 후 현재 폴더의 {rel_out} 로 저장. 저장되면 'OK'만 답해."
+        f"1번 이미지 캐릭터 스타일(플랫 일러스트 그림체·시트 레이아웃: 전신 턴어라운드 정면·측면·후면 "
+        f"+ 얼굴 클로즈업 + 표정 5컷)로 '{name}'({looks})을(를) 캐릭터 시트로 그려줘.\n"
+        f"- 1번의 헤어와 의상을 그대로 사용 금지 — 헤어·의상은 묘사대로: {looks}\n"
+        f"- 1번과 동일한 등신 비율·머리 크기·체형·패널 배치를 유지.\n"
+        f"- 표정 칸 정서: {exprs}. 글자 없음."
     )
 
 
@@ -101,14 +100,17 @@ def generate_sheet(proj_dir, entity, *, on_line=None) -> dict:
             return {"status": "failed", "error": "semoji_base_sheet.png 없음 — 캐릭터 시트 불가"}
         prompt = build_character_sheet_prompt(name, visual, rel)
         images = [str(bs)]
+        size = "1536x1024"
     elif etype == "location":
         prompt = build_location_sheet_prompt(name, visual, rel)
         images = [str(imagegen.base_img())] if imagegen.base_img() else None
+        size = "1536x1024"
     else:
         prompt = build_prop_sheet_prompt(name, visual, rel)
         images = [str(imagegen.base_img())] if imagegen.base_img() else None
+        size = "1024x1024"
 
-    res = imagegen._run_codex_image(proj_dir, out, prompt, images=images, on_line=on_line)
+    res = imagegen._run_codex_image(proj_dir, out, prompt, images=images, on_line=on_line, size=size)
     if res.get("status") == "completed":
         return {"status": "completed", "path": str(out), "rel": rel}
     return {"status": "failed", "error": res.get("error", "no_file")}

@@ -334,22 +334,91 @@ def test_soft_chroma_edge_soft_alpha(tmp_path):
     assert a < 255                                             # 이진(255)이 아니라 소프트
 
 
-def test_run_codex_image_classifies_rate_limit(tmp_path, monkeypatch):
+class _Proc:
+    def __init__(self, returncode=0, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def _stub_cli(tmp_path, monkeypatch):
+    """CLI 경로·키를 모킹해 _run_codex_image가 subprocess 단계까지 진입하게 함."""
     from backend import imagegen as ig
-    def fake_run(prompt, cwd, **kw):
-        kw.get("on_line", lambda x: None)("image_gen rate limit exceeded")
-        return {"returncode": 1, "output_last": None}
-    monkeypatch.setattr(ig, "run_skill", fake_run)
+    cli = tmp_path / "image_gen.py"
+    cli.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(ig, "_CLI_SCRIPT", cli)
+    monkeypatch.setattr(ig.env, "get_key", lambda name: "sk-test")
     monkeypatch.setattr(ig.time, "sleep", lambda s: None)
+    return ig
+
+
+def test_run_codex_image_classifies_rate_limit(tmp_path, monkeypatch):
+    ig = _stub_cli(tmp_path, monkeypatch)
+    monkeypatch.setattr(ig.subprocess, "run",
+                        lambda *a, **k: _Proc(1, "openai rate limit exceeded (429)"))
     res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=1)
     assert res["status"] == "failed" and res["error"] == "rate_limit"
 
 
 def test_run_codex_image_classifies_no_file(tmp_path, monkeypatch):
-    from backend import imagegen as ig
-    monkeypatch.setattr(ig, "run_skill", lambda *a, **k: {"returncode": 0, "output_last": None})
+    ig = _stub_cli(tmp_path, monkeypatch)
+    monkeypatch.setattr(ig.subprocess, "run", lambda *a, **k: _Proc(0, "done"))
     res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=0)
     assert res["status"] == "failed" and res["error"] == "no_file"
+
+
+def test_run_codex_image_needs_key(tmp_path, monkeypatch):
+    from backend import imagegen as ig
+    monkeypatch.setattr(ig.env, "get_key", lambda name: "")
+    res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=0)
+    assert res["status"] == "failed" and "OPENAI_API_KEY" in res["error"]
+
+
+def test_run_codex_image_success(tmp_path, monkeypatch):
+    ig = _stub_cli(tmp_path, monkeypatch)
+    out = tmp_path / "o.png"
+
+    def fake_run(cmd, **k):
+        out.write_bytes(b"\x89PNG-new-image")
+        return _Proc(0, "Wrote " + str(out))
+
+    monkeypatch.setattr(ig.subprocess, "run", fake_run)
+    res = ig._run_codex_image(tmp_path, out, "p", retries=0)
+    assert res["status"] == "completed" and out.exists()
+
+
+def test_run_codex_image_copy_guard(tmp_path, monkeypatch):
+    ig = _stub_cli(tmp_path, monkeypatch)
+    ref = tmp_path / "ref.png"
+    ref.write_bytes(b"IDENTICAL-BYTES")
+    out = tmp_path / "o.png"
+
+    def fake_run(cmd, **k):
+        out.write_bytes(b"IDENTICAL-BYTES")  # 첨부와 동일 = 복사
+        return _Proc(0, "Wrote")
+
+    monkeypatch.setattr(ig.subprocess, "run", fake_run)
+    res = ig._run_codex_image(tmp_path, out, "p", images=[str(ref)], retries=0)
+    assert res["status"] == "failed"
+
+
+def test_run_codex_image_edit_vs_generate(tmp_path, monkeypatch):
+    ig = _stub_cli(tmp_path, monkeypatch)
+    ref = tmp_path / "ref.png"
+    ref.write_bytes(b"REF")
+    out = tmp_path / "o.png"
+    seen = {}
+
+    def fake_run(cmd, **k):
+        seen["cmd"] = cmd
+        out.write_bytes(b"\x89PNG-x")
+        return _Proc(0, "Wrote")
+
+    monkeypatch.setattr(ig.subprocess, "run", fake_run)
+    ig._run_codex_image(tmp_path, out, "p", images=[str(ref)], retries=0)
+    assert "edit" in seen["cmd"] and "--image" in seen["cmd"]
+    ig._run_codex_image(tmp_path, out, "p", retries=0)
+    assert "generate" in seen["cmd"] and "--image" not in seen["cmd"]
 
 
 def test_split_qc_retries_on_bad_ratio(tmp_path, monkeypatch):

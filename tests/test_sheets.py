@@ -12,7 +12,7 @@ def test_character_prompt_keeps_layout_and_name():
     p = sheets.build_character_sheet_prompt("하루", {"hair": "검은 머리", "expressions": ["미소", "놀람"]}, "references/characters/char-1.png")
     assert "하루" in p
     assert "유지" in p and "헤어" in p
-    assert "references/characters/char-1.png" in p
+    assert "스타일로" in p and "사용 금지" in p   # 검증된 공식: 1번 스타일로 그리고 헤어·의상 복사 금지
     assert "미소" in p
 
 
