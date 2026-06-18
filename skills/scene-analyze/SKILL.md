@@ -18,7 +18,7 @@ description: 이미 분할된 씬별 내레이션을 읽고, 각 씬의 시각 �
 
 ## 해야 할 일
 
-주입된 씬별 내레이션 목록을 순서대로 읽고, 각 씬마다 아래 네 가지를 결정합니다.
+주입된 씬별 내레이션 목록을 순서대로 읽고, 각 씬마다 아래 여섯 가지를 결정합니다.
 
 1. **visual_summary** — 이 씬을 한 줄로 요약한 시각 설명 (무엇을 화면에 보여줄지)
 2. **image_prompt** — 이미지 생성용 묘사 (장면/인물/장소/사물/분위기를 구체적으로)
@@ -27,6 +27,8 @@ description: 이미 분할된 씬별 내레이션을 읽고, 각 씬의 시각 �
    - 인물이 행위·발언하는 씬에만 (대명사로 지칭되는 씬 포함). 등장 인물이 없는 씬(데이터/개념/전환)은 `[]`
    - 동일 인물은 전체에서 동일 문자열로 표기 (1글자라도 다르면 별개로 인식됨)
 4. **layout** — (선택) 아래 중 하나를 제안
+5. **asset_source** — `"search"` 또는 `"generate"` (아래 분류 기준 참고)
+6. **search_query** — asset_source가 `"search"`일 때 실물을 찾을 구체 검색어 (generate일 때는 빈 문자열 또는 생략)
    - `headline_only` — 핵심 메시지 한 줄 강조 (텍스트만)
    - `items_list` — 항목 나열
    - `metric_spotlight` — 단일 수치 강조
@@ -39,6 +41,13 @@ description: 이미 분할된 씬별 내레이션을 읽고, 각 씬의 시각 �
 - 수치 1개 강조 → `metric_spotlight`, 발언 인용 → `quote`, 도입·여운·전환 → `cinematic`
 - `map`은 **위치 자체가 핵심**일 때만 (위치를 제거하면 씬 의미가 무너질 때). 단순히 지명이 언급된 정도면 `cinematic` 또는 일반 이미지로 두세요.
 - 확신이 없으면 layout을 생략하세요.
+
+## 실사 자료(search) vs AI 생성(generate) 분류
+
+각 씬에 asset_source와 search_query를 함께 출력한다.
+- **search(실사 검색)**: 특허·문서, 역사 인물 사진, 실존 제품·로고·장소, 통계 그래프 등 **실재하는 구체물**이 화면의 핵심일 때. search_query에 그 실물을 찾을 구체 검색어를 적는다(예: "US 3691140 patent document", "Spencer Silver 3M scientist").
+- **generate(AI 생성)**: 추상 서사·감정·은유·세모지 일러스트 톤 장면.
+- 목표: 실재 구체물이 중심인 씬은 적극적으로 search로(대략 전체의 40~50%까지). 애매하면 generate.
 
 ## editorial brief 활용
 
@@ -53,10 +62,20 @@ brief의 의도와 어긋나는 연출은 피하세요.
 {
   "scenes": [
     {
-      "visual_summary": "한 줄 시각 요약",
-      "image_prompt": "이미지 생성용 묘사",
+      "visual_summary": "실존 인물의 역사적 순간",
+      "image_prompt": "black and white archival photo of a scientist in a lab coat",
+      "characters": ["Spencer Silver"],
+      "layout": "cinematic",
+      "asset_source": "search",
+      "search_query": "Spencer Silver 3M scientist Post-it inventor"
+    },
+    {
+      "visual_summary": "아이디어가 세상으로 퍼져나가는 추상 장면",
+      "image_prompt": "abstract illustration of glowing ideas spreading across a dark background",
       "characters": [],
-      "layout": "cinematic"
+      "layout": "cinematic",
+      "asset_source": "generate",
+      "search_query": ""
     }
   ]
 }
@@ -68,3 +87,4 @@ brief의 의도와 어긋나는 연출은 피하세요.
 - 입력과 다른 씬 개수·순서
 - narration 필드 출력
 - 위 layout 목록 밖의 값
+- asset_source에 "generate"/"search" 외 값
