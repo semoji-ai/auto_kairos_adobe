@@ -101,6 +101,9 @@ def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
             "layout": d.get("layout"),
             "asset_source": src,
             "search_query": str(d.get("search_query") or ""),
+            "shot_relation": d.get("shot_relation") if d.get("shot_relation") in ("cut", "continue") else "cut",
+            "location": str(d.get("location") or ""),
+            "props": list(d.get("props") or []),
         })
 
     from backend.v3_import import _map_scene
@@ -113,6 +116,11 @@ def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
         m["asset_source"] = s["asset_source"]
         if s.get("search_query"):
             m["search_query"] = s["search_query"]
+        m["shot_relation"] = s["shot_relation"]
+        if s.get("location"):
+            m["location"] = s["location"]
+        if s.get("props"):
+            m["props"] = s["props"]
         adobe.append(m)
     (proj_dir / "scenes.json").write_text(
         json.dumps({"scenes": adobe}, ensure_ascii=False, indent=2), encoding="utf-8")

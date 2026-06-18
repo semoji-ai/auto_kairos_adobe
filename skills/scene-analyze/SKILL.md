@@ -67,7 +67,10 @@ brief의 의도와 어긋나는 연출은 피하세요.
       "characters": ["Spencer Silver"],
       "layout": "cinematic",
       "asset_source": "search",
-      "search_query": "Spencer Silver 3M scientist Post-it inventor"
+      "search_query": "Spencer Silver 3M scientist Post-it inventor",
+      "shot_relation": "cut",
+      "location": "3M 연구실",
+      "props": ["접착제", "실험 노트"]
     },
     {
       "visual_summary": "아이디어가 세상으로 퍼져나가는 추상 장면",
@@ -75,11 +78,23 @@ brief의 의도와 어긋나는 연출은 피하세요.
       "characters": [],
       "layout": "cinematic",
       "asset_source": "generate",
-      "search_query": ""
+      "search_query": "",
+      "shot_relation": "continue",
+      "location": "",
+      "props": []
     }
   ]
 }
 ```
+
+## 씬 연결성(shot_relation)과 엔티티 태그
+
+각 씬에 shot_relation, location, props도 함께 출력한다.
+- **shot_relation**: 이 씬이 이전 씬과 어떤 관계인가.
+  - "continue"(연결): 이전 씬과 **시각적으로 이어지는** 장면 — 같은 공간/상황이 카메라 이동·줌으로 연속(특히 cinematic을 한 장면에 걸쳐 연출할 때).
+  - "cut"(전환): 시간·장소·소재가 달라진 **새 시퀀스**. **첫 씬은 항상 cut**. headline/items/quote/metric 같은 카드형은 대개 cut.
+- **location**: 이 씬의 장소·배경을 짧게(예: "3M 연구실", "교회 성가대석"). 없으면 빈 문자열.
+- **props**: 이 씬의 핵심 소품·사물 배열(예: ["포스트잇", "특허 문서"]). 없으면 빈 배열.
 
 ## 금지
 
