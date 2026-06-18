@@ -36,3 +36,81 @@ def test_base_sheet_returns_none_when_missing(monkeypatch, tmp_path):
     (tmp_path / "yes.png").write_bytes(b"x")
     monkeypatch.setattr(sheets, "_BASE_SHEET", tmp_path / "yes.png")
     assert sheets.base_sheet() == tmp_path / "yes.png"
+
+import json
+from backend import imagegen
+
+
+def _fake_codex(monkeypatch, fail_ids=()):
+    calls = []
+
+    def fake(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        calls.append({"out": str(out), "prompt": prompt, "images": images})
+        if any(fid in str(out) for fid in fail_ids):
+            return {"status": "failed", "error": "no_file"}
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        Path(out).write_bytes(b"\x89PNG\r\n\x1a\n")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(imagegen, "_run_codex_image", fake)
+    return calls
+
+
+def _entities_doc():
+    return {"entities": [
+        {"id": "char-1", "type": "character", "name": "하루", "visual": {"hair": "검은 머리"}, "scenes": [1, 2]},
+        {"id": "loc-1", "type": "location", "name": "거실", "visual": {"space": "거실"}, "scenes": [1]},
+        {"id": "prop-1", "type": "prop", "name": "포스트잇", "visual": {"color": "노랑"}, "scenes": [1, 3]},
+        {"id": "prop-2", "type": "prop", "name": "컵", "visual": {}, "scenes": [2]},
+    ]}
+
+
+def test_generate_all_sheets_happy(tmp_path, monkeypatch):
+    (tmp_path / "entities.json").write_text(json.dumps(_entities_doc(), ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(sheets, "base_sheet", lambda: tmp_path / "bs.png")
+    (tmp_path / "bs.png").write_bytes(b"x")
+    _fake_codex(monkeypatch)
+    r = sheets.generate_all_sheets(tmp_path)
+    assert r["sheets"] == {"character": 1, "location": 1, "prop": 1}
+    assert r["skipped"] == []
+    doc = json.loads((tmp_path / "entities.json").read_text(encoding="utf-8"))
+    by_id = {e["id"]: e for e in doc["entities"]}
+    assert by_id["char-1"]["sheet"] == "references/characters/char-1.png"
+    assert by_id["loc-1"]["sheet"] == "references/locations/loc-1.png"
+    assert by_id["prop-1"]["sheet"] == "references/props/prop-1.png"
+    assert "sheet" not in by_id["prop-2"]   # 1씬 소품 미생성
+    assert (tmp_path / "references/characters/char-1.png").exists()
+
+
+def test_prop_single_scene_filtered(tmp_path, monkeypatch):
+    (tmp_path / "entities.json").write_text(json.dumps(_entities_doc(), ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(sheets, "base_sheet", lambda: tmp_path / "bs.png")
+    (tmp_path / "bs.png").write_bytes(b"x")
+    calls = _fake_codex(monkeypatch)
+    sheets.generate_all_sheets(tmp_path)
+    assert not any("prop-2" in c["out"] for c in calls)   # 컵(1씬) codex 미호출
+
+
+def test_character_without_base_sheet_skipped(tmp_path, monkeypatch):
+    (tmp_path / "entities.json").write_text(json.dumps(_entities_doc(), ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(sheets, "base_sheet", lambda: None)
+    _fake_codex(monkeypatch)
+    r = sheets.generate_all_sheets(tmp_path)
+    assert r["sheets"]["character"] == 0
+    assert any(s["id"] == "char-1" for s in r["skipped"])
+    assert r["sheets"]["location"] == 1   # 나머지 진행
+
+
+def test_codex_failure_isolated(tmp_path, monkeypatch):
+    (tmp_path / "entities.json").write_text(json.dumps(_entities_doc(), ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(sheets, "base_sheet", lambda: tmp_path / "bs.png")
+    (tmp_path / "bs.png").write_bytes(b"x")
+    _fake_codex(monkeypatch, fail_ids=("loc-1",))
+    r = sheets.generate_all_sheets(tmp_path)
+    assert r["sheets"]["location"] == 0
+    assert any(s["id"] == "loc-1" for s in r["skipped"])
+    assert r["sheets"]["character"] == 1
+
+
+def test_no_entities_errors(tmp_path):
+    assert sheets.generate_all_sheets(tmp_path).get("error")

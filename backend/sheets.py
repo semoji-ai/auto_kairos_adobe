@@ -73,3 +73,86 @@ def build_prop_sheet_prompt(name: str, visual: dict, rel_out: str) -> str:
         f"image_gen으로 1장 생성해 현재 폴더의 {rel_out} 로 저장. "
         f"비율을 텍스트로 새로 지정하지 말 것. 글자 없음. 저장되면 'OK'만 답해."
     )
+
+
+_SUBDIR = {"character": "references/characters",
+           "location": "references/locations",
+           "prop": "references/props"}
+
+
+def generate_sheet(proj_dir, entity, *, on_line=None) -> dict:
+    """엔티티 1개 시트 생성 → references/<type>/<id>.png. {status,path,rel}|{status:failed,error}."""
+    proj_dir = Path(proj_dir)
+    etype = entity.get("type")
+    eid = entity.get("id") or "entity"
+    name = entity.get("name") or eid
+    visual = entity.get("visual") or {}
+    subdir = _SUBDIR.get(etype)
+    if not subdir:
+        return {"status": "failed", "error": f"unknown type {etype}"}
+    out_base = proj_dir / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    out = imagegen.versioned_path(out_base, f"{eid}.png")
+    rel = out.relative_to(proj_dir).as_posix()
+
+    if etype == "character":
+        bs = base_sheet()
+        if not bs:
+            return {"status": "failed", "error": "semoji_base_sheet.png 없음 — 캐릭터 시트 불가"}
+        prompt = build_character_sheet_prompt(name, visual, rel)
+        images = [str(bs)]
+    elif etype == "location":
+        prompt = build_location_sheet_prompt(name, visual, rel)
+        images = [str(imagegen.base_img())] if imagegen.base_img() else None
+    else:
+        prompt = build_prop_sheet_prompt(name, visual, rel)
+        images = [str(imagegen.base_img())] if imagegen.base_img() else None
+
+    res = imagegen._run_codex_image(proj_dir, out, prompt, images=images, on_line=on_line)
+    if res.get("status") == "completed":
+        return {"status": "completed", "path": str(out), "rel": rel}
+    return {"status": "failed", "error": res.get("error", "no_file")}
+
+
+def _wants_sheet(entity) -> bool:
+    """소품은 재등장(scenes ≥2)만. 캐릭터·장소는 항상."""
+    if entity.get("type") == "prop":
+        return len(entity.get("scenes") or []) >= 2
+    return entity.get("type") in ("character", "location")
+
+
+def generate_all_sheets(proj_dir, *, types=("character", "location", "prop"), on_event=None) -> dict:
+    """entities.json 읽기 → 대상 필터(소품 ≥2씬) → 엔티티별 시트 → entities.json sheet 역기록.
+    반환 {sheets:{character,location,prop}, skipped:[{id,error}]} | {error}."""
+    proj_dir = Path(proj_dir)
+    ep = proj_dir / "entities.json"
+    if not ep.is_file():
+        return {"error": "entities.json 필요 (S2a 먼저)"}
+    try:
+        doc = json.loads(ep.read_text(encoding="utf-8"))
+        ents = list(doc.get("entities") or [])
+    except Exception:
+        return {"error": "entities.json 파싱 실패"}
+
+    counts = {"character": 0, "location": 0, "prop": 0}
+    skipped: list = []
+    for e in ents:
+        if e.get("type") not in types or not _wants_sheet(e):
+            continue
+        if on_event:
+            on_event(f"시트 생성: {e.get('type')} {e.get('id')}")
+        res = generate_sheet(proj_dir, e, on_line=on_event)
+        if res.get("status") == "completed":
+            e["sheet"] = res["rel"]
+            counts[e["type"]] = counts.get(e["type"], 0) + 1
+        else:
+            skipped.append({"id": e.get("id"), "error": res.get("error")})
+            if on_event:
+                on_event(f"시트 실패: {e.get('id')} — {res.get('error')}")
+
+    doc["entities"] = ents
+    ep.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    if on_event:
+        on_event(f"시트 완료 — char {counts['character']} loc {counts['location']} "
+                 f"prop {counts['prop']}, skip {len(skipped)}")
+    return {"sheets": counts, "skipped": skipped}
