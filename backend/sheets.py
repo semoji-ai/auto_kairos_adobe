@@ -156,3 +156,22 @@ def generate_all_sheets(proj_dir, *, types=("character", "location", "prop"), on
         on_event(f"시트 완료 — char {counts['character']} loc {counts['location']} "
                  f"prop {counts['prop']}, skip {len(skipped)}")
     return {"sheets": counts, "skipped": skipped}
+
+
+def build_base_character_sheet(*, on_line=None) -> dict:
+    """1회성: semoji_base.jpg → 턴어라운드+표정 기준 시트(semoji_base_sheet.png) 생성.
+    실 codex 호출. 결과는 수동 실증 후 자산으로 커밋."""
+    base = imagegen.base_img()
+    if not base:
+        return {"status": "failed", "error": "semoji_base.jpg 없음"}
+    _BASE_SHEET.parent.mkdir(parents=True, exist_ok=True)
+    prompt = (
+        f"첨부된 1번 이미지의 캐릭터로 캐릭터 기준 시트를 한 장으로 그려줘.\n"
+        f"- 상단: 전신 정면, 전신 측면, 전신 후면, 그리고 큰 얼굴 클로즈업.\n"
+        f"- 하단: 같은 인물의 표정 5컷(중립, 놀람, 슬픔, 걱정, 미소).\n"
+        f"- 신체 비율·체형·얼굴 구조·그림체는 1번 이미지 그대로 유지. 같은 인물.\n"
+        f"비율을 텍스트로 새로 지정하지 말 것. 글자·로고 없음. "
+        f"image_gen으로 생성 후 현재 폴더의 {_BASE_SHEET.name} 로 저장. 저장되면 'OK'만 답해."
+    )
+    return imagegen._run_codex_image(_BASE_SHEET.parent, _BASE_SHEET, prompt,
+                                     images=[str(base)], on_line=on_line)

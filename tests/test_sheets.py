@@ -114,3 +114,26 @@ def test_codex_failure_isolated(tmp_path, monkeypatch):
 
 def test_no_entities_errors(tmp_path):
     assert sheets.generate_all_sheets(tmp_path).get("error")
+
+
+def test_build_base_sheet_prompt_has_turnaround_and_expressions(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+        captured["prompt"] = prompt
+        captured["images"] = images
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(imagegen, "_run_codex_image", fake)
+    monkeypatch.setattr(imagegen, "base_img", lambda: tmp_path / "base.jpg")
+    (tmp_path / "base.jpg").write_bytes(b"x")
+    r = sheets.build_base_character_sheet()
+    assert r["status"] == "completed"
+    assert "턴어라운드" in captured["prompt"] or "전신" in captured["prompt"]
+    assert "표정" in captured["prompt"]
+    assert captured["images"] == [str(tmp_path / "base.jpg")]
+
+
+def test_build_base_sheet_no_base_fails(monkeypatch):
+    monkeypatch.setattr(imagegen, "base_img", lambda: None)
+    assert sheets.build_base_character_sheet()["status"] == "failed"
