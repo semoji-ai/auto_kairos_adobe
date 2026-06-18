@@ -11,9 +11,10 @@ def test_looks_from_visual_joins_fields():
 def test_character_prompt_keeps_layout_and_name():
     p = sheets.build_character_sheet_prompt("하루", {"hair": "검은 머리", "expressions": ["미소", "놀람"]}, "references/characters/char-1.png")
     assert "하루" in p
-    assert "유지" in p and "헤어" in p
-    assert "스타일" in p and "사용 금지" in p   # 검증된 공식: 1번 스타일로 그리고 헤어·의상 복사 금지
-    assert "미소" in p
+    assert "헤어" in p                       # 바꾸는 것: 헤어·의상
+    assert "눈" in p                         # 유지: 세모지 눈 스타일(애니메 금지)
+    assert "등신" in p                        # 유지: ~4등신 비율 잠금
+    assert "미소" in p                        # 표정 칸 정서
 
 
 def test_location_prompt_six_panels_no_person():

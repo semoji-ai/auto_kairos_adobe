@@ -102,8 +102,9 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
         n = 1
         for cs in refs["character_sheets"]:
             images.append(str(proj_dir / cs["rel"]))
-            descriptors.append(f"{n}번 캐릭터 시트 '{cs['name']}': 이 인물을 그대로 사용"
-                               f"(비율·얼굴·헤어·의상 100% 유지).")
+            descriptors.append(f"{n}번 캐릭터 시트 '{cs['name']}': 이 인물을 그대로 사용 — "
+                               f"얼굴·눈 스타일·헤어·의상 동일, 그리고 등신 비율·키·체형도 시트와 "
+                               f"정확히 같은 약 4등신 슬림 유지(사실적 성인 비율로 늘리지 말 것).")
             n += 1
         if refs["location_sheet"]:
             images.append(str(proj_dir / refs["location_sheet"]["rel"]))
