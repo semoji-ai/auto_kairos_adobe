@@ -12,6 +12,9 @@ _ROOT = Path(__file__).resolve().parents[1]
 _SKILLS = _ROOT / "skills"
 _SCHEMAS = Path(__file__).resolve().parent / "schemas"
 _SCENE_SCHEMA = _SCHEMAS / "scene_specs.schema.json"
+_REVIEW_SCHEMA = _SCHEMAS / "scene_review.schema.json"
+_LAYOUTS = {"headline_only", "items_list", "metric_spotlight", "quote", "map", "cinematic"}
+_REL = {"cut", "continue"}
 
 _SCENE_RE = re.compile(r"(?m)^[ \t]*<!--\s*SCENE\s*-->[ \t]*$")
 _CHARS_RE = re.compile(r"(?m)^[ \t]*<!--\s*CHARS:\s*(.*?)\s*-->[ \t]*$")
@@ -160,3 +163,94 @@ def _enrich_real_assets(proj_dir: Path, specs: list, *, on_event=None) -> int:
             if on_event:
                 on_event(f"S{s['sceneNumber']} 실사 실패: {e}")
     return n
+
+
+def _scene_det_checks(proj_dir: Path, scenes: list) -> dict:
+    """결정적 씬 검토(LLM 무관) — issues 리스트 + 카운트."""
+    from backend import brief as brief_mod
+    issues: list = []
+    n = len(scenes)
+    for s in scenes:
+        sn = s.get("sceneNumber")
+        if not str(s.get("visual_summary") or "").strip():
+            issues.append(f"씬{sn}: visual_summary 비어 있음")
+        if s.get("layout") and s.get("layout") not in _LAYOUTS:
+            issues.append(f"씬{sn}: layout 비표준값 '{s.get('layout')}'")
+        if s.get("shot_relation") and s.get("shot_relation") not in _REL:
+            issues.append(f"씬{sn}: shot_relation 비표준값 '{s.get('shot_relation')}'")
+    if scenes and scenes[0].get("shot_relation") == "continue":
+        issues.append("씬1: 첫 씬은 cut이어야 함(continue로 표시됨)")
+    per_min = None
+    try:
+        dur = brief_mod.parse_plan(proj_dir).get("duration", "")
+        m = re.search(r"(\d+)", str(dur or ""))
+        mins = int(m.group(1)) if m else 0
+        if mins > 0:
+            per_min = round(n / mins, 1)
+            if per_min < 2:
+                issues.append(f"분당 씬 수 {per_min}로 너무 적음(2 미만)")
+            elif per_min > 12:
+                issues.append(f"분당 씬 수 {per_min}로 너무 많음(12 초과)")
+    except Exception:
+        per_min = None
+    man = re.sub(r"<!--.*?-->", "", _read(proj_dir, "final_manuscript.md"))
+    coverage = all(str(s.get("narration") or "")[:30] in man for s in scenes) if scenes else False
+    if scenes and not coverage:
+        issues.append("narration 커버리지 불완전(일부 씬 narration이 원고에 없음)")
+    return {"scenes": n, "per_minute": per_min, "narration_coverage": coverage, "issues": issues}
+
+
+def _review_scenes_llm(proj_dir: Path, scenes: list, *, on_event=None) -> dict:
+    """scene-review 스킬로 레이아웃/연결성/엔티티 검토. 실패 시 {scenes:[], flags:[]}."""
+    out = proj_dir / "scene_review_llm.json"
+    summary = "\n".join(
+        f"씬{s.get('sceneNumber')}: layout={s.get('layout')} shot_relation={s.get('shot_relation')} "
+        f"chars={s.get('characters')} loc={s.get('location', '')} | {str(s.get('narration') or '')[:60]}"
+        for s in scenes)
+    prompt = (
+        _load_skill("scene-review")
+        + "\n\n## editorial brief\n" + _read(proj_dir, "editorial_brief.json")
+        + f"\n\n## 씬 목록({len(scenes)}개)\n{summary}\n\n"
+        + "scene_review JSON만 출력(scenes 평가 + flags + overall). 권고이며 자동 수정 아님."
+    )
+    if on_event:
+        on_event("씬 검토(LLM)")
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_REVIEW_SCHEMA),
+                               output_last=str(out), on_line=on_event)
+    if res.get("returncode") != 0 or not out.is_file():
+        return {"scenes": [], "flags": []}
+    try:
+        data = json.loads(out.read_text(encoding="utf-8"))
+        return {"scenes": list(data.get("scenes") or []), "flags": list(data.get("flags") or []),
+                "overall": str(data.get("overall") or "")}
+    except Exception:
+        return {"scenes": [], "flags": []}
+
+
+def review_scenes(proj_dir, *, on_event=None) -> dict:
+    """scenes.json을 검토해 advisory 리포트 scene_review.json 산출(래칫 없음).
+    반환 {report, flags, det_issues} 또는 {error}."""
+    proj_dir = Path(proj_dir)
+    sp = proj_dir / "scenes.json"
+    if not sp.is_file():
+        return {"error": "scenes.json 필요 (씬 분석 먼저)"}
+    if not (proj_dir / "final_manuscript.md").is_file():
+        return {"error": "final_manuscript.md 필요"}
+    try:
+        scenes = json.loads(sp.read_text(encoding="utf-8")).get("scenes") or []
+    except Exception:
+        return {"error": "scenes.json 파싱 실패"}
+    det = _scene_det_checks(proj_dir, scenes)
+    rv = _review_scenes_llm(proj_dir, scenes, on_event=on_event)
+    report = {
+        "overall": str(rv.get("overall") or ""),
+        "deterministic": det,
+        "scenes": list(rv.get("scenes") or []),
+        "flags": list(rv.get("flags") or []),
+    }
+    (proj_dir / "scene_review.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if on_event:
+        on_event(f"씬 검토 — flags {len(report['flags'])}, det_issues {len(det['issues'])}")
+    return {"report": str(proj_dir / "scene_review.json"),
+            "flags": len(report["flags"]), "det_issues": len(det["issues"])}
