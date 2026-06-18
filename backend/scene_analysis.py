@@ -74,8 +74,10 @@ def _direct_scenes(proj_dir: Path, segments: list, *, on_event=None) -> list:
         return []
 
 
-def analyze_scenes(proj_dir, *, on_event=None) -> dict:
-    """final_manuscript.md → 마커 분할 + 연출 → adobe scenes.json. {scenes, count} 또는 {error}."""
+def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
+    """final_manuscript.md → 마커 분할 + 연출 + 실사/생성 분류 → adobe scenes.json.
+    enrich=True면 search 씬에 실사 1장을 검색·다운로드해 imageRef에 채움.
+    반환 {scenes, count, searched} 또는 {error}."""
     proj_dir = Path(proj_dir)
     man = proj_dir / "final_manuscript.md"
     if not man.is_file():
@@ -89,6 +91,7 @@ def analyze_scenes(proj_dir, *, on_event=None) -> dict:
     for i, seg in enumerate(segments):
         d = directions[i] if i < len(directions) and isinstance(directions[i], dict) else {}
         chars = seg["characters"] or list(d.get("characters") or [])
+        src = d.get("asset_source") if d.get("asset_source") in ("generate", "search") else "generate"
         specs.append({
             "sceneNumber": i + 1,
             "narration": seg["narration"],
@@ -96,6 +99,8 @@ def analyze_scenes(proj_dir, *, on_event=None) -> dict:
             "image_prompt": str(d.get("image_prompt") or ""),
             "characters": chars,
             "layout": d.get("layout"),
+            "asset_source": src,
+            "search_query": str(d.get("search_query") or ""),
         })
 
     from backend.v3_import import _map_scene
@@ -105,10 +110,45 @@ def analyze_scenes(proj_dir, *, on_event=None) -> dict:
         m = _map_scene(s)
         if s.get("layout"):
             m["layout"] = s["layout"]
+        m["asset_source"] = s["asset_source"]
+        if s.get("search_query"):
+            m["search_query"] = s["search_query"]
         adobe.append(m)
     (proj_dir / "scenes.json").write_text(
         json.dumps({"scenes": adobe}, ensure_ascii=False, indent=2), encoding="utf-8")
     scenes_mod.ensure_scene_ids(proj_dir)
+
+    searched = _enrich_real_assets(proj_dir, specs, on_event=on_event) if enrich else 0
     if on_event:
-        on_event(f"씬 분석 완료 — {len(specs)}씬")
-    return {"scenes": str(proj_dir / "scenes.json"), "count": len(specs)}
+        on_event(f"씬 분석 완료 — {len(specs)}씬 (실사 {searched})")
+    return {"scenes": str(proj_dir / "scenes.json"), "count": len(specs), "searched": searched}
+
+
+def _enrich_real_assets(proj_dir: Path, specs: list, *, on_event=None) -> int:
+    """asset_source=='search' 씬에 실사 1장 검색·다운로드 → imageRef. 실패는 격리. 붙은 수 반환."""
+    from backend import search
+    from backend import scenes as scenes_mod
+    n = 0
+    for s in specs:
+        if (s.get("asset_source") or "generate") != "search":
+            continue
+        q = (s.get("search_query") or s.get("visual_summary") or "").strip()
+        if not q:
+            continue
+        try:
+            res = search.search_images(q, engine="serper")
+            imgs = res.get("images") or []
+            if not imgs:
+                if on_event:
+                    on_event(f"S{s['sceneNumber']} 실사 결과 없음: {q[:30]}")
+                continue
+            dl = search.save_image(proj_dir, imgs[0].get("url", ""), f"real_{s['sceneNumber']}.jpg")
+            if dl.get("status") == "completed":
+                scenes_mod.set_image_ref(proj_dir, s["sceneNumber"], dl["rel"])
+                n += 1
+                if on_event:
+                    on_event(f"S{s['sceneNumber']} 실사: {q[:30]}")
+        except Exception as e:  # noqa: BLE001 — 검색/다운로드 오류 격리(generate 폴백)
+            if on_event:
+                on_event(f"S{s['sceneNumber']} 실사 실패: {e}")
+    return n
