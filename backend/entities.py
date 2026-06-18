@@ -123,3 +123,61 @@ def _backlink_scenes(scenes: list, entities: list, *, on_event=None) -> int:
         if char_ids or loc_id or prop_ids:
             updated += 1
     return updated
+
+
+def _consolidate_llm(proj_dir: Path, occ: list, *, on_event=None) -> list:
+    """entity-registry 스킬로 통합. 실패/파싱오류 시 []."""
+    out = proj_dir / "entities_llm.json"
+    occ_lines = "\n".join(f"- [{o['type']}] {o['raw']} (씬{o['scene']})" for o in occ)
+    prompt = (
+        _load_skill("entity-registry")
+        + "\n\n## editorial brief\n" + _read(proj_dir, "editorial_brief.json")
+        + "\n\n## 원고\n" + _read(proj_dir, "final_manuscript.md")
+        + f"\n\n## 엔티티 출현({len(occ)}건)\n{occ_lines}\n\n"
+        + "표기 변형을 통합하고 각 엔티티의 시각 명세를 합성해 entities JSON으로 출력."
+    )
+    if on_event:
+        on_event(f"엔티티 통합 {len(occ)}건")
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_ENTITY_SCHEMA),
+                               output_last=str(out), on_line=on_event)
+    if res.get("returncode") != 0 or not out.is_file():
+        return []
+    try:
+        data = json.loads(out.read_text(encoding="utf-8"))
+        return list(data.get("entities") or [])
+    except Exception:
+        return []
+
+
+def build_entity_registry(proj_dir, *, on_event=None) -> dict:
+    """scenes.json 엔티티 태그를 정규화 레지스트리로 통합하고 씬에 ID 역링크.
+    반환 {entities, scenes_updated} 또는 {error}."""
+    proj_dir = Path(proj_dir)
+    sp = proj_dir / "scenes.json"
+    if not sp.is_file():
+        return {"error": "scenes.json 필요 (씬 분석 먼저)"}
+    try:
+        doc = json.loads(sp.read_text(encoding="utf-8"))
+        scenes = list(doc.get("scenes") or [])
+    except Exception:
+        return {"error": "scenes.json 파싱 실패"}
+
+    occ = _gather_occurrences(scenes)
+    if not occ:
+        return {"entities": 0, "scenes_updated": 0}
+
+    ents = _consolidate_llm(proj_dir, occ, on_event=on_event)
+    if not ents:
+        ents = _fallback_entities(occ)
+        if on_event:
+            on_event("엔티티 통합 폴백(결정적)")
+
+    updated = _backlink_scenes(scenes, ents, on_event=on_event)
+
+    (proj_dir / "entities.json").write_text(
+        json.dumps({"entities": ents}, ensure_ascii=False, indent=2), encoding="utf-8")
+    doc["scenes"] = scenes
+    sp.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    if on_event:
+        on_event(f"엔티티 레지스트리 — {len(ents)}개, 씬 {updated} 역링크")
+    return {"entities": len(ents), "scenes_updated": updated}
