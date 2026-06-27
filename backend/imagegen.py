@@ -3,6 +3,7 @@
 참조 메모리 [[feedback_codex_image_generation_cli_rule]]."""
 from __future__ import annotations
 
+import glob
 import hashlib
 import json
 import os
@@ -93,24 +94,17 @@ def build_character_prompt(name: str, looks: str, rel_out: str) -> str:
 # 전역 동시 이미지 생성 상한 — codex CLI 동시 폭주(rate limit) 방지 큐잉
 _GEN_SEMA = threading.BoundedSemaphore(max(1, int(os.environ.get("AK_GEN_CONCURRENCY", "3"))))
 
-# codex CLI image_gen.py 경로(환경변수로 재정의 가능)
-_CLI_SCRIPT = Path(os.environ.get("AK_IMAGEGEN_CLI")
-                   or (Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
-                       / "skills" / ".system" / "imagegen" / "scripts" / "image_gen.py"))
-# 코덱스 exec용 잔존 지시문(저장/‘OK’ 응답 등)을 CLI 프롬프트에서 제거하는 패턴
+# codex 내장 image_generation 산출물 위치(thread별 폴더)
+_GEN_DIR = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex")) / "generated_images"
+# 코덱스 exec용 잔존 지시문(저장/‘OK’ 응답 등)을 /imagegen 프롬프트에서 제거하는 패턴
 _BOILERPLATE_RE = re.compile(
     r"(##\s*생성 지시.*$)|(image_gen[^\n]*저장[^\n]*\.?)|(현재 폴더의[^\n]*저장[^\n]*\.?)"
     r"|(저장되면\s*['\"]?OK['\"]?만[^\n]*\.?)",
     re.MULTILINE | re.DOTALL)
 
 
-def _image_python() -> str:
-    """image_gen.py를 돌릴 파이썬(openai 설치 필요). AK_IMAGE_PYTHON > 현재 인터프리터."""
-    return os.environ.get("AK_IMAGE_PYTHON") or sys.executable
-
-
 def _clean_image_prompt(prompt: str) -> str:
-    """codex exec 시절 프롬프트의 도구·저장 지시문 제거(CLI는 출력 경로를 인자로 받음)."""
+    """codex exec 시절 프롬프트의 도구·저장 지시문 제거(/imagegen은 자체 저장 후 회수)."""
     cleaned = _BOILERPLATE_RE.sub("", prompt or "").strip()
     return cleaned or (prompt or "").strip()
 
@@ -122,43 +116,46 @@ def _md5(p: Path) -> str:
 def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
                      images=None, retries: int = 2, on_line=None, post=None,
                      size: str = "auto") -> dict:
-    """codex CLI image_gen.py로 실제 gpt-image 생성. images 있으면 edit, 없으면 generate.
-    출력이 첨부 이미지와 동일(복사)이면 실패 처리(헤드리스 built-in image_gen의 가짜 생성 방지).
-    전역 세마포어로 동시 실행 제한."""
-    key = env.get_key("OPENAI_API_KEY")
-    if not key:
-        return {"status": "failed", "error": "OPENAI_API_KEY 없음(auto_kairos .env)"}
-    if not _CLI_SCRIPT.is_file():
-        return {"status": "failed", "error": f"image_gen CLI 없음: {_CLI_SCRIPT}"}
+    """codex 내장 image_generation(`$imagegen`)으로 생성 — OpenAI API 미사용.
+    `codex --enable image_generation exec '/imagegen ...'` → JSONL thread_id →
+    `~/.codex/generated_images/<thread>/`에서 회수 → out 복사. images는 -i 참조로 첨부.
+    출력이 첨부와 동일(복사)이면 실패 처리. 전역 세마포어로 동시 실행 제한."""
     out.parent.mkdir(parents=True, exist_ok=True)
     img_list = [str(i) for i in (images or []) if Path(i).is_file()]
     in_md5 = {_md5(Path(i)) for i in img_list}
     clean = _clean_image_prompt(prompt)
-    cmd = [_image_python(), str(_CLI_SCRIPT)]
-    if img_list:
-        cmd += ["edit", "--prompt", clean, "--out", str(out), "--size", size, "--force"]
-        for img in img_list:
-            cmd += ["--image", img]
-    else:
-        cmd += ["generate", "--prompt", clean, "--out", str(out), "--size", size, "--force"]
-    cenv = dict(os.environ)
-    cenv["OPENAI_API_KEY"] = key
+    if size and size != "auto":
+        clean = f"{clean}\n생성 크기 {size}."
+    cmd = ["codex", "-a", "never", "--enable", "image_generation", "exec",
+           "--json", "--skip-git-repo-check", "--ephemeral", "-s", "workspace-write",
+           "-C", str(proj_dir)]
+    for img in img_list:
+        cmd += ["-i", img]
+    cmd += ["-"]
+    cenv = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}  # API 키 미전달
     last = ""
     for attempt in range(retries + 1):
         with _GEN_SEMA:
-            proc = subprocess.run(cmd, env=cenv, capture_output=True, text=True)
+            proc = subprocess.run(cmd, input="/imagegen " + clean,
+                                  env=cenv, capture_output=True, text=True)
         last = (proc.stdout or "") + "\n" + (proc.stderr or "")
         if on_line:
             for ln in last.splitlines():
                 if ln.strip():
                     on_line(ln)
-        if proc.returncode == 0 and out.exists():
-            if in_md5 and _md5(out) in in_md5:
-                last += "\n[copy-guard] 출력이 첨부 이미지와 동일(복사) — 실패 처리"
-            else:
-                if post:
-                    post(out)
-                return {"status": "completed", "path": str(out)}
+        m = re.search(r'"thread_id":"([a-z0-9-]+)"', proc.stdout or "")
+        if m:
+            pngs = sorted(glob.glob(str(_GEN_DIR / m.group(1) / "*.png")),
+                          key=os.path.getmtime)
+            if pngs:
+                cand = Path(pngs[-1])
+                if in_md5 and _md5(cand) in in_md5:
+                    last += "\n[copy-guard] 생성물이 첨부와 동일(복사) — 실패 처리"
+                else:
+                    shutil.copy(cand, out)
+                    if post:
+                        post(out)
+                    return {"status": "completed", "path": str(out)}
         if is_rate_limited(last) and attempt < retries:
             time.sleep(20 * (attempt + 1))
             continue
@@ -280,18 +277,19 @@ def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_ou
     """단일 요소 레이어 프롬프트. others=별도 레이어로 분리되는 다른 요소들(이 레이어에서 제외).
     이 요소 위에 얹힌/붙은 것(others 제외)은 함께 그려 한 덩어리로 유지."""
     others = [o for o in (others or []) if o and o != name]
-    excl = (f"단, 다음은 별도 레이어이므로 포함하지 말고 마젠타로 채운다: {', '.join(others)}.\n"
+    excl = (f"단, 다음은 별도 레이어이므로 포함하지 말고 배경(그린)으로 둔다: {', '.join(others)}.\n"
             if others else "")
     return (
-        f"{style_desc}\n\n## 레이어 분리 — 단일 요소\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-        f"이 씬에서 '{name}'({location})를 다시 그린다. "
+        f"{style_desc}\n\n## 레이어 분리 — 단일 요소(투명 컷아웃)\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
+        f"이 씬에서 '{name}'({location})를 단독 피사체로 다시 그린다. "
         f"가장 중요한 규칙: 원본 씬에서 이 요소가 차지하는 **정확히 같은 좌표와 같은 크기** 그대로 그려라 — "
         f"절대 확대하지 말고, 중앙으로 옮기지 말고, 화면을 채우지 말 것. "
         f"이 레이어를 원본 위에 겹치면 픽셀이 일치해야 한다.\n"
         f"이 요소 위에 얹혀 있거나 붙어 있는 것(예: 위에 놓인 문서·물건)도 함께 그려 한 덩어리로 유지한다.\n"
         f"{excl}"
-        f"그 외 전 영역(다른 인물·사물·배경)은 순수 마젠타 단색(#FF00FF)으로 채운다.\n"
-        f"image_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. 텍스트 없음. 저장되면 OK만 답해."
+        f"피사체를 투명 배경의 단독 컷아웃으로 다룬다 — 피사체 밖 전 영역은 모션그래픽 합성을 위해 "
+        f"제거할 균일한 단색 크로마키 그린(#00FF00)으로 채운다. 바닥·그림자·다른 배경 없음.\n"
+        f"텍스트 없음."
     )
 
 
@@ -408,7 +406,7 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
             raw_dir.mkdir(exist_ok=True)
             shutil.copy(o, raw_dir / o.name)
             flatten_colors(o)                       # 구름 얼룩 제거(색 양자화) → 그 후 마젠타 키잉
-            ratio_box.update(chroma_key_magenta(o, o))
+            ratio_box.update(chroma_key_green(o, o))
 
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
         pos = None
@@ -424,9 +422,9 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     def _qc_feedback(ratio, pos):
         """QC 불합격 사유 → 재시도 피드백 한 줄. 합격이면 None."""
         if ratio is not None and ratio < QC_MIN:
-            return "이전 시도에서 마젠타 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 마젠타로."
+            return "이전 시도에서 그린 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 크로마키 그린(#00FF00)으로."
         if ratio is not None and ratio > QC_MAX:
-            return "이전 시도에서 요소가 거의 그려지지 않았다(전부 마젠타). 요소를 분명히 그려라."
+            return "이전 시도에서 요소가 거의 그려지지 않았다(전부 그린). 요소를 분명히 그려라."
         if pos is not None and pos < QC_POS_MIN:
             return ("이전 시도에서 요소가 원본과 다른 위치/크기로 그려졌다. "
                     "원본 씬에서 이 요소가 차지하는 정확히 같은 좌표·같은 크기로 그려라 — "
@@ -461,7 +459,7 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
                 # 마젠타가 그대로면(투명비 ~0) chroma 재적용(멱등 — 이미 키잉된 파일엔 무해)
                 try:
                     if out.exists():
-                        rr = chroma_key_magenta(out, out)
+                        rr = chroma_key_green(out, out)
                         if scene_size:
                             normalize_layer_size(out, scene_size)
                         ratio = rr.get("transparent_ratio", ratio)
@@ -556,16 +554,39 @@ def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
     return {"transparent_ratio": float((alpha < 0.5).sum()) / alpha.size}
 
 
+def chroma_key_green(src_png: Path, out_png: Path) -> dict:
+    """크로마키 그린(#00FF00) 거리 기반 소프트 알파 + 안전 그린 디스필.
+    피사체에 그린 성분이 없으면 디스필이 피사체를 깎지 않음(인위적 제거 아님).
+    반환 {"transparent_ratio": float} — QC 게이트 신호."""
+    im = Image.open(src_png).convert("RGBA")
+    a = np.array(im).astype(float)
+    r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
+    # 그린 유사도: g 높고 r·b 낮을수록 그린. dist 0=순수 그린.
+    dist = np.sqrt(r ** 2 + (255 - g) ** 2 + b ** 2) / 441.673
+    alpha = np.clip((dist - 0.18) / 0.22, 0.0, 1.0)           # 0.18 이하=투명, 0.40 이상=불투명
+    core = alpha >= 0.999
+    er = core.copy()
+    er[1:, :] &= core[:-1, :]; er[:-1, :] &= core[1:, :]
+    er[:, 1:] &= core[:, :-1]; er[:, :-1] &= core[:, 1:]
+    alpha[core & ~er] *= 0.8                                  # 경계 페더(1px)
+    # 디스필: 그린 우세 픽셀의 그린 감쇠(피부 r>g·흰색 균등·네이비엔 그린 우세 없음 → 안전)
+    keep = alpha > 0
+    over = keep & (g > np.maximum(r, b) + 30)
+    a[over, 1] = np.minimum(a[over, 1], np.maximum(a[over, 0], a[over, 2]) + 30)
+    a[:, :, 3] = alpha * 255
+    Image.fromarray(a.astype("uint8"), "RGBA").save(out_png)
+    return {"transparent_ratio": float((alpha < 0.5).sum()) / alpha.size}
+
+
 def build_layer_prompt(layer_kind: str, style_desc: str, rel_out: str) -> str:
     head = f"{style_desc}\n\n## 레이어 분리 지시\n첨부한 scene 이미지를 레퍼런스로 사용한다."
     if layer_kind == "character":
-        body = ("등장 인물(캐릭터)들만 동일한 포즈·외형·위치로 다시 그리고, "
-                "인물 외 모든 영역은 순수 마젠타 단색(#FF00FF)으로 채운다.")
+        body = ("등장 인물(캐릭터)들만 동일한 포즈·외형·위치로 단독 컷아웃으로 다시 그리고, "
+                "인물 외 모든 영역은 제거할 균일한 단색 크로마키 그린(#00FF00)으로 채운다.")
     else:  # background
         body = ("인물(캐릭터)을 모두 제거하고, 배경·환경·공간만 자연스럽게 채워서 그린다. "
                 "인물이 있던 자리는 배경으로 메운다.")
-    return (f"{head} {body}\nimage_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. "
-            f"텍스트 없음. 저장되면 OK만 답해.")
+    return f"{head} {body}\n텍스트 없음."
 
 
 def generate_layer(proj_dir, scene_image, rel_out: str, layer_kind: str,
@@ -588,7 +609,7 @@ def generate_layer(proj_dir, scene_image, rel_out: str, layer_kind: str,
         last = "\n".join(captured)
         if res["returncode"] == 0 and raw.exists():
             if layer_kind == "character":
-                chroma_key_magenta(raw, raw)
+                chroma_key_green(raw, raw)
             return {"status": "completed", "path": str(raw), "layer": layer_kind}
         if is_rate_limited(last) and attempt < retries:
             time.sleep(20 * (attempt + 1))
