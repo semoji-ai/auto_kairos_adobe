@@ -320,7 +320,9 @@ function bindRows(scope) {
 }
 
 /* 레이어 썸네일 클릭 — 풀프레임 레이어를 씬 이미지 위에 1:1로 겹치고
-   알파 윤곽을 따라 빨간 테두리(drop-shadow) 표시. 같은 썸네일 재클릭=해제. */
+   알파 윤곽을 따라 빨간 테두리(drop-shadow) 표시. 같은 썸네일 재클릭=해제.
+   레이어가 그린 크로마(불투명) 출력이므로, 미리보기용으로만 canvas에서 그린을
+   투명 키잉해 표시(출력 파일은 그린 유지). 키잉 실패 시 원본 이미지로 폴백. */
 function toggleLayerOverlay(thumb) {
   var row = thumb.closest(".sheet-row");
   if (!row) return;
@@ -333,11 +335,30 @@ function toggleLayerOverlay(thumb) {
   var sels = row.querySelectorAll("img.lyr.sel");
   for (var i = 0; i < sels.length; i++) sels[i].classList.remove("sel");
   if (was) return;                     // 같은 썸네일 → 토글 오프
-  var ov = document.createElement("img");
-  ov.className = "lyr-overlay";
-  ov.src = thumb.src;                  // 풀프레임(씬과 동일 크기) — width:100%로 정확히 겹침
-  wrap.appendChild(ov);
+  var cv = document.createElement("canvas");
+  cv.className = "lyr-overlay";         // 풀프레임 — CSS width:100%로 씬과 정확히 겹침
+  wrap.appendChild(cv);
   thumb.classList.add("sel");
+  var img = new Image();
+  img.onload = function () {
+    cv.width = img.naturalWidth || img.width;
+    cv.height = img.naturalHeight || img.height;
+    var ctx = cv.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    try {                              // 미리보기 키잉: 그린(#00FF00 근방) → 투명
+      var d = ctx.getImageData(0, 0, cv.width, cv.height), p = d.data;
+      for (var k = 0; k < p.length; k += 4) {
+        var r = p[k], g = p[k + 1], b = p[k + 2];
+        if (g > Math.max(r, b) + 40 && g > 110) p[k + 3] = 0;
+      }
+      ctx.putImageData(d, 0, 0);
+    } catch (e) {                      // canvas taint 등 실패 → 원본 그린 이미지로 폴백
+      if (cv.parentNode) cv.parentNode.removeChild(cv);
+      var ov = document.createElement("img");
+      ov.className = "lyr-overlay"; ov.src = thumb.src; wrap.appendChild(ov);
+    }
+  };
+  img.src = thumb.src;
 }
 
 /* ===== 도구상자(시트 상단) — 체크된 씬에 일괄 실행 ===== */
