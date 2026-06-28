@@ -382,8 +382,9 @@ def _retire_layer(out_base: Path, path: Path) -> None:
 
 def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
                             *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
-    """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
-    요소는 마젠타→투명 후처리. 무삭제(versioned)."""
+    """요소별 그린 크로마 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
+    요소는 크로마키 그린(#00FF00) 배경 상태로 출력(알파 변환 안 함 — AE에서 키잉).
+    flatten·chroma 미적용(얼굴 보존), 위치 QC는 임시 키잉본으로 측정. 무삭제(versioned)."""
     out_base = proj_dir / subdir
     out_base.mkdir(parents=True, exist_ok=True)
     _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제: _prev로 이동)
@@ -401,12 +402,11 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         ratio_box = {}
 
         def _post(o):
-            # raw(chroma 전) 보존 — 텍스처/화질 검수용. layers/_raw/{name}(무삭제·덮어쓰기)
-            raw_dir = o.parent / "_raw"
-            raw_dir.mkdir(exist_ok=True)
-            shutil.copy(o, raw_dir / o.name)
-            flatten_colors(o)                       # 구름 얼룩 제거(색 양자화) → 그 후 마젠타 키잉
-            ratio_box.update(chroma_key_green(o, o))
+            # 출력 o는 그린 크로마 상태로 둔다(알파 변환 안 함 — AE에서 키잉).
+            # flatten 미적용(색 양자화가 얼굴 음영을 뭉갬). QC만 임시 키잉본으로 측정.
+            qc = o.parent / ("._qc_" + o.name)
+            ratio_box.update(chroma_key_green(o, str(qc)))
+            ratio_box["_qc"] = str(qc)
 
         res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
         pos = None
@@ -415,8 +415,16 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
                 # 비율 자체가 다르면 늘리면 찌그러짐 → 리사이즈하지 않고 QC 불합격(pos=0)으로 재시도 유도
                 return res, ratio_box.get("transparent_ratio"), 0.0
             if scene_size:
-                normalize_layer_size(out, scene_size)   # 같은 비율의 크기 변칙만 보정
-            pos = position_score(out, scene_image)      # 원위치 충실도
+                normalize_layer_size(out, scene_size)   # 그린 출력도 씬 크기로(겹침 보장)
+            qcp = ratio_box.get("_qc")                  # 원위치 충실도는 임시 키잉본으로 측정
+            if qcp and Path(qcp).is_file():
+                if scene_size:
+                    normalize_layer_size(qcp, scene_size)
+                pos = position_score(qcp, scene_image)
+                try:
+                    Path(qcp).unlink()
+                except OSError:
+                    pass
         return res, ratio_box.get("transparent_ratio"), pos
 
     def _qc_feedback(ratio, pos):
@@ -455,14 +463,10 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
                 _retire_layer(out_base, out)            # 탈락한 1차본 → _prev (중복 방지·무삭제)
                 out, rel, res, qc, pos = out2, rel2, res2, "retried_ok", pos2
             else:
-                # 1차본 유지 + 저품질 표시. 최종 파일이 키잉 안 된 raw일 가능성 가드:
-                # 마젠타가 그대로면(투명비 ~0) chroma 재적용(멱등 — 이미 키잉된 파일엔 무해)
+                # 1차본(그린 크로마 상태) 유지 + 저품질 표시. 출력은 그린 그대로(AE에서 키잉).
                 try:
-                    if out.exists():
-                        rr = chroma_key_green(out, out)
-                        if scene_size:
-                            normalize_layer_size(out, scene_size)
-                        ratio = rr.get("transparent_ratio", ratio)
+                    if out.exists() and scene_size:
+                        normalize_layer_size(out, scene_size)
                 except Exception:
                     pass
                 _retire_layer(out_base, out2)           # 재시도본도 탈락 → _prev (중복 방지)
