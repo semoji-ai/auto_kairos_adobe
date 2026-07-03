@@ -12,6 +12,25 @@ from backend import themes
 
 _LOCK = threading.RLock()
 
+# 오디오 길이 캐시 {(경로str, mtime): duration} — 같은 파일 재조회 시 afinfo 서브프로세스 생략.
+# 단순 dict + GIL로 충분(원자적 get/set만, 경합 시 최악=중복 계산 1회로 무해).
+_AUD_DUR_CACHE: dict[tuple[str, float], float] = {}
+
+
+def _cached_audio_duration(path: Path) -> float:
+    """tts.audio_duration을 (경로, mtime) 키로 캐시 — 같은 파일 반복 로드 시 서브프로세스 생략."""
+    try:
+        key = (str(path), path.stat().st_mtime)
+    except OSError:
+        from backend import tts as _tts
+        return _tts.audio_duration(path)
+    if key in _AUD_DUR_CACHE:
+        return _AUD_DUR_CACHE[key]
+    from backend import tts as _tts
+    dur = _tts.audio_duration(path)
+    _AUD_DUR_CACHE[key] = dur
+    return dur
+
 
 def _path(proj_dir: Path) -> Path:
     return proj_dir / "scenes.json"
@@ -106,8 +125,7 @@ def load_scenes(proj_dir: Path) -> dict:
         s["_audio"] = (f"audio/{max(auds, key=lambda p: p.stat().st_mtime).name}"
                        if auds else None)      # 최신(mp3/wav 공존 시 방금 생성분)
         if s["_audio"]:                         # 길이는 백엔드(afinfo)에서 — 브라우저 메타 불안정(MP3 Infinity)
-            from backend import tts as _tts
-            s["_audio_dur"] = _tts.audio_duration(proj_dir / s["_audio"])
+            s["_audio_dur"] = _cached_audio_duration(proj_dir / s["_audio"])   # (경로,mtime) 캐시
         else:
             s["_audio_dur"] = 0.0
         # 차트 명세서 사이드카(chart_{sid}.spec.json) — 시트 미리보기 해칭 표시용
@@ -119,11 +137,14 @@ def load_scenes(proj_dir: Path) -> dict:
                 except (json.JSONDecodeError, OSError):
                     pass
         aud = proj_dir / "audio"
+        tts_exists = bool(sid and aud.is_dir() and any(aud.glob(f"*{sid}*")))
         s["_status"] = {
             "narration": bool((s.get("narration") or "").strip()),
             "image": s["_image"] is not None,
             "layers": len(s["_layers"]) > 0,
-            "tts": bool(sid and aud.is_dir() and any(aud.glob(f"*{sid}*"))),
+            "tts": tts_exists,
+            # TTS가 이미 있는데 나레이션이 수정됨(narration_dirty) → 재생성 필요 배지
+            "tts_stale": bool(s.get("narration_dirty")) and tts_exists,
             "motion": bool(sid and (proj_dir / f"motion_{sid}.json").is_file()),
         }
         s["_theme"] = themes.resolve_theme(proj_dir, s)   # 씬별 resolve(override 반영)
@@ -146,6 +167,23 @@ def update_narration(proj_dir: Path, scene_number: int, narration: str) -> dict:
                 fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
                 return {"ok": True, "sceneNumber": scene_number}
         return {"error": f"scene {scene_number} 없음"}
+
+
+def clear_narration_dirty(proj_dir: Path, scene_id: str) -> dict:
+    """sceneId로 씬을 찾아 narration_dirty 플래그 제거(TTS 재생성 성공 시 tts.py가 호출).
+    변경 시에만 저장. {ok, cleared} 또는 {error}."""
+    with _LOCK:
+        fp = _path(proj_dir)
+        if not fp.is_file():
+            return {"error": "scenes.json 없음"}
+        data = json.loads(fp.read_text(encoding="utf-8"))
+        for s in data.get("scenes", []):
+            if s.get("sceneId") == scene_id:
+                had = bool(s.pop("narration_dirty", None))
+                if had:
+                    fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                return {"ok": True, "cleared": had, "sceneId": scene_id}
+        return {"error": f"sceneId {scene_id} 없음"}
 
 
 def new_scene_image_name(sid: str) -> str:

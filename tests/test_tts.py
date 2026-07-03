@@ -110,6 +110,23 @@ def test_generate_scene_tts(tmp_path, monkeypatch):
     assert res["rel"] == "audio/tts_sid9.mp3"
 
 
+def test_generate_scene_tts_clears_narration_dirty(tmp_path, monkeypatch):
+    """TTS 재생성 성공 시 해당 씬 narration_dirty 제거(재생성 배지 끔)."""
+    import json as _json
+    monkeypatch.setattr(tts.env, "get_key", lambda k, *a: "KEY" if k == "ELEVENLABS_API_KEY" else "")
+    monkeypatch.setattr(tts, "synthesize",
+                        lambda text, out, cfg=None: (Path(out).write_bytes(b"x"),
+                                                     {"status": "completed", "path": str(out), "duration": 1.0})[1])
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(_json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "sidD", "narration": "n", "narration_dirty": True}]}),
+        encoding="utf-8")
+    res = tts.generate_scene_tts(proj, "sidD", "내레이션")
+    assert res["status"] == "completed"
+    saved = _json.loads((proj / "scenes.json").read_text(encoding="utf-8"))
+    assert "narration_dirty" not in saved["scenes"][0]      # dirty 해제됨
+
+
 def test_generate_scene_tts_empty_text(tmp_path):
     proj = tmp_path / "p"; proj.mkdir()
     res = tts.generate_scene_tts(proj, "sid9", "   ")

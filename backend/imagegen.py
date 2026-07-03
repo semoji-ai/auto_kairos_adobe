@@ -1,6 +1,6 @@
-"""이미지 생성 — codex CLI image_gen.py(실 gpt-image) 호출 + 재시도 + 복사가드 + 버전.
-⚠️ 헤드리스 codex exec의 built-in image_gen은 실제 생성을 안 함(stale 복사/코드드로잉) → CLI만 사용.
-참조 메모리 [[feedback_codex_image_generation_cli_rule]]."""
+"""이미지 생성 — codex 내장 `$imagegen`(`--enable image_generation`) 호출 + 재시도 + 복사가드 + 버전.
+OpenAI API 미사용(금지 규칙). `~/.codex/generated_images/<thread>/`에서 산출물 회수.
+레이어 분리는 그린 크로마(#00FF00) 상태로 출력(AE에서 키잉). 참조 [[feedback_codex_image_generation_cli_rule]]."""
 from __future__ import annotations
 
 import glob
@@ -10,7 +10,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -19,7 +18,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from backend import env
 from backend import llm
 from backend.codex_runner import run_skill  # noqa: F401 — 하위 호환 재export
 
@@ -126,6 +124,7 @@ def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
     clean = _clean_image_prompt(prompt)
     if size and size != "auto":
         clean = f"{clean}\n생성 크기 {size}."
+    clean = f"{clean}\n이미지는 정확히 1장만 생성한다."   # 후보 2~3장 낭비 완화(긍정형)
     cmd = ["codex", "-a", "never", "--enable", "image_generation", "exec",
            "--json", "--skip-git-repo-check", "--ephemeral", "-s", "workspace-write",
            "-C", str(proj_dir)]

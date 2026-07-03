@@ -203,4 +203,9 @@ def generate_scene_tts(proj_dir: Path, sid: str, text: str, voice: str | None = 
     if res.get("status") == "completed":
         res["rel"] = f"audio/{out.name}"
         res["voice_id"] = cfg["voice_id"]
+        try:                                # TTS 재생성 성공 → narration_dirty 해제(재생성 배지 끄기)
+            from backend import scenes as _scenes
+            _scenes.clear_narration_dirty(Path(proj_dir), sid)
+        except Exception:
+            pass
     return res

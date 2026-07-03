@@ -239,6 +239,9 @@ function renderRow(s, dir) {
     +      '<div class="work-dots" title="이미지·레이어·음성·모션 진행 상태">'
     +        _dot("이미지", st.image) + _dot("레이어", st.layers) + _dot("음성", st.tts) + _dot("모션", st.motion)
     +      '</div>'
+    // 나레이션이 바뀐 뒤 TTS가 오래됨 — 재생성 필요(주황 배지)
+    + (st.tts_stale ? '<div class="tts-stale" title="나레이션이 바뀌었습니다 — TTS를 다시 생성하세요"'
+        + ' style="color:#f39c12;font-size:10px;font-weight:600;margin-top:2px">● TTS 재생성 필요</div>' : '')
     + (chars ? '<div class="work-chars">👤 ' + _esc(chars) + '</div>' : '')
     +      (s._audio
         ? ('<div class="tts-player">'
@@ -313,16 +316,47 @@ function bindRows(scope) {
       if (this.checked) SEL_SCENES[n] = true; else delete SEL_SCENES[n];
     });
   }
+  // 레이어 썸네일: 그린 키잉된 canvas로 교체하고 클릭 핸들러 바인딩(교체 후 canvas에 부착)
   var thumbs = scope.querySelectorAll("img.lyr");
   for (var th = 0; th < thumbs.length; th++) {
-    thumbs[th].addEventListener("click", function () { toggleLayerOverlay(this); });
+    _keyThumb(thumbs[th]);
   }
 }
 
-/* 레이어 썸네일 클릭 — 풀프레임 레이어를 씬 이미지 위에 1:1로 겹치고
-   알파 윤곽을 따라 빨간 테두리(drop-shadow) 표시. 같은 썸네일 재클릭=해제.
-   레이어가 그린 크로마(불투명) 출력이므로, 미리보기용으로만 canvas에서 그린을
-   투명 키잉해 표시(출력 파일은 그린 유지). 키잉 실패 시 원본 이미지로 폴백. */
+/* 그린 크로마(#00FF00 근방)를 canvas에서 투명 키잉 — 미리보기 전용(출력 파일은 그린 유지).
+   성공 시 onReady(canvas), canvas taint·로드 실패 시 onReady(null).
+   maxWidth를 주면 그 폭으로 다운스케일(썸네일 성능용), 없으면 원본 해상도. */
+function _keyGreenToCanvas(imgSrc, onReady, maxWidth) {
+  var img = new Image();
+  img.onload = function () {
+    var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    var w = iw, h = ih;
+    if (maxWidth && iw > maxWidth) {        // 썸네일: 폭 기준 축소(비율 유지)
+      w = maxWidth; h = Math.max(1, Math.round(ih * maxWidth / iw));
+    }
+    var cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    var ctx = cv.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+    try {                                   // 그린(#00FF00 근방) → 투명
+      var d = ctx.getImageData(0, 0, w, h), p = d.data;
+      for (var k = 0; k < p.length; k += 4) {
+        var r = p[k], g = p[k + 1], b = p[k + 2];
+        if (g > Math.max(r, b) + 40 && g > 110) p[k + 3] = 0;
+      }
+      ctx.putImageData(d, 0, 0);
+    } catch (e) {                           // canvas taint 등 실패
+      onReady(null); return;
+    }
+    onReady(cv);
+  };
+  img.onerror = function () { onReady(null); };
+  img.src = imgSrc;
+}
+
+/* 레이어 썸네일(canvas.lyr 또는 img.lyr) 클릭 — 풀프레임 레이어를 씬 이미지 위에 1:1로 겹치고
+   그린을 투명 키잉해 표시. 같은 썸네일 재클릭=해제. 키잉 실패 시 원본 그린 이미지로 폴백.
+   원본 경로는 data-src(canvas) 또는 src(img)에서 읽는다. */
 function toggleLayerOverlay(thumb) {
   var row = thumb.closest(".sheet-row");
   if (!row) return;
@@ -332,33 +366,48 @@ function toggleLayerOverlay(thumb) {
   var was = thumb.classList.contains("sel");
   // 기존 오버레이/선택 해제
   if (prev) prev.parentNode.removeChild(prev);
-  var sels = row.querySelectorAll("img.lyr.sel");
+  var sels = row.querySelectorAll(".lyr.sel");
   for (var i = 0; i < sels.length; i++) sels[i].classList.remove("sel");
   if (was) return;                     // 같은 썸네일 → 토글 오프
-  var cv = document.createElement("canvas");
-  cv.className = "lyr-overlay";         // 풀프레임 — CSS width:100%로 씬과 정확히 겹침
-  wrap.appendChild(cv);
   thumb.classList.add("sel");
-  var img = new Image();
-  img.onload = function () {
-    cv.width = img.naturalWidth || img.width;
-    cv.height = img.naturalHeight || img.height;
-    var ctx = cv.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    try {                              // 미리보기 키잉: 그린(#00FF00 근방) → 투명
-      var d = ctx.getImageData(0, 0, cv.width, cv.height), p = d.data;
-      for (var k = 0; k < p.length; k += 4) {
-        var r = p[k], g = p[k + 1], b = p[k + 2];
-        if (g > Math.max(r, b) + 40 && g > 110) p[k + 3] = 0;
-      }
-      ctx.putImageData(d, 0, 0);
-    } catch (e) {                      // canvas taint 등 실패 → 원본 그린 이미지로 폴백
-      if (cv.parentNode) cv.parentNode.removeChild(cv);
+  var src = thumb.getAttribute("data-src") || thumb.src;
+  _keyGreenToCanvas(src, function (cv) {
+    if (cv) {
+      cv.className = "lyr-overlay";     // 풀프레임 — CSS width:100%로 씬과 정확히 겹침
+      wrap.appendChild(cv);
+    } else {                           // 키잉 실패 → 원본 그린 이미지로 폴백
       var ov = document.createElement("img");
-      ov.className = "lyr-overlay"; ov.src = thumb.src; wrap.appendChild(ov);
+      ov.className = "lyr-overlay"; ov.src = src; wrap.appendChild(ov);
     }
-  };
-  img.src = thumb.src;
+  });                                  // 오버레이는 풀 해상도(maxWidth 미지정)
+}
+
+/* 레이어 썸네일 img.lyr를 그린 키잉된 canvas.lyr로 교체(64px로 다운스케일).
+   같은 클래스·title·click 핸들러 유지, data-src로 원본 경로 보존. 키잉 실패 시 img 유지. */
+function _keyThumb(img) {
+  var src = img.getAttribute("src");
+  _keyGreenToCanvas(src, function (cv) {
+    var el;
+    if (cv) {
+      cv.className = "lyr";
+      cv.title = img.title;
+      cv.setAttribute("data-src", src);   // 오버레이 클릭 시 사용할 원본 경로
+      // 투명 영역이 그린 사각형이 아니라 비침으로 보이도록 옅은 체커보드 배경
+      cv.style.backgroundImage =
+        "linear-gradient(45deg,#3a3d42 25%,transparent 25%),"
+        + "linear-gradient(-45deg,#3a3d42 25%,transparent 25%),"
+        + "linear-gradient(45deg,transparent 75%,#3a3d42 75%),"
+        + "linear-gradient(-45deg,transparent 75%,#3a3d42 75%)";
+      cv.style.backgroundSize = "8px 8px";
+      cv.style.backgroundPosition = "0 0,0 4px,4px -4px,-4px 0";
+      if (img.parentNode) img.parentNode.replaceChild(cv, img);
+      el = cv;
+    } else {
+      img.setAttribute("data-src", src);  // 키잉 실패 → img 유지(그린)
+      el = img;
+    }
+    el.addEventListener("click", function () { toggleLayerOverlay(this); });
+  }, 64);
 }
 
 /* ===== 도구상자(시트 상단) — 체크된 씬에 일괄 실행 ===== */

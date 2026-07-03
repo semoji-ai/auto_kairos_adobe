@@ -246,6 +246,60 @@ def test_load_scenes_audio_ignores_timestamp_sidecar(tmp_path):
     assert s["_audio"] == "audio/tts_aud2.mp3"
 
 
+def test_load_scenes_caches_audio_duration(tmp_path, monkeypatch):
+    """같은 (경로, mtime) 오디오는 afinfo(audio_duration) 서브프로세스를 1회만 호출."""
+    from backend import tts
+    scenes._AUD_DUR_CACHE.clear()
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "audc", "narration": "n"}])
+    (d / "audio").mkdir(); (d / "audio" / "tts_audc.mp3").write_bytes(b"x")
+    calls = {"n": 0}
+
+    def counting(p):
+        calls["n"] += 1
+        return 3.5
+
+    monkeypatch.setattr(tts, "audio_duration", counting)
+    s1 = scenes.load_scenes(d)["scenes"][0]
+    s2 = scenes.load_scenes(d)["scenes"][0]
+    assert s1["_audio_dur"] == 3.5 and s2["_audio_dur"] == 3.5
+    assert calls["n"] == 1                     # 2회 로드해도 afinfo 1회(캐시)
+
+
+def test_load_scenes_tts_stale_flag(tmp_path):
+    """narration_dirty=True 이고 TTS가 있으면 tts_stale=True(재생성 필요)."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "stl1", "narration": "n",
+                          "narration_dirty": True}])
+    (d / "audio").mkdir(); (d / "audio" / "tts_stl1.mp3").write_bytes(b"x")
+    st = scenes.load_scenes(d)["scenes"][0]["_status"]
+    assert st["tts"] is True and st["tts_stale"] is True
+
+
+def test_tts_stale_false_without_tts(tmp_path):
+    """dirty여도 TTS 파일이 없으면 stale 아님(아직 만든 적 없음)."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "stl2", "narration": "n",
+                          "narration_dirty": True}])
+    st = scenes.load_scenes(d)["scenes"][0]["_status"]
+    assert st["tts"] is False and st["tts_stale"] is False
+
+
+def test_clear_narration_dirty(tmp_path):
+    """clear_narration_dirty로 플래그 해제 → tts_stale 해제."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "cnd1", "narration": "n",
+                          "narration_dirty": True}])
+    (d / "audio").mkdir(); (d / "audio" / "tts_cnd1.mp3").write_bytes(b"x")
+    res = scenes.clear_narration_dirty(d, "cnd1")
+    assert res["ok"] is True and res["cleared"] is True
+    saved = json.loads((d / "scenes.json").read_text(encoding="utf-8"))
+    assert "narration_dirty" not in saved["scenes"][0]
+    st = scenes.load_scenes(d)["scenes"][0]["_status"]
+    assert st["tts_stale"] is False
+
+
+def test_clear_narration_dirty_unknown_sid(tmp_path):
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "cnd2"}])
+    assert "error" in scenes.clear_narration_dirty(d, "nope")
+
+
 def test_load_scenes_status_flags(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "aaa",
                           "narration": "내용", "imageRef": "storyboard/sb_aaa.png"}])

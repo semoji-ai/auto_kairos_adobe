@@ -476,6 +476,7 @@ def test_run_codex_image_attaches_refs_and_imagegen_stdin(tmp_path, monkeypatch)
     assert seen["cmd"][i + 1] == str(ref)          # 참조가 -i 인자로
     assert "image_generation" in seen["cmd"]       # built-in 엔진 활성화 플래그
     assert seen["input"].startswith("/imagegen ")  # stdin은 /imagegen 프롬프트
+    assert "정확히 1장" in seen["input"]           # 후보 낭비 완화 긍정형 지시
 
 
 def test_split_qc_retries_on_bad_ratio(tmp_path, monkeypatch):
