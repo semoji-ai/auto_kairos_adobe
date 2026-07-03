@@ -55,6 +55,26 @@ def _clamp_plan(plan: dict, dur: float) -> dict:
     return plan
 
 
+def _prev_camera_types(proj_dir: Path, data: dict, scene_number: int, k: int = 3) -> list:
+    """직전 씬들(최대 k개)의 카메라 타입 [(씬번호, type)] — 카메라 리듬 판단용.
+    모션 플랜 파일이 없거나 파싱 실패면 none으로 간주."""
+    out = []
+    for x in data.get("scenes", []):
+        n = x.get("sceneNumber")
+        if not isinstance(n, int) or n >= scene_number:
+            continue
+        mp = motion_path(proj_dir, x.get("sceneId") or "")
+        t = "none"
+        if mp.is_file():
+            try:
+                t = (json.loads(mp.read_text(encoding="utf-8")).get("camera") or {}).get("type") or "none"
+            except Exception:
+                t = "none"
+        out.append((n, t))
+    out.sort()
+    return out[-k:]
+
+
 def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dict:
     """씬 모션 플랜 생성 → motion_{sid}.json 저장. 반환=플랜 dict 또는 {error}."""
     proj_dir = Path(proj_dir)
@@ -81,6 +101,9 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
     if not chars:
         return {"error": "캐릭터 레이어 없음 — 현재 모션 규칙은 캐릭터(bob)만"}
     dur = _scene_duration(proj_dir, s)
+    prev = _prev_camera_types(proj_dir, data, scene_number)
+    hist = ", ".join(f"씬{n}:{t}" for n, t in prev) or "(첫 씬)"
+    prev_cam = prev[-1][1] if prev else "none"
     prompt = (
         "너는 모션그래픽 연출가다. 아래 씬의 '캐릭터(인물)' 레이어에만 idle 모션을 설계해라.\n\n"
         f"## 내레이션(씬 길이 {dur:.1f}초)\n{s.get('narration', '') or '(없음)'}\n\n"
@@ -92,10 +115,13 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
         "2) 인물 기본은 bob(까딱임 idle) 1개. 씬 시작에 등장 연출이 어울리면 fade_in을 앞에 추가해도 된다.\n"
         "3) slide_in/pop/drift/shake/zoom_emphasis 는 인물에 쓰지 않는다(현행 규칙).\n"
         "4) 모든 start+duration은 씬 길이 이내.\n"
-        "5) camera 기본은 none — 정지 프레임이 세련의 기본값이다. 내레이션이 공간·규모·시간의 흐름을 "
-        "말할 때만 slow_zoom_in/slow_zoom_out(amount 3~4), 이동·대비를 말할 때만 pan_left/pan_right"
-        "(amount 20~40). 매 씬 카메라를 넣지 말 것 — 연속된 씬 2~3개에 1번이면 충분하다.\n"
-        "6) 모션은 적을수록 좋다 — 씬당 시선을 끄는 모션은 1개 원칙, 나머지는 정지."
+        "5) camera는 '내용의 동기'가 있을 때만 — 동기 없는 카메라 금지, 기본은 none(정지가 세련):\n"
+        "   - 질문·훅·미스터리·긴장이 고조되는 서술 → slow_zoom_in(amount 3~4)\n"
+        "   - 규모·전경·공간이 드러나는 서술 → slow_zoom_out(amount 3~4)\n"
+        "   - 시간 경과·여정·이동·대비 서술 → pan_left/pan_right(amount 20~40)\n"
+        "   - 설명·나열·수치·인용 씬 → none(정보가 주인공 — 카메라 개입 금지)\n"
+        f"6) 카메라 리듬 — 직전 씬이 카메라를 썼으면 이번 씬은 반드시 none. 직전 이력: {hist}\n"
+        "7) 모션은 적을수록 좋다 — 씬당 시선을 끄는 모션은 1개 원칙, 나머지는 정지."
     )
     out = proj_dir / f".motion_plan_{sid}.json"
     res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_SCHEMA),
@@ -118,5 +144,9 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
             filtered.append({"layer": L["layer"], "moves": mvs})
     plan["layers"] = filtered
     plan = _clamp_plan(plan, dur)
+    # 연속 카메라 금지(결정적 리듬 가드) — 직전 씬이 카메라를 썼으면 이번 씬은 none.
+    # 프롬프트 권고만으론 LLM이 매 씬 줌을 넣는 기계적 패턴을 못 막는다(실증) → 코드로 강제.
+    if prev_cam != "none" and (plan.get("camera") or {}).get("type") not in (None, "none"):
+        plan["camera"] = {"type": "none"}
     motion_path(proj_dir, sid).write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     return plan

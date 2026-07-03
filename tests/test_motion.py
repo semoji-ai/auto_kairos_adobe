@@ -109,3 +109,27 @@ def test_plan_error_when_no_characters(tmp_path):
     (lay / "ob__kinds.json").write_text('{"ob__0_책상":"object"}', encoding="utf-8")
     res = motion.plan_scene_motion(d, 1)
     assert "error" in res and "캐릭터" in res["error"]
+
+
+def test_camera_rhythm_guard_blocks_consecutive(tmp_path, monkeypatch):
+    """직전 씬이 카메라를 썼으면 이번 씬 카메라는 결정적으로 none(연속 카메라 금지)."""
+    d = _proj(tmp_path, [
+        {"sceneNumber": 1, "sceneId": "r1", "narration": "훅"},
+        {"sceneNumber": 2, "sceneId": "r2", "narration": "설명"},
+    ])
+    lay = d / "layers"; lay.mkdir()
+    (lay / "r2__0_남자.png").write_bytes(b"\x89PNG")
+    # 씬1은 이미 줌 플랜 보유
+    (d / "motion_r1.json").write_text(json.dumps(
+        {"layers": [], "camera": {"type": "slow_zoom_in", "amount": 4}}), encoding="utf-8")
+
+    def fake_run(prompt, cwd, *, output_schema=None, output_last=None, images=None, on_line=None, **kw):
+        assert "씬1:slow_zoom_in" in prompt            # 직전 이력이 프롬프트에 전달됨
+        Path(output_last).write_text(json.dumps({
+            "layers": [{"layer": "r2__0_남자", "moves": [{"type": "bob", "start": 0, "duration": 2}]}],
+            "camera": {"type": "slow_zoom_in", "amount": 4}}), encoding="utf-8")
+        return {"returncode": 0, "output_last": output_last}
+
+    monkeypatch.setattr(motion.llm, "run_orchestrator", fake_run)
+    res = motion.plan_scene_motion(d, 2)
+    assert res["camera"]["type"] == "none"             # LLM이 줌을 넣어도 가드가 차단
