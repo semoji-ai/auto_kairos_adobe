@@ -32,6 +32,31 @@
     #tab-content { flex:1; min-height:0; overflow:hidden; }
     #tab-planning { height:100%; overflow-y:auto; padding:14px; box-sizing:border-box; }
     #tab-storyboard { height:100%; box-sizing:border-box; }
+    #tab-pipeline { height:100%; overflow-y:auto; padding:14px; box-sizing:border-box; }
+    /* 파이프라인 탭 — 세로 단계 카드 리스트 */
+    #pipe-cards { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+    .pipe-card { background:#1b1d21; border:1px solid #33363c; border-radius:6px; padding:10px 12px; }
+    .pipe-card .pc-head { display:flex; align-items:center; gap:8px; }
+    .pipe-card .pc-dot { width:10px; height:10px; border-radius:50%; flex:0 0 auto;
+      background:#3a3e46; border:1px solid #555; }
+    .pipe-card .pc-dot.done { background:#2ecc71; border-color:#2ecc71; }
+    .pipe-card .pc-dot.busy { background:#f5a623; border-color:#f5a623; }
+    .pipe-card .pc-title { flex:1; font-size:13px; font-weight:600; color:#e6e6e6; }
+    .pipe-card .pc-run { width:auto; margin:0; padding:5px 12px; font-size:12px; background:#2c2f36;
+      border:1px solid #33363c; border-radius:5px; }
+    .pipe-card .pc-run:hover:not(:disabled) { background:#3a6df0; }
+    .pipe-card .pc-run:disabled { opacity:0.4; cursor:not-allowed; }
+    .pipe-card .pc-log { font-size:11px; color:#9aa0a6; margin-top:6px; min-height:14px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pipe-card .pc-result { font-size:11px; color:#7ab0ff; margin-top:4px; }
+    .pipe-card .pc-need { font-size:11px; color:#e0955b; margin-top:4px; }
+    #pipe-runall-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    #btnPipeRunAll { width:auto; margin:0; padding:8px 14px; }
+    #pipe-gate { display:none; background:#26303f; border:1px solid #3a6df0; border-radius:6px;
+      padding:10px 12px; margin-top:8px; }
+    #pipe-gate.on { display:block; }
+    #pipe-gate button { width:auto; margin:0 0 0 6px; padding:6px 12px; font-size:12px; }
+    #btnPipeGateStop { background:#444; }
     #chat-dock { border-top:1px solid #33363c; background:#1b1d21; padding:10px 14px; }
     #chat-dock .row { display:flex; gap:6px; }
     #chatInput { flex:1; box-sizing:border-box; padding:8px; background:#23262b;
@@ -256,6 +281,7 @@
     <div id="task-bar">태스크: (P5에서 활성)</div>
     <div id="tabs">
       <button id="btnTabPlanning" class="tab active">기획</button>
+      <button id="btnTabPipeline" class="tab">파이프라인</button>
       <button id="btnTabStoryboard" class="tab">스토리보드</button>
     </div>
     <div id="tab-content">
@@ -273,6 +299,20 @@
           <button id="btnSavePlanFile" class="mini">💾 저장</button>
           <span id="planEditStatus" style="font-size:11px;color:#9aa0a6">—</span>
         </div>
+      </div>
+
+      <!-- 파이프라인 탭 (Stage1-2 전 단계 노출) -->
+      <div id="tab-pipeline" hidden>
+        <div id="pipe-runall-bar">
+          <button id="btnPipeRunAll" title="①브리프부터 ⑧씬 렌더까지 순차 실행(브리프·원고 후 검토 게이트)">▶ 전체 실행</button>
+          <button id="btnPipeReload" class="mini">상태 새로고침</button>
+        </div>
+        <div id="pipe-gate">
+          <span id="pipeGateMsg">—</span>
+          <button id="btnPipeGateContinue">계속 →</button>
+          <button id="btnPipeGateStop">중지</button>
+        </div>
+        <div id="pipe-cards">—</div>
       </div>
 
       <!-- 스토리보드 탭 -->
@@ -449,6 +489,7 @@
   <script src="js/main.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/planning.js"></script>
+  <script src="js/pipeline.js"></script>
   <link rel="stylesheet" href="vendor/maplibre-gl.css">
   <script src="vendor/maplibre-gl.js"></script>
   <script src="js/mapgen.js"></script>

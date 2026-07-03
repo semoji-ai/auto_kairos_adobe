@@ -23,16 +23,22 @@ function exitProject() {
 
 function switchTab(name) {
   var planning = name === "planning";
+  var pipeline = name === "pipeline";
+  var storyboard = name === "storyboard";
   _$("tab-planning").hidden = !planning;
-  _$("tab-storyboard").hidden = planning;
+  _$("tab-pipeline").hidden = !pipeline;
+  _$("tab-storyboard").hidden = !storyboard;
   _$("btnTabPlanning").classList.toggle("active", planning);
-  _$("btnTabStoryboard").classList.toggle("active", !planning);
-  if (!planning && typeof loadSheet === "function") loadSheet();
-  if (!planning && typeof loadGallery === "function") loadGallery();
+  _$("btnTabPipeline").classList.toggle("active", pipeline);
+  _$("btnTabStoryboard").classList.toggle("active", storyboard);
+  if (pipeline && typeof loadPipeStatus === "function") loadPipeStatus();
+  if (storyboard && typeof loadSheet === "function") loadSheet();
+  if (storyboard && typeof loadGallery === "function") loadGallery();
 }
 
 document.addEventListener("DOMContentLoaded", function () {
   _$("btnBackToList").addEventListener("click", exitProject);
   _$("btnTabPlanning").addEventListener("click", function () { switchTab("planning"); });
+  _$("btnTabPipeline").addEventListener("click", function () { switchTab("pipeline"); });
   _$("btnTabStoryboard").addEventListener("click", function () { switchTab("storyboard"); });
 });

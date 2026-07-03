@@ -1085,3 +1085,110 @@ def test_themes_endpoints(tmp_path, monkeypatch):
     st, res = router.handle_request("POST", "/api/themes/set-scene", {},
         {"project_id": "p1", "sceneNumber": 1, "theme_id": "semoji"}, {"root": tmp_path})
     assert st == 200 and res["themeOverride"] == "semoji"
+
+
+# ===== 파이프라인 엔드포인트(Stage1-2 노출, B3) =====
+
+def test_pipe_endpoints_async_jobs(tmp_path, monkeypatch):
+    """8종 /api/pipe/* — 각 backend 함수 monkeypatch → 잡 완료 result 검증."""
+    import backend.router as r
+    (tmp_path / "pj").mkdir()
+
+    def mk(name, ret):
+        def fn(proj_dir, **kw):
+            ol = kw.get("on_event")
+            if ol:
+                ol(name + " 로그")
+            return ret
+        return fn
+
+    monkeypatch.setattr(r.brief, "run_brief_ratchet",
+                        mk("brief", {"brief": "x", "score": 92, "verdict": "PASS", "rounds": 2, "history": []}))
+    monkeypatch.setattr(r.research_orch, "run_research",
+                        mk("research", {"report": "x", "queries": 5, "sources": 10, "web_notes": 3}))
+    monkeypatch.setattr(r.manuscript, "run_manuscript_pipeline",
+                        mk("manuscript", {"manuscript": "x", "score": 90, "verdict": "PASS", "rounds": 1}))
+    monkeypatch.setattr(r.scene_analysis, "analyze_scenes",
+                        mk("scenes", {"scenes": "x", "count": 7, "searched": 2}))
+    monkeypatch.setattr(r.scene_analysis, "review_scenes",
+                        mk("review", {"report": "x", "flags": 1, "det_issues": 0}))
+    monkeypatch.setattr(r.entities, "build_entity_registry",
+                        mk("entities", {"entities": 4, "scenes_updated": 6}))
+    monkeypatch.setattr(r.sheets, "generate_all_sheets",
+                        mk("sheets", {"sheets": {"character": 2, "location": 1, "prop": 0}, "skipped": []}))
+    monkeypatch.setattr(r.scene_render, "render_scenes",
+                        mk("render", {"rendered": 5, "total": 7, "skipped": []}))
+
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    cases = {
+        "/api/pipe/brief": ("score", 92),
+        "/api/pipe/research": ("queries", 5),
+        "/api/pipe/manuscript": ("score", 90),
+        "/api/pipe/scenes": ("count", 7),
+        "/api/pipe/scene-review": ("flags", 1),
+        "/api/pipe/entities": ("entities", 4),
+        "/api/pipe/sheets": ("skipped", []),
+        "/api/pipe/render": ("rendered", 5),
+    }
+    for ep, (k, v) in cases.items():
+        code, body = handle_request("POST", ep, {}, {"project_id": "pj"}, ctx)
+        assert code == 200 and body["status"] == "running" and body["job_id"], ep
+        jb = _poll(ctx, body)
+        assert jb["status"] == "completed", (ep, jb)
+        assert jb["result"][k] == v, (ep, jb["result"])
+        assert jb["logs"], ep     # on_event → append_log 배선 확인
+
+
+def test_pipe_error_return_becomes_failed(tmp_path, monkeypatch):
+    """backend가 {'error'} 반환 → 잡 failed 로 승격."""
+    import backend.router as r
+    (tmp_path / "pe").mkdir()
+    monkeypatch.setattr(r.brief, "run_brief_ratchet",
+                        lambda proj_dir, **kw: {"error": "plan.md 필요"})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/pipe/brief", {}, {"project_id": "pe"}, ctx)
+    assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["status"] == "failed"
+    assert "plan.md" in (jb["error"] or "")
+
+
+def test_pipe_status_reflects_artifacts(tmp_path):
+    """GET /api/pipe/status — 산출물 유무·시트 수·렌더 n/m 반영."""
+    import json as _j
+    proj = tmp_path / "ps"; proj.mkdir()
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+
+    code, body = handle_request("GET", "/api/pipe/status", {"project_id": "ps"}, None, ctx)
+    assert code == 200
+    assert body["plan"] is False and body["brief"] is False
+    assert body["sheets"] == 0
+    assert body["rendered"] == {"done": 0, "total": 0}
+
+    (proj / "plan.md").write_text("# t", encoding="utf-8")
+    (proj / "editorial_brief.json").write_text("{}", encoding="utf-8")
+    (proj / "entities.json").write_text(_j.dumps({"entities": [
+        {"id": "c1", "sheet": "references/characters/c1.png"},
+        {"id": "c2"}]}), encoding="utf-8")
+    (proj / "scenes.json").write_text(_j.dumps({"scenes": [
+        {"sceneNumber": 1, "imageRef": "scenes/scene_1.png"},
+        {"sceneNumber": 2, "imageRef": ""},
+        {"sceneNumber": 3}]}), encoding="utf-8")
+
+    code, body = handle_request("GET", "/api/pipe/status", {"project_id": "ps"}, None, ctx)
+    assert body["plan"] is True and body["brief"] is True
+    assert body["scenes"] is True and body["entities"] is True
+    assert body["research"] is False and body["manuscript"] is False and body["review"] is False
+    assert body["sheets"] == 1
+    assert body["rendered"] == {"done": 1, "total": 3}
+
+
+def test_pipe_traversal_and_missing_project_404(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/pipe/brief", {}, {"project_id": "../etc"}, ctx)
+    assert code == 404
+    code, _ = handle_request("GET", "/api/pipe/status", {"project_id": "nope"}, None, ctx)
+    assert code == 404
+    (tmp_path / "pz").mkdir()
+    code, _ = handle_request("POST", "/api/pipe/bogus", {}, {"project_id": "pz"}, ctx)
+    assert code == 404

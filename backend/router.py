@@ -8,6 +8,8 @@ import uuid
 from pathlib import Path
 
 from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes
+from backend import brief, manuscript, scene_analysis, entities, sheets, scene_render
+from backend.research import orchestrator as research_orch
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -760,6 +762,80 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 400, {"error": "content 필요"}
         res = edits.save_file(proj_dir, name, b.get("content"))
         return (200, res) if res.get("ok") else (400, res)
+
+    if method == "GET" and p == "/api/pipe/status":
+        # Stage1-2 파이프라인 단계별 산출물 존재 여부 — 패널 파이프라인 탭이 카드 상태로 표시
+        pid = query.get("project_id", "")
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
+
+        def _exists(name):
+            return (proj_dir / name).is_file()
+
+        sheets_n = 0
+        ep = proj_dir / "entities.json"
+        if ep.is_file():
+            try:
+                ents = json.loads(ep.read_text(encoding="utf-8")).get("entities") or []
+                sheets_n = sum(1 for e in ents if str((e or {}).get("sheet") or "").strip())
+            except Exception:
+                sheets_n = 0
+
+        rendered_n, scenes_total = 0, 0
+        sp = proj_dir / "scenes.json"
+        if sp.is_file():
+            try:
+                slist = json.loads(sp.read_text(encoding="utf-8")).get("scenes") or []
+                scenes_total = len(slist)
+                rendered_n = sum(1 for s in slist if str((s or {}).get("imageRef") or "").strip())
+            except Exception:
+                rendered_n, scenes_total = 0, 0
+
+        return 200, {
+            "plan": _exists("plan.md"),
+            "brief": _exists("editorial_brief.json"),
+            "research": _exists("research_report.json"),
+            "manuscript": _exists("final_manuscript.md"),
+            "scenes": _exists("scenes.json"),
+            "review": _exists("scene_review.json"),
+            "entities": _exists("entities.json"),
+            "sheets": sheets_n,
+            "rendered": {"done": rendered_n, "total": scenes_total},
+        }
+
+    if method == "POST" and p.startswith("/api/pipe/"):
+        # Stage1-2 백엔드 함수 8종을 비동기 잡으로 노출(래칫/리서치/원고/씬/엔티티/시트/렌더).
+        # 각 함수는 on_event(str)만 받고 결과 dict 반환 — {"error":...}면 잡 실패로 승격.
+        name = p.rsplit("/", 1)[-1]
+        _runners = {
+            "brief": lambda pd, ol: brief.run_brief_ratchet(pd, on_event=ol),
+            "research": lambda pd, ol: research_orch.run_research(pd, on_event=ol),
+            "manuscript": lambda pd, ol: manuscript.run_manuscript_pipeline(pd, on_event=ol),
+            "scenes": lambda pd, ol: scene_analysis.analyze_scenes(pd, enrich=True, on_event=ol),
+            "scene-review": lambda pd, ol: scene_analysis.review_scenes(pd, on_event=ol),
+            "entities": lambda pd, ol: entities.build_entity_registry(pd, on_event=ol),
+            "sheets": lambda pd, ol: sheets.generate_all_sheets(pd, on_event=ol),
+            "render": lambda pd, ol: scene_render.render_scenes(pd, on_event=ol),
+        }
+        fn = _runners.get(name)
+        if fn is None:
+            return 404, {"error": "not found", "path": path}
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("pipe-" + name, pid)
+
+        def _do(proj_dir=proj_dir, jid=jid, fn=fn):
+            res = fn(proj_dir, lambda ln: jobs.append_log(jid, str(ln)))
+            if isinstance(res, dict) and res.get("error"):
+                raise RuntimeError(res["error"])
+            return res if isinstance(res, dict) else {"value": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "GET" and p.startswith("/api/jobs/"):
         jid = p.rsplit("/", 1)[-1]
