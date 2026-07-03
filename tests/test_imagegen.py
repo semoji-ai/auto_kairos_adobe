@@ -858,3 +858,13 @@ def test_flatten_colors_disabled(tmp_path, monkeypatch):
     monkeypatch.setenv("AK_FLATTEN_COLORS", "0")
     im = Image.new("RGB", (20, 20), (10, 20, 30)); p = tmp_path / "t.png"; im.save(p)
     assert imagegen.flatten_colors(p) is False
+
+
+def test_normalize_scene_image_cover_crop(tmp_path):
+    from PIL import Image as _Im
+    p = tmp_path / "s.png"
+    _Im.new("RGB", (1659, 948), (10, 20, 30)).save(p)
+    assert imagegen.normalize_scene_image(p) is True
+    assert _Im.open(p).size == (1920, 1080)
+    # 이미 타깃이면 no-op
+    assert imagegen.normalize_scene_image(p) is False

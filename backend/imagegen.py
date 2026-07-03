@@ -165,6 +165,26 @@ def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
     return {"status": "failed", "error": reason, "log_tail": last[-300:]}
 
 
+def normalize_scene_image(png_path, target=(1920, 1080)) -> bool:
+    """씬 이미지를 영상 프레임(기본 1920×1080)으로 cover-크롭 정규화(중앙 기준).
+    built-in $imagegen은 픽셀 크기를 보장하지 않고 비율만 근사(1792x1024 요청 → 1.75 근방)
+    → 코드로 흡수. 1.75→16:9 크롭 손실 ~1.6%(3:2 방치 시 15.6%). 이미 target이면 no-op."""
+    try:
+        p = Path(png_path)
+        im = Image.open(p)
+        if im.size == tuple(target):
+            return False
+        tw, th = target
+        s = max(tw / im.width, th / im.height)
+        nw, nh = max(tw, int(round(im.width * s))), max(th, int(round(im.height * s)))
+        im = im.convert("RGB").resize((nw, nh), Image.LANCZOS)
+        x0, y0 = (nw - tw) // 2, (nh - th) // 2
+        im.crop((x0, y0, x0 + tw, y0 + th)).save(p)
+        return True
+    except Exception:
+        return False
+
+
 def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
                  *, subdir: str = "images", retries: int = 2, on_line=None,
                  character_ref=None) -> dict:
@@ -182,6 +202,10 @@ def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
         images.append(str(base))
     prompt = build_image_prompt(image_prompt, load_style(), rel,
                                 has_character_ref=bool(character_ref))
+    if subdir == "storyboard":       # 씬 이미지 — 와이드(1.75) 요청 + 1920×1080 정규화(3:2 크롭 손실 방지)
+        return _run_codex_image(proj_dir, out, prompt, images=images,
+                                retries=retries, on_line=on_line,
+                                size="1792x1024", post=normalize_scene_image)
     return _run_codex_image(proj_dir, out, prompt, images=images,
                             retries=retries, on_line=on_line)
 

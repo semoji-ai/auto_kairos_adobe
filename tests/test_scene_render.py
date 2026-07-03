@@ -62,7 +62,7 @@ def _setup(tmp_path, scene_list, entities, sheets=()):
 def _fake_codex(monkeypatch, fail_scenes=()):
     calls = []
 
-    def fake(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
+    def fake(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None, **k):
         calls.append({"out": str(out), "prompt": prompt, "images": list(images or [])})
         if any(f"scene_{n}.png" == Path(out).name for n in fail_scenes):
             return {"status": "failed", "error": "no_file"}
@@ -124,3 +124,22 @@ def test_render_no_entities_errors(tmp_path):
 
 def test_render_no_scenes_errors(tmp_path):
     assert scene_render.render_scenes(tmp_path).get("error")
+
+
+def test_render_normalizes_to_1080p(tmp_path, monkeypatch):
+    """씬 렌더 산출물은 1920x1080으로 cover 정규화(빌트인이 픽셀 크기 비보장 — 1.75 근사만)."""
+    from PIL import Image as _Im
+    _setup(tmp_path, [{"sceneNumber": 1, "character_ids": []}], [])
+
+    def fake(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None, **k):
+        assert k.get("size") == "1792x1024"            # 와이드 요청 전달
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        _Im.new("RGB", (1659, 948), (200, 210, 200)).save(out)   # 빌트인 실측 크기 재현
+        if post:
+            post(out)                                   # 엔진과 동일하게 post 훅 실행
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(imagegen, "_run_codex_image", fake)
+    r = scene_render.render_scenes(tmp_path)
+    assert r["rendered"] == 1
+    assert _Im.open(tmp_path / "scenes/scene_1.png").size == (1920, 1080)

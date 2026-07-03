@@ -131,7 +131,9 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
         prompt = build_scene_prompt(sc, descriptors, imagegen.load_style(), rel, has_prev=has_prev)
         if on_event:
             on_event(f"씬 {sn} 렌더 (첨부 {len(images)}장)")
-        res = imagegen._run_codex_image(proj_dir, out, prompt, images=images or None, on_line=on_event)
+        res = imagegen._run_codex_image(proj_dir, out, prompt, images=images or None,
+                                        on_line=on_event, size="1792x1024",
+                                        post=imagegen.normalize_scene_image)   # 와이드 요청+1080p 정규화
         if res.get("status") == "completed":
             scenes_mod.set_image_ref(proj_dir, sn, rel)
             prev_rel = rel
