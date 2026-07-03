@@ -63,6 +63,17 @@ def test_review_llm_failure_fallback(tmp_path, monkeypatch):
     assert rep["scenes"] == [] and rep["deterministic"]["scenes"] == 2
 
 
+def test_det_does_not_flag_bar_layout(tmp_path, monkeypatch):
+    bar = [{"sceneNumber": 1, "narration": "연도별 매출 비교.", "visual_summary": "차트",
+            "layout": "bar", "shot_relation": "cut", "characters": [], "location": "",
+            "headline": "매출 추이", "chart": {"values": [1, 2, 3], "labels": ["a", "b", "c"], "unit": "%"}}]
+    _setup(tmp_path, bar)
+    monkeypatch.setattr(scene_analysis, "_review_scenes_llm", lambda *a, **k: {"scenes": [], "flags": []})
+    scene_analysis.review_scenes(tmp_path)
+    rep = json.loads((tmp_path / "scene_review.json").read_text(encoding="utf-8"))
+    assert not any("비표준값" in x for x in rep["deterministic"]["issues"])
+
+
 def test_review_no_scenes_errors(tmp_path):
     (tmp_path / "final_manuscript.md").write_text("x", encoding="utf-8")
     r = scene_analysis.review_scenes(tmp_path)

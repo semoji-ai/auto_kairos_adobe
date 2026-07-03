@@ -2,6 +2,16 @@ import json
 from pathlib import Path
 from backend import scene_analysis, llm
 
+_SPECS_SCHEMA = Path(__file__).resolve().parents[1] / "backend/schemas/scene_specs.schema.json"
+
+
+def test_scene_specs_schema_has_bar_and_chart_fields():
+    props = json.loads(_SPECS_SCHEMA.read_text(encoding="utf-8"))[
+        "properties"]["scenes"]["items"]["properties"]
+    assert "bar" in props["layout"]["enum"]
+    for f in ("headline", "values", "labels", "unit"):
+        assert f in props, f
+
 
 def _setup(tmp_path, manuscript):
     (tmp_path / "final_manuscript.md").write_text(manuscript, encoding="utf-8")
@@ -61,3 +71,26 @@ def test_analyze_scenes_llm_failure_fallback(tmp_path, monkeypatch):
 def test_analyze_scenes_no_manuscript_errors(tmp_path):
     r = scene_analysis.analyze_scenes(tmp_path)
     assert r.get("error")
+
+
+def test_analyze_scenes_bar_layout_passthrough(tmp_path, monkeypatch):
+    _setup(tmp_path, "매출이 3년간 늘었습니다.")
+    _patch_direct(monkeypatch, [
+        {"visual_summary": "연도별 매출", "image_prompt": "", "characters": [],
+         "layout": "bar", "headline": "연도별 매출 추이",
+         "values": [120, 340, 580], "labels": ["2020", "2021", "2022"], "unit": "억원"}])
+    scene_analysis.analyze_scenes(tmp_path, enrich=False)
+    s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert s["layout"] == "bar"
+    assert s["headline"] == "연도별 매출 추이"
+    # 다운스트림(jsx/manifest/storyboard) 계약: chart{values,labels,unit}
+    assert s["chart"] == {"values": [120, 340, 580], "labels": ["2020", "2021", "2022"], "unit": "억원"}
+
+
+def test_analyze_scenes_nonbar_has_no_chart(tmp_path, monkeypatch):
+    _setup(tmp_path, "도입부.")
+    _patch_direct(monkeypatch, [
+        {"visual_summary": "도입", "image_prompt": "p", "characters": [], "layout": "cinematic"}])
+    scene_analysis.analyze_scenes(tmp_path, enrich=False)
+    s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert "chart" not in s and "headline" not in s

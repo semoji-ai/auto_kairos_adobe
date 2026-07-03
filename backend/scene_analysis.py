@@ -13,7 +13,7 @@ _SKILLS = _ROOT / "skills"
 _SCHEMAS = Path(__file__).resolve().parent / "schemas"
 _SCENE_SCHEMA = _SCHEMAS / "scene_specs.schema.json"
 _REVIEW_SCHEMA = _SCHEMAS / "scene_review.schema.json"
-_LAYOUTS = {"headline_only", "items_list", "metric_spotlight", "quote", "map", "cinematic"}
+_LAYOUTS = {"headline_only", "items_list", "metric_spotlight", "bar", "quote", "map", "cinematic"}
 _REL = {"cut", "continue"}
 
 _SCENE_RE = re.compile(r"(?m)^[ \t]*<!--\s*SCENE\s*-->[ \t]*$")
@@ -107,6 +107,11 @@ def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
             "shot_relation": d.get("shot_relation") if d.get("shot_relation") in ("cut", "continue") else "cut",
             "location": str(d.get("location") or ""),
             "props": list(d.get("props") or []),
+            # bar 레이아웃용 차트 데이터(다운스트림 jsx/manifest/storyboard가 소비) — 비 bar면 무시
+            "headline": str(d.get("headline") or ""),
+            "values": list(d.get("values") or []),
+            "labels": list(d.get("labels") or []),
+            "unit": str(d.get("unit") or ""),
         })
 
     from backend.v3_import import _map_scene
@@ -124,6 +129,11 @@ def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
             m["location"] = s["location"]
         if s.get("props"):
             m["props"] = s["props"]
+        # bar 씬은 headline + chart{values,labels,unit}를 scenes.json으로 통과(jsx renderLayout bar 소비)
+        if s.get("layout") == "bar":
+            if s.get("headline"):
+                m["headline"] = s["headline"]
+            m["chart"] = {"values": s["values"], "labels": s["labels"], "unit": s["unit"]}
         adobe.append(m)
     (proj_dir / "scenes.json").write_text(
         json.dumps({"scenes": adobe}, ensure_ascii=False, indent=2), encoding="utf-8")

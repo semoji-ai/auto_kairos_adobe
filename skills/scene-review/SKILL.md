@@ -22,12 +22,14 @@ description: 분석된 씬 목록을 읽고 레이아웃 적합도·연결성·�
 각 씬마다 아래 세 가지를 판단합니다.
 
 1. **layout_fit** — 레이아웃이 내용에 맞는가? `"ok"` 또는 `"warn"`
-   - 수치·핵심 지표 강조 → `metric_spotlight`
+   - 수치·핵심 지표 1~2개 강조 → `metric_spotlight`
+   - 비교 가능한 수치 3개 이상(연도별·항목별) → `bar`
    - 항목 나열 → `items_list`
    - 인용·발언 → `quote`
    - 짧은 테제·선언 한 줄 → `headline_only`
    - 서사·감정·분위기 → `cinematic`
    - 내용과 레이아웃이 어긋나면 `"warn"`, 적절하면 `"ok"`
+   - **비교 수치 3개 이상인 씬이 `metric_spotlight`/`headline_only`로 갔으면 `bar` 권고(`"warn"`)**
 
 2. **shot_relation_fit** — 컷/연속(cut/continue)이 서사 흐름에 맞는가? `"ok"` 또는 `"warn"`
    - 같은 장소·상황이 이어지는데 `cut`이면 `continue` 권장 → `"warn"`

@@ -32,13 +32,20 @@ description: 이미 분할된 씬별 내레이션을 읽고, 각 씬의 시각 �
    - `headline_only` — 핵심 메시지 한 줄 강조 (텍스트만)
    - `items_list` — 항목 나열
    - `metric_spotlight` — 단일 수치 강조
+   - `bar` — 비교 가능한 수치가 3개 이상일 때 막대그래프 (연도별·항목별 등)
    - `quote` — 인용문 + 인물
    - `map` — 지리적 위치 비교가 본질일 때 (위치가 subject)
    - `cinematic` — 분위기 전환·도입·여운 (이미지 중심)
 
 ### layout 판단 메모
 
-- 수치 1개 강조 → `metric_spotlight`, 발언 인용 → `quote`, 도입·여운·전환 → `cinematic`
+- 수치 1~2개 강조 → `metric_spotlight`, 발언 인용 → `quote`, 도입·여운·전환 → `cinematic`
+- **`bar`**: 내레이션에 **서로 비교 가능한 수치가 3개 이상**(연도별 추이, 항목별 크기 등) 있을 때. 이때 아래 세 필드를 함께 채웁니다.
+  - **headline** — 차트 제목 한 줄 (무엇을 비교하는지)
+  - **values** — 막대 높이가 될 숫자 배열 (예: `[12, 34, 58]`, 문자열 아님)
+  - **labels** — 각 막대 아래 라벨 배열 (values와 같은 개수·순서, 예: `["2020", "2021", "2022"]`)
+  - **unit** — 값 뒤에 붙일 단위 (예: `"%"`, `"억원"`, 없으면 빈 문자열)
+  - 수치가 1~2개뿐인 강조는 `bar`가 아니라 `metric_spotlight`로 두세요.
 - `map`은 **위치 자체가 핵심**일 때만 (위치를 제거하면 씬 의미가 무너질 때). 단순히 지명이 언급된 정도면 `cinematic` 또는 일반 이미지로 두세요.
 - 확신이 없으면 layout을 생략하세요.
 
@@ -82,6 +89,21 @@ brief의 의도와 어긋나는 연출은 피하세요.
       "shot_relation": "continue",
       "location": "",
       "props": []
+    },
+    {
+      "visual_summary": "연도별 매출 성장을 막대그래프로",
+      "image_prompt": "",
+      "characters": [],
+      "layout": "bar",
+      "asset_source": "generate",
+      "search_query": "",
+      "shot_relation": "cut",
+      "location": "",
+      "props": [],
+      "headline": "연도별 매출 추이",
+      "values": [120, 340, 580],
+      "labels": ["2020", "2021", "2022"],
+      "unit": "억원"
     }
   ]
 }
