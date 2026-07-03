@@ -70,7 +70,7 @@ def test_clamp_normalizes_camera_amount():
 def test_clamp_camera_pan_range():
     plan = {"layers": [], "camera": {"type": "pan_left", "amount": 500}}
     out = motion._clamp_plan(plan, 5.0)
-    assert out["camera"]["amount"] == 160.0        # 팬 상한
+    assert out["camera"]["amount"] == 60.0         # 팬 상한(과한 팬은 촌스러움)
 
 
 def test_plan_filters_to_characters_and_allowed_moves(tmp_path, monkeypatch):

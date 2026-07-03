@@ -6,7 +6,20 @@ function akBuildScene(manifestPath) {
     // 디자인 토큰(semoji) — manifest.ae_tokens 로드 실패 시 내장 기본값
     var TK = { colors: { bgRgb: [35, 38, 43], textRgb: [232, 234, 237], mutedRgb: [154, 160, 166], accentRgb: [74, 144, 217] },
                fonts: { headline: "", body: "", number: "", fallback: "AppleSDGothicNeo-Bold" },
-               type: { headline: 110, sub: 48, item: 52, metric: 220, metricLabel: 54, quote: 64, quoteWho: 40, barLabel: 36, barValue: 40 } };
+               type: { headline: 110, sub: 48, item: 52, metric: 220, metricLabel: 54, quote: 64, quoteWho: 40, barLabel: 36, barValue: 40 },
+               // 모션 디자인 언어 토큰 — ae_tokens.json "motion"으로 오버라이드 가능
+               motion: { enterDur: 0.45, slideDistFrac: 0.07, popFrom: 92, popOver: 102,
+                         emphasisPct: 3.5, driftPx: 8, shakePx: 6, bobHalf: 0.85,
+                         camZoomPct: 4, camPanPx: 28, camHold: 0.2, easeOutInf: 80, easeInf: 33.34 } };
+
+    // ===== 모션 이징(세모지 모션 디자인 언어) =====
+    // 등장 = 비대칭(빠른 진입 → 강한 감속 정착). 대칭 easy-ease는 idle·카메라 전용.
+    // 대칭 이즈를 등장에 쓰면 '스르륵'(프레젠테이션 애니메이션 느낌)이 됨 — 금지.
+    function _ez(prop, idx, inf) {
+        try { var e = new KeyframeEase(0, inf); prop.setTemporalEaseAtKey(idx, [e], [e]); } catch (e2) { }
+    }
+    function ezOutPair(prop) { _ez(prop, 1, 10); _ez(prop, 2, TK.motion.easeOutInf); }
+    function ezAll(prop, n) { for (var zi = 1; zi <= n; zi++) _ez(prop, zi, TK.motion.easeInf); }
 
     // 폰트 해석 — AE 폰트 DB(app.fonts)에서 PS명 검증, 실패 시 패밀리 키워드 검색으로 보정.
     // AE가 못 찾으면 경고 수집(빌드 결과 문자열에 노출) — 조용한 폴백 금지.
@@ -446,7 +459,7 @@ function akBuildScene(manifestPath) {
         nl.property("Position").setValue([layer.foot[0], layer.foot[1]]);
         il.parent = nl;                                   // AE가 월드 변환 보존하며 페어런팅
         var sp = nl.property("Scale");
-        var half = 0.6;                                   // 반주기 0.6s
+        var half = TK.motion.bobHalf;                     // 반주기 — 여유 있는 숨(기본 0.85s)
         sp.setValueAtTime(t0, [100, 100]);
         sp.setValueAtTime(Math.min(sceneDur, t0 + half), [100, 100 + amt]);
         try {                                             // easy ease 양 키
@@ -471,54 +484,67 @@ function akBuildScene(manifestPath) {
             var amt = mv.amount;
             try {
                 if (mv.type === "slide_in") {
-                    var dx = 0, dy = 0, off = amt || cw * 0.18;
+                    // 이동거리는 짧게(화면 7%) + 비대칭 감속 — 멀리서 날아오면 촌스러움
+                    var dx = 0, dy = 0, off = amt || cw * TK.motion.slideDistFrac;
                     if (mv.direction === "right") dx = off; else if (mv.direction === "up") dy = -off;
                     else if (mv.direction === "down") dy = off; else dx = -off;
                     var pp = il.property("Position");
                     pp.setValueAtTime(t0, [P[0] + dx, P[1] + dy]);
                     pp.setValueAtTime(t1, [P[0], P[1]]);
+                    ezOutPair(pp);
                     if (!mv.noFade) {                        // 캐릭터(noFade)는 오퍼시티 키프레임 금지
-                        var op0 = il.property("Opacity");
-                        op0.setValueAtTime(t0, 0); op0.setValueAtTime(t0 + (t1 - t0) * 0.5, 100);
+                        var op0 = il.property("Opacity");    // 페이드는 초반 35%에 끝 — 이동과 이중 모션 방지
+                        op0.setValueAtTime(t0, 0); op0.setValueAtTime(t0 + (t1 - t0) * 0.35, 100);
+                        ezAll(op0, 2);
                     }
                 } else if (mv.type === "fade_in") {
                     var op1 = il.property("Opacity");
                     op1.setValueAtTime(t0, 0); op1.setValueAtTime(t1, 100);
+                    ezAll(op1, 2);
                 } else if (mv.type === "exit_fade") {
                     var op2 = il.property("Opacity");
                     op2.setValueAtTime(t0, 100); op2.setValueAtTime(t1, 0);
+                    ezAll(op2, 2);
                 } else if (mv.type === "pop") {
+                    // 92%→102%→100% 미세 오버슛 — 60%에서 튀어오르는 클립아트 팝 금지
                     var sp = il.property("Scale");
-                    sp.setValueAtTime(t0, [S[0] * 0.6, S[1] * 0.6]);
-                    sp.setValueAtTime(t0 + (t1 - t0) * 0.7, [S[0] * 1.06, S[1] * 1.06]);
+                    var pf = TK.motion.popFrom / 100, po = TK.motion.popOver / 100;
+                    sp.setValueAtTime(t0, [S[0] * pf, S[1] * pf]);
+                    sp.setValueAtTime(t0 + (t1 - t0) * 0.7, [S[0] * po, S[1] * po]);
                     sp.setValueAtTime(t1, [S[0], S[1]]);
+                    _ez(sp, 1, 10); _ez(sp, 2, 60); _ez(sp, 3, TK.motion.easeOutInf);
                 } else if (mv.type === "zoom_emphasis") {
                     var sp2 = il.property("Scale");
+                    var em = 1 + TK.motion.emphasisPct / 100;   // 3.5% — 느껴지되 보이지 않게
                     sp2.setValueAtTime(t0, [S[0], S[1]]);
-                    sp2.setValueAtTime(t0 + (t1 - t0) * 0.5, [S[0] * 1.08, S[1] * 1.08]);
+                    sp2.setValueAtTime(t0 + (t1 - t0) * 0.6, [S[0] * em, S[1] * em]);
                     sp2.setValueAtTime(t1, [S[0], S[1]]);
+                    ezAll(sp2, 3);
                 } else if (mv.type === "drift") {
-                    var d2 = amt || 18;
+                    var d2 = amt || TK.motion.driftPx;          // 수평 위주 미세 표류
                     var pd = il.property("Position");
                     pd.setValueAtTime(t0, [P[0], P[1]]);
-                    pd.setValueAtTime(t1, [P[0] + d2, P[1] - d2 * 0.4]);
+                    pd.setValueAtTime(t1, [P[0] + d2, P[1] - d2 * 0.15]);
+                    ezAll(pd, 2);
                 } else if (mv.type === "bob") {
                     if (layer.foot) {                     // 발밑 피벗 null 스쿼시 루프(우월 경로)
                         addBobNull(comp, il, layer, t0, (amt && amt <= 5 ? amt : 1), sceneDur);
-                    } else {                              // foot 없으면 구식 y 진동 폴백
-                        var b2 = amt || 8, pb = il.property("Position");
-                        var steps = Math.max(2, Math.floor((t1 - t0) / 0.6));
+                    } else {                              // foot 없으면 y 진동 폴백 — 이지이즈로 사각파 제거
+                        var b2 = amt || 4, pb = il.property("Position");
+                        var steps = Math.max(2, Math.floor((t1 - t0) / TK.motion.bobHalf));
                         for (var bi = 0; bi <= steps; bi++) {
                             var tb = t0 + (t1 - t0) * bi / steps;
                             pb.setValueAtTime(tb, [P[0], P[1] + ((bi % 2) ? -b2 : 0)]);
                         }
+                        ezAll(pb, steps + 1);
                     }
                 } else if (mv.type === "shake") {
-                    var s2 = amt || 10, ps = il.property("Position");
-                    for (var si2 = 0; si2 <= 6; si2++) {
+                    var s2 = amt || TK.motion.shakePx, ps = il.property("Position");
+                    for (var si2 = 0; si2 <= 6; si2++) {  // 감쇠 지그재그 + 이지이즈(딱딱함 제거)
                         var ts = t0 + (t1 - t0) * si2 / 6;
                         ps.setValueAtTime(ts, [P[0] + ((si2 % 2) ? s2 : -s2) * (1 - si2 / 6), P[1]]);
                     }
+                    ezAll(ps, 7);
                 }
             } catch (e) { /* 모션 1개 실패는 무시 — 빌드 지속 */ }
         }
@@ -528,20 +554,27 @@ function akBuildScene(manifestPath) {
     function applyCamera(fl, cam, t, dur, baseScale, W, H) {
         if (!cam || !cam.type || cam.type === "none") return;
         try {
-            var amt = cam.amount || 6;
+            // 등속 카메라 금지 — 시작 숨(hold) + 양끝 이지이즈. 진폭은 '느껴지되 보이지 않게'.
+            var hold = (dur > 1.5) ? TK.motion.camHold : 0;
             if (cam.type === "slow_zoom_in" || cam.type === "slow_zoom_out") {
+                var amt = cam.amount || TK.motion.camZoomPct;
                 var z = 1 + amt / 100.0;
                 var sIn = cam.type === "slow_zoom_in";
                 var sp = fl.property("Scale");
-                sp.setValueAtTime(t, [baseScale * (sIn ? 1 : z), baseScale * (sIn ? 1 : z)]);
-                sp.setValueAtTime(t + dur, [baseScale * (sIn ? z : 1), baseScale * (sIn ? z : 1)]);
+                var zFrom = baseScale * (sIn ? 1 : z), zTo = baseScale * (sIn ? z : 1);
+                sp.setValueAtTime(t, [zFrom, zFrom]);
+                if (hold) sp.setValueAtTime(t + hold, [zFrom, zFrom]);
+                sp.setValueAtTime(t + dur, [zTo, zTo]);
+                ezAll(sp, hold ? 3 : 2);
             } else {
-                var px = cam.amount || 40;
+                var px = cam.amount || TK.motion.camPanPx;
                 var dir2 = cam.type === "pan_left" ? -1 : 1;
                 var pp2 = fl.property("Position");
                 var base = fl.property("Position").value;
                 pp2.setValueAtTime(t, [base[0] - dir2 * px / 2, base[1]]);
+                if (hold) pp2.setValueAtTime(t + hold, [base[0] - dir2 * px / 2, base[1]]);
                 pp2.setValueAtTime(t + dur, [base[0] + dir2 * px / 2, base[1]]);
+                ezAll(pp2, hold ? 3 : 2);
             }
         } catch (e) { }
     }
@@ -562,6 +595,7 @@ function akBuildScene(manifestPath) {
                     if (tj.fonts) TK.fonts = tj.fonts;
                     if (tj.type) TK.type = tj.type;
                     if (tj.families) TK.families = tj.families;
+                    if (tj.motion) { for (var mk in tj.motion) { TK.motion[mk] = tj.motion[mk]; } }
                 }
             }
         } catch (eTk) { }

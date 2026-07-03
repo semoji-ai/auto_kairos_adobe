@@ -48,9 +48,9 @@ def _clamp_plan(plan: dict, dur: float) -> dict:
             amt *= 100.0                        # 비율 표기 → 퍼센트
         ctype = cam.get("type", "")
         if ctype in ("slow_zoom_in", "slow_zoom_out"):
-            amt = max(2.0, min(amt, 15.0))      # 줌 2~15%
+            amt = max(2.0, min(amt, 6.0))       # 줌 2~6% — '느껴지되 보이지 않게'
         elif ctype in ("pan_left", "pan_right"):
-            amt = max(20.0, min(amt, 160.0))    # 팬 20~160px
+            amt = max(16.0, min(amt, 60.0))     # 팬 16~60px — 과한 팬은 촌스러움
         cam["amount"] = round(amt, 2)
     return plan
 
@@ -92,7 +92,10 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
         "2) 인물 기본은 bob(까딱임 idle) 1개. 씬 시작에 등장 연출이 어울리면 fade_in을 앞에 추가해도 된다.\n"
         "3) slide_in/pop/drift/shake/zoom_emphasis 는 인물에 쓰지 않는다(현행 규칙).\n"
         "4) 모든 start+duration은 씬 길이 이내.\n"
-        "5) camera는 씬 분위기에 맞게 none/slow_zoom_in/slow_zoom_out/pan_left/pan_right 중 선택."
+        "5) camera 기본은 none — 정지 프레임이 세련의 기본값이다. 내레이션이 공간·규모·시간의 흐름을 "
+        "말할 때만 slow_zoom_in/slow_zoom_out(amount 3~4), 이동·대비를 말할 때만 pan_left/pan_right"
+        "(amount 20~40). 매 씬 카메라를 넣지 말 것 — 연속된 씬 2~3개에 1번이면 충분하다.\n"
+        "6) 모션은 적을수록 좋다 — 씬당 시선을 끄는 모션은 1개 원칙, 나머지는 정지."
     )
     out = proj_dir / f".motion_plan_{sid}.json"
     res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_SCHEMA),

@@ -66,6 +66,21 @@
     "quote": "Batang",
     "quoteBold": "Batang"
   },
+  "motion": {
+    "enterDur": 0.45,
+    "slideDistFrac": 0.07,
+    "popFrom": 92,
+    "popOver": 102,
+    "emphasisPct": 3.5,
+    "driftPx": 8,
+    "shakePx": 6,
+    "bobHalf": 0.85,
+    "camZoomPct": 4,
+    "camPanPx": 28,
+    "camHold": 0.2,
+    "easeOutInf": 80,
+    "easeInf": 33.34
+  },
   "map": {
     "defaultTheme": "clean_white"
   },
