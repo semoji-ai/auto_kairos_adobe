@@ -73,11 +73,10 @@ def test_skills_run_returns_job_id(monkeypatch, tmp_path):
     code, body = handle_request("POST", "/api/skills/run", {},
                                 {"project_id": "demoX", "skill_name": "scene-decompose"}, ctx)
     assert code == 200
-    jid = body["job_id"]
-    code2, jbody = handle_request("GET", f"/api/jobs/{jid}", {}, None, ctx)
-    assert code2 == 200
+    jbody = _poll(ctx, body)
     assert jbody["status"] == "completed"
     assert any("scenes.json" in a for a in jbody["artifact_paths"])
+    assert jbody["result"]["status"] == "completed"
 
 
 def test_skills_run_missing_manuscript_422(tmp_path):
@@ -160,7 +159,9 @@ def test_characters_generate(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/characters/generate", {},
                                 {"project_id": "p", "name": "지오", "looks": "갈색 머리"}, ctx)
     assert code == 200
-    assert body["character"]["status"] == "completed"
+    jb = _poll(ctx, body)
+    assert jb["status"] == "completed"
+    assert jb["result"]["character"]["status"] == "completed"
     assert (proj / "characters" / "char_지오.png").exists()
 
 
@@ -321,8 +322,7 @@ def test_projects_files_missing_project(tmp_path):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("GET", "/api/projects/files",
                                 {"project_id": "nope"}, None, ctx)
-    assert code == 200
-    assert body["groups"] == []
+    assert code == 404       # pid 검증 헬퍼 — 없는 프로젝트는 404
 
 
 def test_scenes_get(tmp_path):
@@ -368,8 +368,11 @@ def test_scenes_image_sets_imageref(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/scenes/image", {},
                                 {"project_id": "p", "sceneNumber": 3}, ctx)
-    assert code == 200 and body["result"]["status"] == "completed"
+    assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["result"]["result"]["status"] == "completed"
     assert seen["rel_out"].startswith("scene_sid333_") and seen["subdir"] == "storyboard"
+    assert jb["result"]["imageRef"] == "storyboard/" + seen["rel_out"]
     sc = _j.loads((proj / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["imageRef"] == "storyboard/" + seen["rel_out"]   # 생성 후 링크됨
 
@@ -461,7 +464,9 @@ def test_assets_generate_background(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assets/generate", {},
                                 {"project_id": "p", "category": "background", "prompt": "작업실 배경"}, ctx)
-    assert code == 200 and body["result"]["status"] == "completed"
+    assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["result"]["result"]["status"] == "completed"
     assert seen["rel_out"].startswith("background_") and seen["subdir"] == "images"
     assert seen["char_ref"] is None        # 캐릭터 미지정
 
@@ -483,6 +488,7 @@ def test_assets_generate_with_character_style(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/assets/generate", {},
                                 {"project_id": "p", "category": "prop", "prompt": "렌치", "character": "지오"}, ctx)
     assert code == 200
+    _poll(ctx, body)
     assert seen["char_ref"] == str(proj / "characters" / "char_지오.png")
 
 
@@ -513,7 +519,9 @@ def test_scenes_analyze_layers(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/scenes/analyze-layers", {},
                                 {"project_id": "p", "sceneNumber": 1}, ctx)
-    assert code == 200 and body["elements"][0]["name"] == "차"
+    assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["result"]["elements"][0]["name"] == "차"
 
 
 def test_scenes_analyze_layers_no_image(tmp_path):
@@ -563,7 +571,9 @@ def test_scenes_image_prompt_override(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/scenes/image", {},
                                 {"project_id": "p", "sceneNumber": 1, "prompt": "오버라이드 프롬프트"}, ctx)
-    assert code == 200 and seen["prompt"] == "오버라이드 프롬프트"
+    assert code == 200
+    _poll(ctx, body)
+    assert seen["prompt"] == "오버라이드 프롬프트"
 
 
 def _mk_scenes(tmp_path, arr):
@@ -622,7 +632,9 @@ def test_scenes_tts(tmp_path, monkeypatch):
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/scenes/tts", {},
                                 {"project_id": "p", "sceneNumber": 1}, ctx)
-    assert code == 200 and body["result"]["rel"] == "audio/tts_sa.wav"
+    assert code == 200
+    jb = _poll(ctx, body)
+    assert jb["result"]["result"]["rel"] == "audio/tts_sa.wav"
 
 
 def test_scenes_tts_no_narration_422(tmp_path):
@@ -824,7 +836,8 @@ def test_scenes_tts_prefers_narration_tts(tmp_path, monkeypatch):
                         lambda proj_dir, sid, text, voice=None: seen.update(text=text) or
                         {"status": "completed", "rel": "audio/x.mp3", "duration": 1.0})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
-    handle_request("POST", "/api/scenes/tts", {}, {"project_id": "p", "sceneNumber": 1}, ctx)
+    _, body = handle_request("POST", "/api/scenes/tts", {}, {"project_id": "p", "sceneNumber": 1}, ctx)
+    _poll(ctx, body)
     assert seen["text"] == "교정본"
 
 
@@ -987,6 +1000,72 @@ def test_chart_spec_endpoint(tmp_path, monkeypatch):
         {"project_id": "pc", "sceneNumber": 1}, {"root": tmp_path})
     assert st == 200 and res.get("ok") and res["theme_set"] == "gallery_infographic"
     assert (d / "chart_cs.spec.json").is_file()
+
+def test_pid_traversal_rejected_post(tmp_path):
+    """project_id 경로 탈출(../..) → 404 (검증 헬퍼)."""
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    for ep, extra in [("/api/characters/generate", {"name": "지오", "looks": "갈색"}),
+                      ("/api/scenes/image", {"sceneNumber": 1}),
+                      ("/api/assets/generate", {"category": "prop", "prompt": "x"}),
+                      ("/api/scenes/analyze-layers", {"sceneNumber": 1}),
+                      ("/api/scenes/tts", {"sceneNumber": 1})]:
+        body = {"project_id": "../../etc"}
+        body.update(extra)
+        code, _ = handle_request("POST", ep, {}, body, ctx)
+        assert code == 404, ep
+
+
+def test_pid_traversal_rejected_get(tmp_path):
+    """GET 계열도 경로 탈출 시 404."""
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    for ep in ["/api/scenes", "/api/characters/list", "/api/images/list",
+               "/api/storyboard/list", "/api/layers/list", "/api/media",
+               "/api/projects/files"]:
+        code, _ = handle_request("GET", ep, {"project_id": "../../etc"}, None, ctx)
+        assert code == 404, ep
+
+
+def test_pid_empty_rejected(tmp_path):
+    """빈 project_id → 404."""
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("GET", "/api/scenes", {"project_id": ""}, None, ctx)
+    assert code == 404
+
+
+def test_converted_endpoints_return_running(tmp_path, monkeypatch):
+    """동기→잡 전환 엔드포인트는 {job_id, status:'running'} 반환."""
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text(
+        '{"scenes":[{"sceneNumber":1,"sceneId":"sx","image_prompt":"x",'
+        '"narration":"안녕","imageRef":"storyboard/sb.png"}]}', encoding="utf-8")
+    (proj / "storyboard").mkdir(); (proj / "storyboard" / "sb.png").write_bytes(b"\x89PNG")
+
+    def fake_one(proj_dir, rel_out, image_prompt, **kw):
+        out = proj_dir / kw.get("subdir", "images") / rel_out
+        out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(b"\x89PNG")
+        return {"status": "completed", "path": str(out)}
+    monkeypatch.setattr(r.imagegen, "generate_one", fake_one)
+    monkeypatch.setattr(r.imagegen, "generate_character",
+                        lambda *a, **k: {"status": "completed"})
+    monkeypatch.setattr(r.imagegen, "generate_asset",
+                        lambda proj_dir, rel_out, ip, **k: {"status": "completed", "path": str(proj_dir / "images" / rel_out)})
+    monkeypatch.setattr(r.imagegen, "analyze_scene_layers",
+                        lambda *a, **k: {"elements": [{"name": "차"}]})
+    monkeypatch.setattr(r.tts, "generate_scene_tts",
+                        lambda *a, **k: {"status": "completed", "rel": "audio/x.mp3", "duration": 1.0})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    for ep, extra in [("/api/scenes/image", {"sceneNumber": 1}),
+                      ("/api/characters/generate", {"name": "지오", "looks": "갈색"}),
+                      ("/api/assets/generate", {"category": "prop", "prompt": "x"}),
+                      ("/api/scenes/analyze-layers", {"sceneNumber": 1}),
+                      ("/api/scenes/tts", {"sceneNumber": 1})]:
+        body = {"project_id": "p"}; body.update(extra)
+        code, res = handle_request("POST", ep, {}, body, ctx)
+        assert code == 200 and res["status"] == "running" and res["job_id"], ep
+        jb = _poll(ctx, res)
+        assert jb["status"] == "completed", ep
+
 
 def test_themes_endpoints(tmp_path, monkeypatch):
     """GET /api/themes 목록 + set-project/set-scene."""

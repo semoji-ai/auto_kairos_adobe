@@ -56,12 +56,17 @@ function _awaitJob(jid, onDone, onLog, maxTries) {
   _pollJob(jid, onDone, onLog, maxTries);
 }
 
-/* 잡 폴링(폴백) — 1.5s 간격, onLog(logs)/onDone(job). 기본 5분 한도(maxTries로 연장 가능). */
+/* 잡 폴링(폴백) — 1.5s 간격, onLog(logs)/onDone(job). 기본 약 1시간 한도(maxTries로 연장 가능).
+   새 이미지 엔진은 장당 수 분 → 5분 기본은 거짓 타임아웃 유발. */
 function _pollJob(jid, onDone, onLog, maxTries) {
-  maxTries = maxTries || 200;
+  maxTries = maxTries || 2400;
   var tries = 0;
   var t = setInterval(function () {
-    if (++tries > maxTries) { clearInterval(t); onDone({ status: "failed", error: "타임아웃" }); return; }
+    if (++tries > maxTries) {
+      clearInterval(t);
+      onDone({ status: "failed", error: "폴링 타임아웃 — 잡은 계속 실행 중일 수 있음, 새로고침으로 확인" });
+      return;
+    }
     fetch(BACKEND + "/api/jobs/" + jid).then(function (r) { return r.json(); })
       .then(function (j) {
         if (onLog && j.logs) onLog(j.logs);
@@ -213,11 +218,16 @@ function genCharacter() {
     body: JSON.stringify({ project_id: SELECTED_PROJECT, name: name, looks: looks }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      if (!j.character || j.character.status !== "completed") {
-        $("characters").textContent = "실패: " + JSON.stringify(j); return;
-      }
-      SELECTED_CHARACTER = name;
-      return showCharacters();
+      if (j.status !== "running" || !j.job_id) { $("characters").textContent = "실패: " + JSON.stringify(j); return; }
+      _awaitJob(j.job_id, function (job) {
+        var ok = job.status === "completed" && job.result && job.result.character
+          && job.result.character.status === "completed";
+        if (!ok) { $("characters").textContent = "실패: " + JSON.stringify(job.error || job); return; }
+        SELECTED_CHARACTER = name;
+        showCharacters();
+      }, function (logs) {
+        if (logs.length) $("characters").textContent = "캐릭터 생성 중... " + logs[logs.length - 1];
+      });
     })
     .catch(function (e) { $("characters").textContent = "오류: " + e; });
 }
@@ -276,8 +286,13 @@ function decompose() {
     body: JSON.stringify({ project_id: SELECTED_PROJECT, skill_name: "scene-decompose" }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      if (j.status !== "completed") { $("scenes").textContent = "실패: " + JSON.stringify(j); return; }
-      return renderScenes();
+      if (j.status !== "running" || !j.job_id) { $("scenes").textContent = "실패: " + JSON.stringify(j); return; }
+      _awaitJob(j.job_id, function (job) {
+        if (job.status !== "completed") { $("scenes").textContent = "실패: " + JSON.stringify(job.error || job); return; }
+        renderScenes();
+      }, function (logs) {
+        if (logs.length) $("scenes").textContent = "씬 분해 중... " + logs[logs.length - 1];
+      });
     })
     .catch(function (e) { $("scenes").textContent = "오류: " + e; });
 }
@@ -301,7 +316,16 @@ function makeReferences() {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, skill_name: "reference-list" }),
   }).then(function (r) { return r.json(); })
-    .then(function (j) { $("gallery").textContent = "레퍼런스 목록: " + j.status + " — 이제 [이미지 생성]"; })
+    .then(function (j) {
+      if (j.status !== "running" || !j.job_id) { $("gallery").textContent = "실패: " + JSON.stringify(j); return; }
+      _awaitJob(j.job_id, function (job) {
+        $("gallery").textContent = (job.status === "completed")
+          ? "레퍼런스 목록: completed — 이제 [이미지 생성]"
+          : ("실패: " + JSON.stringify(job.error || job));
+      }, function (logs) {
+        if (logs.length) $("gallery").textContent = "레퍼런스 목록 생성 중... " + logs[logs.length - 1];
+      });
+    })
     .catch(function (e) { $("gallery").textContent = "오류: " + e; });
 }
 

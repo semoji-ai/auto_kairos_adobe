@@ -15,6 +15,14 @@ PORT = int(os.environ.get("AK_BACKEND_PORT", "8765"))
 CTX = {"root": projects.projects_root(), "jobs": JobRegistry()}
 
 
+def origin_allowed(origin) -> bool:
+    """CEP 패널은 file:// 출신이라 Origin 헤더가 없거나 null.
+    Origin이 존재하고 null/file:// 이 아니면(=브라우저 웹페이지 출처) 차단."""
+    if origin is None:
+        return True
+    return origin == "null" or origin.startswith("file://")
+
+
 class Handler(BaseHTTPRequestHandler):
     def _read_body(self) -> dict | None:
         length = int(self.headers.get("Content-Length", 0) or 0)
@@ -27,6 +35,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _route(self, method: str) -> None:
         u = urlparse(self.path)
+        if not origin_allowed(self.headers.get("Origin")):
+            self._deny_origin()
+            return
         query = {k: v[0] for k, v in parse_qs(u.query).items()}
         body = self._read_body() if method == "POST" else None
         code, payload = handle_request(method, u.path, query, body, CTX)
@@ -35,6 +46,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _deny_origin(self) -> None:
+        """브라우저 웹페이지 출처(교차 출처) 요청 차단 — CSRF 방어."""
+        data = json.dumps({"error": "forbidden origin"}, ensure_ascii=False).encode("utf-8")
+        self.send_response(403)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -49,6 +69,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _sse(self) -> None:
         """SSE 스트림 — 잡 로그/완료를 푸시(패널은 폴링 대신 이벤트 수신). 15s 핑으로 연결 유지."""
+        if not origin_allowed(self.headers.get("Origin")):
+            self._deny_origin()
+            return
         import queue as _q
         q = CTX["jobs"].subscribe()
         try:

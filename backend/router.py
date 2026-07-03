@@ -22,6 +22,25 @@ def _codex_status() -> str:
     return "ready" if (Path.home() / ".codex" / "auth.json").exists() else "not_authenticated"
 
 
+def _proj_dir(root: Path, pid: str):
+    """pid 검증 헬퍼 → 프로젝트 경로 또는 None.
+    비었거나, resolve된 경로가 root 밖(경로 탈출)이거나, 디렉터리가 아니면 None.
+    반환 경로는 root/pid 원본(비-resolve) — 기존 동작·경로 문자열 유지."""
+    if not pid:
+        return None
+    d = root / pid
+    try:
+        rd = d.resolve()
+        root_r = root.resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+    if rd != root_r and root_r not in rd.parents:
+        return None
+    if not d.is_dir():
+        return None
+    return d
+
+
 def handle_request(method: str, path: str, query: dict, body: dict | None, ctx: dict):
     try:
         return _dispatch(method, path, query, body, ctx)
@@ -42,6 +61,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/projects/load":
         pid = (body or {}).get("project_id", "")
+        if _proj_dir(root, pid) is None:
+            return 404, {"error": f"project not found: {pid}"}
         try:
             return 200, projects.load_project(root, pid)
         except FileNotFoundError as e:
@@ -60,17 +81,17 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/projects/import-v3":
         b = body or {}
-        path = (b.get("path") or "").strip()
-        if not path:
+        v3_path = (b.get("path") or "").strip()
+        if not v3_path:
             return 400, {"error": "path 필요(v3 output 프로젝트 전체 경로)"}
-        res = v3_import.import_v3(root, path, title=b.get("title"))
+        res = v3_import.import_v3(root, v3_path, title=b.get("title"))
         return (200, res) if "error" not in res else (422, res)
 
     if method == "POST" and p == "/api/skills/run":
         b = body or {}
         pid, skill = b.get("project_id", ""), b.get("skill_name", "")
-        proj_dir = root / pid
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
             return 404, {"error": f"project not found: {pid}"}
         try:
             cfg = skills_cfg.load_config(SKILLS_DIR, skill)
@@ -85,27 +106,30 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         out = proj_dir / cfg["output"]
         out.parent.mkdir(parents=True, exist_ok=True)
         schema = (SKILLS_DIR / skill / cfg["schema"]) if cfg.get("schema") else None
-        sid = sessions.load_session(proj_dir)
-        result = llm.run_orchestrator(
-            prompt, proj_dir,
-            session_id=sid,
-            output_schema=str(schema) if schema else None,
-            output_last=str(out),
-            on_line=lambda ln: jobs.append_log(jid, ln),
-        )
-        if result.get("session_id"):
-            sessions.save_session(proj_dir, result["session_id"])
-        if result["returncode"] == 0 and out.exists():
-            jobs.set_status(jid, "completed", artifact_paths=[str(out)])
-        else:
-            jobs.set_status(jid, "failed", error=f"rc={result['returncode']}")
-        return 200, {"job_id": jid, "status": jobs.get(jid)["status"]}
+
+        def _do(proj_dir=proj_dir, prompt=prompt, out=out, schema=schema, jid=jid):
+            sid = sessions.load_session(proj_dir)
+            result = llm.run_orchestrator(
+                prompt, proj_dir,
+                session_id=sid,
+                output_schema=str(schema) if schema else None,
+                output_last=str(out),
+                on_line=lambda ln: jobs.append_log(jid, ln),
+            )
+            if result.get("session_id"):
+                sessions.save_session(proj_dir, result["session_id"])
+            if result["returncode"] == 0 and out.exists():
+                jobs.set_status(jid, "running", artifact_paths=[str(out)])
+                return {"status": "completed", "artifact": str(out)}
+            raise RuntimeError(f"rc={result['returncode']}")
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/pipeline/run":
         b = body or {}
         pid = b.get("project_id", "")
-        proj_dir = root / pid
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
             return 404, {"error": f"project not found: {pid}"}
         jobs = ctx["jobs"]
         jid = jobs.create("pipeline", pid)
@@ -126,22 +150,29 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         looks = (b.get("looks") or "").strip()
         if not pid or not name or not looks:
             return 400, {"error": "project_id, name, looks 필요"}
-        proj_dir = root / pid
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         jobs = ctx["jobs"]
         jid = jobs.create("character", pid)
-        res = imagegen.generate_character(
-            proj_dir, name, looks,
-            on_line=lambda ln: jobs.append_log(jid, ln))
-        ok = res.get("status") == "completed"
-        jobs.set_status(jid, "completed" if ok else "failed",
-                        artifact_paths=[str(proj_dir / "characters")])
-        return 200, {"job_id": jid, "status": jobs.get(jid)["status"], "character": res}
+
+        def _do(proj_dir=proj_dir, name=name, looks=looks, jid=jid):
+            res = imagegen.generate_character(
+                proj_dir, name, looks,
+                on_line=lambda ln: jobs.append_log(jid, ln))
+            if res.get("status") != "completed":
+                raise RuntimeError(res.get("error") or "캐릭터 생성 실패")
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "characters")])
+            return {"character": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "GET" and p == "/api/characters/list":
         pid = query.get("project_id", "")
-        cd = root / pid / "characters"
+        pd = _proj_dir(root, pid)
+        if pd is None:
+            return 404, {"error": "프로젝트 없음"}
+        cd = pd / "characters"
         if not cd.is_dir():
             return 200, {"images": []}
         names = sorted(f.name for f in cd.glob("*.png"))
@@ -152,8 +183,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/themes/set-project":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         res = scenes.set_project_theme(proj_dir, b.get("theme_id", ""))
         if res.get("ok"):
@@ -162,8 +193,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/themes/set-scene":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         res = scenes.set_scene_theme(proj_dir, b.get("sceneNumber"), b.get("theme_id"))
         return (200, res) if res.get("ok") else (404, res)
@@ -177,13 +208,16 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "GET" and p == "/api/scenes":
         pid = query.get("project_id", "")
-        return 200, scenes.load_scenes(root / pid)
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
+        return 200, scenes.load_scenes(proj_dir)
 
     if method == "POST" and p == "/api/scenes/narration":
         b = body or {}
         pid = b.get("project_id", "")
-        proj_dir = root / pid
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         sn = b.get("sceneNumber")
         res = scenes.update_narration(proj_dir, sn, b.get("narration", ""))
@@ -192,8 +226,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
     if method == "POST" and p in ("/api/scenes/add", "/api/scenes/delete",
                                   "/api/scenes/split", "/api/scenes/merge"):
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         if p == "/api/scenes/add":
             return 200, scenes.add_scene(proj_dir, after_number=b.get("after"),
@@ -207,8 +241,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p in ("/api/scenes/tts", "/api/tts/all"):
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         data = scenes.load_scenes(proj_dir)
         jobs = ctx["jobs"]
@@ -238,15 +272,21 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         if not text.strip():
             return 422, {"error": "내레이션 비어있음"}
         jid = jobs.create("tts", b.get("project_id", ""))
-        res = tts.generate_scene_tts(proj_dir, sc.get("sceneId"), text, voice=voice)
-        jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
-                        artifact_paths=[str(proj_dir / "audio")])
-        return 200, {"job_id": jid, "result": res}
+        tts_sid = sc.get("sceneId")
+
+        def _do(proj_dir=proj_dir, sid=tts_sid, text=text, voice=voice, jid=jid):
+            res = tts.generate_scene_tts(proj_dir, sid, text, voice=voice)
+            if res.get("status") != "completed":
+                raise RuntimeError(res.get("error") or "TTS 실패")
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "audio")])
+            return {"result": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/scenes/motion":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         jobs = ctx["jobs"]
         jid = jobs.create("motion", b.get("project_id", ""))
@@ -264,8 +304,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/assembly/manifest":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         mres = manifest.build_manifest(proj_dir, only_scene=b.get("sceneNumber"))
         vault.log_work(proj_dir, "assemble",
@@ -273,8 +313,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         return 200, mres
 
     if method == "POST" and p == "/api/subtitles/build":
-        proj_dir = root / (body or {}).get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, (body or {}).get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         res = subtitles.build_subtitles(proj_dir)
         tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
@@ -285,8 +325,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if p == "/api/tts/settings" and method in ("GET", "POST"):
         pid = (query.get("project_id") if method == "GET" else (body or {}).get("project_id")) or ""
-        proj_dir = root / pid
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         if method == "POST":
             b = body or {}
@@ -303,9 +343,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/assistant":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
         instruction = (b.get("instruction") or "").strip()
-        if not proj_dir.is_dir():
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         if not instruction:
             return 400, {"error": "instruction 필요"}
@@ -320,8 +360,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
     if method == "POST" and p == "/api/scenes/image":
         b = body or {}
         pid = b.get("project_id", "")
-        proj_dir = root / pid
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         sn = b.get("sceneNumber")
         data = scenes.load_scenes(proj_dir)
@@ -338,23 +378,28 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jobs = ctx["jobs"]
         jid = jobs.create("scene-image", pid)
         name = scenes.new_scene_image_name(sid)
-        res = imagegen.generate_one(
-            proj_dir, name,
-            (b.get("prompt") or "").strip() or scene.get("image_prompt", "") or scene.get("visual_summary", ""),
-            subdir="storyboard", character_ref=character_ref,
-            on_line=lambda ln: jobs.append_log(jid, ln))
-        if res.get("status") == "completed":
+        prompt = (b.get("prompt") or "").strip() or scene.get("image_prompt", "") or scene.get("visual_summary", "")
+
+        def _do(proj_dir=proj_dir, name=name, prompt=prompt,
+                character_ref=character_ref, sn=sn, jid=jid):
+            res = imagegen.generate_one(
+                proj_dir, name, prompt,
+                subdir="storyboard", character_ref=character_ref,
+                on_line=lambda ln: jobs.append_log(jid, ln))
+            if res.get("status") != "completed":
+                raise RuntimeError(res.get("error") or "씬 이미지 생성 실패")
             from pathlib import Path as _P
             rel = _P(res["path"]).relative_to(proj_dir).as_posix()
             scenes.set_image_ref(proj_dir, sn, rel)
-        jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
-                        artifact_paths=[str(proj_dir / "storyboard")])
-        return 200, {"job_id": jid, "result": res}
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "storyboard")])
+            return {"result": res, "imageRef": rel}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/assets/generate":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         cat = (b.get("category") or "").strip()
         prompt = (b.get("prompt") or "").strip()
@@ -371,19 +416,24 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jobs = ctx["jobs"]
         jid = jobs.create("asset", b.get("project_id", ""))
         name = f"{cat}_{uuid.uuid4().hex[:6]}.png"
-        res = imagegen.generate_asset(
-            proj_dir, name, prompt, char_ref=char_ref, subdir="images",
-            on_line=lambda ln: jobs.append_log(jid, ln))
-        jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
-                        artifact_paths=[str(proj_dir / "images")])
-        return 200, {"job_id": jid, "result": res}
+
+        def _do(proj_dir=proj_dir, name=name, prompt=prompt, char_ref=char_ref, jid=jid):
+            res = imagegen.generate_asset(
+                proj_dir, name, prompt, char_ref=char_ref, subdir="images",
+                on_line=lambda ln: jobs.append_log(jid, ln))
+            if res.get("status") != "completed":
+                raise RuntimeError(res.get("error") or "에셋 생성 실패")
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "images")])
+            return {"result": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/scenes/map-image":
         # 패널(MapLibre 캔버스 캡처)이 보낸 dataURL PNG 저장 → 씬 이미지로 링크(버전 파일명·무삭제)
         import base64
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         sn = b.get("sceneNumber")
         sid = scenes.scene_id_for(proj_dir, sn)
@@ -407,8 +457,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
     if method == "POST" and p == "/api/scenes/chart-spec":
         # 차트 디자인 명세서 생성(chartagent) — bar 씬의 패턴/모티프 토큰을 AE에 주입
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         if not chartgen.available():
             return 200, {"error": "chartagent 미설치 — CHARTAGENT_ROOT 환경변수 설정 필요"}
@@ -427,16 +477,16 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/scenes/unlink-image":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         res = scenes.set_image_ref(proj_dir, b.get("sceneNumber"), "")
         return (200, res) if res.get("ok") else (404, res)
 
     if method == "POST" and p == "/api/scenes/analyze-layers":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         data = scenes.load_scenes(proj_dir)
         sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
@@ -447,17 +497,24 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jobs = ctx["jobs"]
         jid = jobs.create("analyze-layers", b.get("project_id", ""))
         ctx_str = f"제목: {sc.get('title', '')} / 요약: {sc.get('visual_summary', '')}"
-        res = imagegen.analyze_scene_layers(
-            proj_dir, str(proj_dir / sc["_image"]),
-            narration=sc.get("narration", "") or "", context=ctx_str,
-            on_line=lambda ln: jobs.append_log(jid, ln))
-        jobs.set_status(jid, "completed" if res.get("elements") else "failed")
-        return 200, {"job_id": jid, "elements": res.get("elements", []), "error": res.get("error")}
+        img_path = str(proj_dir / sc["_image"])
+        narr = sc.get("narration", "") or ""
+
+        def _do(proj_dir=proj_dir, img_path=img_path, narr=narr, ctx_str=ctx_str, jid=jid):
+            res = imagegen.analyze_scene_layers(
+                proj_dir, img_path,
+                narration=narr, context=ctx_str,
+                on_line=lambda ln: jobs.append_log(jid, ln))
+            if not res.get("elements"):
+                raise RuntimeError(res.get("error") or "레이어 분석 실패")
+            return {"elements": res.get("elements", []), "error": res.get("error")}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "POST" and p == "/api/scenes/split-layers":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         data = scenes.load_scenes(proj_dir)
         sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
@@ -489,12 +546,15 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")
-        return 200, {"items": media.list_media(root / pid)}
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
+        return 200, {"items": media.list_media(proj_dir)}
 
     if method == "GET" and p == "/api/search-images":
         pid = query.get("project_id", "")
         q = (query.get("q") or "").strip()
-        if not (root / pid).is_dir():
+        if _proj_dir(root, pid) is None:
             return 404, {"error": "프로젝트 없음"}
         if not q:
             return 400, {"error": "검색어 필요"}
@@ -502,8 +562,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/search-images/save":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         url, name = b.get("url", ""), b.get("name", "")
         if not url or not name:
@@ -512,15 +572,17 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/scenes/set-image":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         return 200, {"result": media.set_scene_image(proj_dir, b.get("sceneNumber"), b.get("src", ""))}
 
     if method == "POST" and p == "/api/images/generate":
         b = body or {}
         pid = b.get("project_id", "")
-        proj_dir = root / pid
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
         refs_fp = proj_dir / "references.json"
         if not refs_fp.exists():
             return 422, {"error": "references.json 없음 — reference-list 먼저 실행"}
@@ -546,7 +608,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "GET" and p == "/api/images/list":
         pid = query.get("project_id", "")
-        images_dir = root / pid / "images"
+        pd = _proj_dir(root, pid)
+        if pd is None:
+            return 404, {"error": "프로젝트 없음"}
+        images_dir = pd / "images"
         if not images_dir.is_dir():
             return 200, {"images": []}
         names = sorted(f.name for f in images_dir.glob("*.png"))
@@ -555,7 +620,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
     if method == "POST" and p == "/api/storyboard/generate":
         b = body or {}
         pid = b.get("project_id", "")
-        proj_dir = root / pid
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
         scenes_fp = proj_dir / "scenes.json"
         if not scenes_fp.exists():
             return 422, {"error": "scenes.json 없음 — 씬 분해(scene-decompose) 먼저 실행"}
@@ -592,7 +659,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "GET" and p == "/api/storyboard/list":
         pid = query.get("project_id", "")
-        sb_dir = root / pid / "storyboard"
+        pd = _proj_dir(root, pid)
+        if pd is None:
+            return 404, {"error": "프로젝트 없음"}
+        sb_dir = pd / "storyboard"
         if not sb_dir.is_dir():
             return 200, {"images": []}
         names = sorted(f.name for f in sb_dir.glob("*.png"))
@@ -601,7 +671,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
     if method == "POST" and p == "/api/layers/generate":
         b = body or {}
         pid = b.get("project_id", "")
-        proj_dir = root / pid
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
         scenes_fp = proj_dir / "scenes.json"
         sb_dir = proj_dir / "storyboard"
         if not scenes_fp.exists() or not sb_dir.is_dir():
@@ -642,7 +714,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "GET" and p == "/api/layers/list":
         pid = query.get("project_id", "")
-        ld = root / pid / "layers"
+        pd = _proj_dir(root, pid)
+        if pd is None:
+            return 404, {"error": "프로젝트 없음"}
+        ld = pd / "layers"
         if not ld.is_dir():
             return 200, {"images": []}
         names = sorted(f.name for f in ld.glob("*.png"))
@@ -650,13 +725,16 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "GET" and p == "/api/projects/files":
         pid = query.get("project_id", "")
-        return 200, {"groups": projects.list_files(root / pid)}
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 404, {"error": f"project not found: {pid}"}
+        return 200, {"groups": projects.list_files(proj_dir)}
 
     if method == "GET" and p == "/api/projects/file":
         pid = query.get("project_id", "")
         name = query.get("name", "")
-        proj_dir = root / pid
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
             return 404, {"error": f"project not found: {pid}"}
         if not name:
             return 400, {"error": "invalid name"}
@@ -674,8 +752,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
 
     if method == "POST" and p == "/api/projects/file/save":
         b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
             return 404, {"error": "프로젝트 없음"}
         name = b.get("name") or ""
         if b.get("content") is None:

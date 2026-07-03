@@ -546,15 +546,25 @@ function saveNarration(n) {
 }
 
 function genSceneImage(n) {
-  _rowStatus(n, "씬 이미지 생성 중... (codex, 수십 초)" + (SELECTED_CHARACTER ? " [" + SELECTED_CHARACTER + "]" : ""));
+  _rowStatus(n, "씬 이미지 생성 중... (codex, 수 분)" + (SELECTED_CHARACTER ? " [" + SELECTED_CHARACTER + "]" : ""));
   return fetch(BACKEND + "/api/scenes/image", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10),
                            character: SELECTED_CHARACTER || "" }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      _rowStatus(n, (j.result && j.result.status === "completed") ? "생성 완료 ✓" : ("실패: " + JSON.stringify(j)));
-      if (j.result && j.result.status === "completed") refreshRow(n);   // 썸네일 갱신(행 단위)
+      if (j.status !== "running" || !j.job_id) { _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
+      return new Promise(function (resolve) {
+        _awaitJob(j.job_id, function (job) {
+          var ok = job.status === "completed" && job.result && job.result.result
+            && job.result.result.status === "completed";
+          _rowStatus(n, ok ? "생성 완료 ✓" : ("실패: " + JSON.stringify(job.error || job)));
+          if (ok) refreshRow(n);   // 썸네일 갱신(행 단위)
+          resolve();
+        }, function (logs) {
+          if (logs.length) _rowStatus(n, "씬 이미지 생성 중... " + logs[logs.length - 1]);
+        });
+      });
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
@@ -596,7 +606,7 @@ function analyzeLayers(ns) {
   for (var t = 0; t < tabs.length; t++) {
     tabs[t].addEventListener("click", function () { _switchLayerTab(this.getAttribute("data-scene")); });
   }
-  // 씬별 분석 병렬 실행
+  // 씬별 분석 병렬 실행(각각 비동기 잡 → 완료 시 탭 렌더)
   ns.forEach(function (n) {
     _rowStatus(n, "레이어 분석 중...");
     fetch(BACKEND + "/api/scenes/analyze-layers", {
@@ -604,11 +614,22 @@ function analyzeLayers(ns) {
       body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
     }).then(function (r) { return r.json(); })
       .then(function (j) {
-        var els = j.elements || [];
-        _layerMulti[n] = { els: els, done: true };
-        _renderLayerPane(n, els, j.error);
-        _rowStatus(n, els.length ? (els.length + "개 요소 분석됨") : ("분석 실패: " + (j.error || "")));
-        _updateLayerModalStatus();
+        if (j.status !== "running" || !j.job_id) {
+          _layerMulti[n] = { els: [], done: true };
+          _renderLayerPane(n, [], (j.error || JSON.stringify(j)));
+          _rowStatus(n, "분석 실패: " + (j.error || ""));
+          _updateLayerModalStatus();
+          return;
+        }
+        _awaitJob(j.job_id, function (job) {
+          var els = (job.result && job.result.elements) || [];
+          _layerMulti[n] = { els: els, done: true };
+          _renderLayerPane(n, els, (job.result && job.result.error) || job.error);
+          _rowStatus(n, els.length ? (els.length + "개 요소 분석됨") : ("분석 실패: " + (job.error || "")));
+          _updateLayerModalStatus();
+        }, function (logs) {
+          if (logs.length) _rowStatus(n, "레이어 분석 중... " + logs[logs.length - 1]);
+        });
       })
       .catch(function (e) {
         _layerMulti[n] = { els: [], done: true };
@@ -739,9 +760,18 @@ function genTts(n) {
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
   }).then(function (r) { return r.json(); })
     .then(function (j) {
-      var ok = j.result && j.result.status === "completed";
-      _rowStatus(n, ok ? ("TTS 완료 (" + (j.result.duration || 0).toFixed(1) + "s)") : ("실패: " + JSON.stringify(j)));
-      if (ok) refreshRow(n);      // 오디오 플레이어 표시(행 단위)
+      if (j.status !== "running" || !j.job_id) { _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
+      return new Promise(function (resolve) {
+        _awaitJob(j.job_id, function (job) {
+          var res = job.result && job.result.result;
+          var ok = job.status === "completed" && res && res.status === "completed";
+          _rowStatus(n, ok ? ("TTS 완료 (" + (res.duration || 0).toFixed(1) + "s)") : ("실패: " + JSON.stringify(job.error || job)));
+          if (ok) refreshRow(n);      // 오디오 플레이어 표시(행 단위)
+          resolve();
+        }, function (logs) {
+          if (logs.length) _rowStatus(n, "TTS 생성 중... " + logs[logs.length - 1]);
+        });
+      });
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
