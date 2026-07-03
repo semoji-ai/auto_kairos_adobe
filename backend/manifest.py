@@ -35,6 +35,10 @@ def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
         entry = {"name": Path(r).stem, "path": _abs(proj_dir, r),
                  "kind": "bg" if "__bg" in Path(r).name else "element"}
         if entry["kind"] == "element":
+            # 요소 레이어는 그린 크로마(#00FF00) 불투명 PNG로 출력됨(알파 없음, AE 키잉 설계).
+            # jsx가 이 플래그를 보고 Keylight/Linear Color Key로 그린을 뺌. 구버전 알파 레이어에
+            # 붙어도 그린 픽셀이 없으면 키잉이 아무것도 안 빼므로 무해 → element에 일괄 부여.
+            entry["chroma"] = "green"
             foot = _alpha_foot(proj_dir / r)
             if foot:
                 entry["foot"] = foot

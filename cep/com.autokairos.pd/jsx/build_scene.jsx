@@ -11,6 +11,41 @@ function akBuildScene(manifestPath) {
     // 폰트 해석 — AE 폰트 DB(app.fonts)에서 PS명 검증, 실패 시 패밀리 키워드 검색으로 보정.
     // AE가 못 찾으면 경고 수집(빌드 결과 문자열에 노출) — 조용한 폴백 금지.
     var FONT_WARN = [];
+    // 그린 크로마 키잉 경고 — 이펙트 적용 실패 시 수집(빌드 결과 문자열에 노출, 조용한 폴백 금지).
+    var CHROMA_WARN = [];
+    // 요소 레이어(그린 #00FF00 불투명 PNG) → 키잉 이펙트 자동 적용.
+    // 1순위 Keylight(1.2): Screen Colour를 순수 그린으로. addProperty가 표시명으로 실패하면 matchName 시도.
+    // 2순위 폴백: AE 내장 Linear Color Key(matchName try 체인) Key Color=그린, Matching Tolerance 20%.
+    // 모든 프로퍼티 접근은 try/catch로 감싸 AE 버전 차이에 안전. 둘 다 실패하면 경고 수집.
+    function applyChromaKey(il, name) {
+        var green4 = [0, 1, 0, 1], green3 = [0, 1, 0];
+        var fx;
+        try { fx = il.property("ADBE Effect Parade"); }
+        catch (e0) { CHROMA_WARN.push((name || "el") + ": 이펙트 파레이드 접근 불가"); return; }
+        // 1순위 Keylight (1.2) — 표시명 실패 시 matchName "Keylight 906"
+        var kl = null;
+        try { kl = fx.addProperty("Keylight (1.2)"); } catch (e1) { kl = null; }
+        if (!kl) { try { kl = fx.addProperty("Keylight 906"); } catch (e2) { kl = null; } }
+        if (kl) {
+            var done = false;
+            try { kl.property("Screen Colour").setValue(green4); done = true; } catch (e3) { }
+            if (!done) { try { kl.property("Screen Colour").setValue(green3); done = true; } catch (e4) { } }
+            if (!done) { try { kl.property("Screen Color").setValue(green3); done = true; } catch (e5) { } }
+            if (!done) CHROMA_WARN.push((name || "el") + ": Keylight Screen Colour 설정 실패");
+            return;   // Keylight 추가됨 — 중복 키잉 방지 위해 종료
+        }
+        // 2순위 Linear Color Key — matchName try 체인(AE 버전별 상이)
+        var lk = null, mn = ["ADBE Linear Color Key2", "ADBE Linear Color Key", "Linear Color Key"];
+        for (var mi = 0; mi < mn.length && !lk; mi++) {
+            try { lk = fx.addProperty(mn[mi]); } catch (eL) { lk = null; }
+        }
+        if (lk) {
+            try { lk.property("Key Color").setValue(green3); } catch (eKC) { }
+            try { lk.property("Matching Tolerance").setValue(20); } catch (eMT) { }
+            return;
+        }
+        CHROMA_WARN.push((name || "el") + ": 그린 키잉 실패(Keylight/Linear Color Key 미설치)");
+    }
     function resolveFontPS(ps, famKey, styleHint) {
         try {
             if (!(app.fonts && app.fonts.allFonts)) return ps;   // 구버전 AE — 검증 불가, 그대로
@@ -398,6 +433,8 @@ function akBuildScene(manifestPath) {
             var fs = Math.max(W / sw, H / sh) * 100;
             il.property("Scale").setValue([fs, fs]);
         }
+        // 그린 크로마 요소 레이어 — 키잉 이펙트 자동 적용(배경 __bg는 chroma 없음 → 스킵)
+        if (layer.chroma === "green") applyChromaKey(il, layer.name);
         return il;
     }
     // 프리셋 모션 → 키프레임(결정적). 실패해도 빌드는 계속(try/catch).
@@ -598,7 +635,8 @@ function akBuildScene(manifestPath) {
             app.endUndoGroup();
             return "OK: 씬 컴프 " + comps.length + "개" +
                    (log.length ? " | " + log.join(", ") : "") +
-                   (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "");
+                   (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "") +
+                   (CHROMA_WARN.length ? " | 키잉: " + CHROMA_WARN.join(", ") : "");
         }
         // Final 컴프(1920x1080) — 씬 컴프를 순서대로 배치(크기 다르면 채움 스케일 + 중앙)
         var fc = proj.items.addComp("Final", W, H, 1.0, Math.max(totalDur, 1), FPS);
@@ -616,7 +654,8 @@ function akBuildScene(manifestPath) {
 
         return "OK: 씬 컴프 " + comps.length + "개 + Final(" + totalDur + "s)" +
                (log.length ? " | " + log.join(", ") : "") +
-               (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "");
+               (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "") +
+               (CHROMA_WARN.length ? " | 키잉: " + CHROMA_WARN.join(", ") : "");
     } catch (e) {
         return "ERROR: " + e.toString();
     }

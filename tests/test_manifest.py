@@ -37,6 +37,23 @@ def test_build_manifest_layers_bg_first(tmp_path):
     assert set(names[1:]) == {"b__0_car.png", "b__1_kid.png"}
 
 
+def test_build_manifest_element_chroma_green(tmp_path):
+    """요소 레이어는 chroma=green(AE 그린 키잉), 배경(__bg)에는 chroma 없음."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "g", "imageRef": "storyboard/sb_g.png"}])
+    (d / "storyboard").mkdir(); (d / "storyboard" / "sb_g.png").write_bytes(b"\x89PNG")
+    lay = d / "layers"; lay.mkdir()
+    (lay / "g__0_car.png").write_bytes(b"\x89PNG")
+    (lay / "g__1_kid.png").write_bytes(b"\x89PNG")
+    (lay / "g__bg.png").write_bytes(b"\x89PNG")
+    manifest.build_manifest(d)
+    mf = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    for L in mf["layers"]:
+        if L["kind"] == "element":
+            assert L["chroma"] == "green"               # 모든 요소 레이어에 그린 크로마
+        else:
+            assert "chroma" not in L                    # 배경에는 붙지 않음
+
+
 def test_build_manifest_audio_duration(tmp_path, monkeypatch):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "c", "narration": "n"}])
     (d / "audio").mkdir(); (d / "audio" / "tts_c.wav").write_bytes(b"x")
