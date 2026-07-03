@@ -123,13 +123,14 @@ def test_versioned_path_in_subdir_concept(tmp_path):
 
 def test_build_layer_prompt_character():
     p = imagegen.build_layer_prompt("character", "STYLE", "char_1.png")
-    assert "인물" in p and "마젠타" in p and "char_1.png" in p and "STYLE" in p
+    # built-in 엔진 — 크로마키 그린(#00FF00), rel_out은 프롬프트에 넣지 않음(회수 방식)
+    assert "인물" in p and "#00FF00" in p and "STYLE" in p
 
 
 def test_build_layer_prompt_background():
     p = imagegen.build_layer_prompt("background", "STYLE", "bg_1.png")
-    assert "배경" in p and "bg_1.png" in p
-    assert "마젠타" not in p
+    assert "배경" in p and "STYLE" in p
+    assert "마젠타" not in p and "#00FF00" not in p     # 배경 레이어는 크로마 채움 없음
 
 
 def test_generate_many_runs_all(tmp_path, monkeypatch):
@@ -161,7 +162,8 @@ def test_generate_many_concurrency_min_one(tmp_path, monkeypatch):
 
 def test_build_element_layer_prompt():
     p = imagegen.build_element_layer_prompt("왼쪽 전기차", "프레임 왼쪽", "STYLE", "layers/x.png")
-    assert "왼쪽 전기차" in p and "마젠타" in p and "#FF00FF" in p and "layers/x.png" in p
+    # built-in 엔진 — 크로마키 그린(#00FF00), rel_out은 프롬프트에 넣지 않음(회수 방식)
+    assert "왼쪽 전기차" in p and "#00FF00" in p and "STYLE" in p
     assert "얹혀" in p          # 위에 얹힌 것 함께 그림(베이스 포함)
 
 
@@ -209,6 +211,22 @@ def test_analyze_scene_layers_prompt_uses_narration(tmp_path, monkeypatch):
     assert "우선순위" in cap["prompt"]                         # 기준이 우선순위로 명시
 
 
+def _green_stub(ratio):
+    """chroma_key_green(현행 파이프라인이 호출) 대역 — 위치 QC용 키잉본(투명)을 실제로 써서
+    position_score 경로를 태우고 transparent_ratio를 통제한다.
+    ratio가 콜러블이면 매 호출 값을 뽑는다(재시도별 다른 값)."""
+    from PIL import Image
+
+    def _f(src, out):
+        try:
+            size = Image.open(src).size
+        except Exception:
+            size = (100, 100)
+        Image.new("RGBA", size, (0, 0, 0, 0)).save(out)     # QC 키잉본(투명) 기록
+        return {"transparent_ratio": ratio() if callable(ratio) else ratio}
+    return _f
+
+
 def test_split_scene_to_elements(tmp_path, monkeypatch):
     from backend import imagegen as ig
     proj = tmp_path / "p"; proj.mkdir()
@@ -221,7 +239,7 @@ def test_split_scene_to_elements(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     res = ig.split_scene_to_elements(proj, str(img), "sid9",
                                      [{"name": "전기차", "location": "왼쪽"},
                                       {"name": "인물", "location": "오른쪽"}], concurrency=2)
@@ -293,7 +311,7 @@ def test_split_normalizes_to_scene_size(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     res = ig.split_scene_to_elements(proj, str(scene), "sz1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     for r in res["layers"]:
@@ -335,90 +353,129 @@ def test_soft_chroma_edge_soft_alpha(tmp_path):
 
 
 class _Proc:
-    def __init__(self, returncode=0, stdout="", stderr=""):
+    """subprocess.run 반환 대역 — codex built-in 엔진은 stdout(JSONL)만 파싱한다."""
+    def __init__(self, stdout="", stderr="", returncode=0):
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
 
 
-def _stub_cli(tmp_path, monkeypatch):
-    """CLI 경로·키를 모킹해 _run_codex_image가 subprocess 단계까지 진입하게 함."""
+def _mk_gen_png(gen_dir, tid, name="ig_1.png", data=b"\x89PNG-generated"):
+    """가짜 codex 산출물 — _GEN_DIR/<thread_id>/<name> 생성(회수 대상)."""
+    d = gen_dir / tid
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / name
+    p.write_bytes(data)
+    return p
+
+
+def test_run_codex_image_builtin_success(tmp_path, monkeypatch):
+    """성공: stdout에 thread_id → _GEN_DIR/<tid>/*.png 회수 → out 복사."""
     from backend import imagegen as ig
-    cli = tmp_path / "image_gen.py"
-    cli.write_text("x", encoding="utf-8")
-    monkeypatch.setattr(ig, "_CLI_SCRIPT", cli)
-    monkeypatch.setattr(ig.env, "get_key", lambda name: "sk-test")
-    monkeypatch.setattr(ig.time, "sleep", lambda s: None)
-    return ig
+    gen = tmp_path / "generated_images"
+    monkeypatch.setattr(ig, "_GEN_DIR", gen)
+    tid = "0199aaaa-bbbb-cccc-dddd"
+
+    def fake_run(cmd, input=None, env=None, **k):
+        _mk_gen_png(gen, tid)
+        return _Proc(stdout='{"thread_id":"%s"}\n' % tid)
+
+    monkeypatch.setattr(ig.subprocess, "run", fake_run)
+    out = tmp_path / "o.png"
+    res = ig._run_codex_image(tmp_path, out, "전기차", retries=0)
+    assert res["status"] == "completed" and out.exists()
+    assert out.read_bytes() == b"\x89PNG-generated"
 
 
-def test_run_codex_image_classifies_rate_limit(tmp_path, monkeypatch):
-    ig = _stub_cli(tmp_path, monkeypatch)
+def test_run_codex_image_no_thread_id(tmp_path, monkeypatch):
+    """stdout에 thread_id 없음 → no_file(회수 불가)."""
+    from backend import imagegen as ig
+    monkeypatch.setattr(ig, "_GEN_DIR", tmp_path / "generated_images")
     monkeypatch.setattr(ig.subprocess, "run",
-                        lambda *a, **k: _Proc(1, "openai rate limit exceeded (429)"))
-    res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=1)
-    assert res["status"] == "failed" and res["error"] == "rate_limit"
-
-
-def test_run_codex_image_classifies_no_file(tmp_path, monkeypatch):
-    ig = _stub_cli(tmp_path, monkeypatch)
-    monkeypatch.setattr(ig.subprocess, "run", lambda *a, **k: _Proc(0, "done"))
+                        lambda *a, **k: _Proc(stdout="done, no id here"))
     res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=0)
     assert res["status"] == "failed" and res["error"] == "no_file"
 
 
-def test_run_codex_image_needs_key(tmp_path, monkeypatch):
+def test_run_codex_image_thread_no_png(tmp_path, monkeypatch):
+    """thread 폴더는 있으나 png 없음 → no_file."""
     from backend import imagegen as ig
-    monkeypatch.setattr(ig.env, "get_key", lambda name: "")
+    gen = tmp_path / "generated_images"
+    tid = "0199-empty-thread"
+    (gen / tid).mkdir(parents=True)
+    monkeypatch.setattr(ig, "_GEN_DIR", gen)
+    monkeypatch.setattr(ig.subprocess, "run",
+                        lambda *a, **k: _Proc(stdout='{"thread_id":"%s"}' % tid))
     res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=0)
-    assert res["status"] == "failed" and "OPENAI_API_KEY" in res["error"]
-
-
-def test_run_codex_image_success(tmp_path, monkeypatch):
-    ig = _stub_cli(tmp_path, monkeypatch)
-    out = tmp_path / "o.png"
-
-    def fake_run(cmd, **k):
-        out.write_bytes(b"\x89PNG-new-image")
-        return _Proc(0, "Wrote " + str(out))
-
-    monkeypatch.setattr(ig.subprocess, "run", fake_run)
-    res = ig._run_codex_image(tmp_path, out, "p", retries=0)
-    assert res["status"] == "completed" and out.exists()
+    assert res["status"] == "failed" and res["error"] == "no_file"
 
 
 def test_run_codex_image_copy_guard(tmp_path, monkeypatch):
-    ig = _stub_cli(tmp_path, monkeypatch)
+    """회수 파일 md5 == 첨부 md5 → 복사(생성 아님) → failed."""
+    from backend import imagegen as ig
+    gen = tmp_path / "generated_images"
+    monkeypatch.setattr(ig, "_GEN_DIR", gen)
     ref = tmp_path / "ref.png"
     ref.write_bytes(b"IDENTICAL-BYTES")
-    out = tmp_path / "o.png"
+    tid = "0199-copy-guard"
 
-    def fake_run(cmd, **k):
-        out.write_bytes(b"IDENTICAL-BYTES")  # 첨부와 동일 = 복사
-        return _Proc(0, "Wrote")
+    def fake_run(cmd, input=None, env=None, **k):
+        _mk_gen_png(gen, tid, data=b"IDENTICAL-BYTES")   # 첨부와 동일 = 복사
+        return _Proc(stdout='{"thread_id":"%s"}' % tid)
 
     monkeypatch.setattr(ig.subprocess, "run", fake_run)
+    out = tmp_path / "o.png"
     res = ig._run_codex_image(tmp_path, out, "p", images=[str(ref)], retries=0)
     assert res["status"] == "failed"
 
 
-def test_run_codex_image_edit_vs_generate(tmp_path, monkeypatch):
-    ig = _stub_cli(tmp_path, monkeypatch)
-    ref = tmp_path / "ref.png"
-    ref.write_bytes(b"REF")
-    out = tmp_path / "o.png"
+def test_run_codex_image_classifies_rate_limit(tmp_path, monkeypatch):
+    """rate limit 문자열 감지 → error=='rate_limit'(백오프 재시도 후 실패)."""
+    from backend import imagegen as ig
+    monkeypatch.setattr(ig, "_GEN_DIR", tmp_path / "generated_images")
+    monkeypatch.setattr(ig.time, "sleep", lambda s: None)
+    monkeypatch.setattr(ig.subprocess, "run",
+                        lambda *a, **k: _Proc(stdout="openai rate limit exceeded (429)"))
+    res = ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=1)
+    assert res["status"] == "failed" and res["error"] == "rate_limit"
+
+
+def test_run_codex_image_strips_openai_key_from_env(tmp_path, monkeypatch):
+    """API 금지 계약: subprocess.run에 전달되는 env에 OPENAI_API_KEY가 없어야 함."""
+    from backend import imagegen as ig
+    monkeypatch.setattr(ig, "_GEN_DIR", tmp_path / "generated_images")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-should-not-pass")
     seen = {}
 
-    def fake_run(cmd, **k):
-        seen["cmd"] = cmd
-        out.write_bytes(b"\x89PNG-x")
-        return _Proc(0, "Wrote")
+    def fake_run(cmd, input=None, env=None, **k):
+        seen["env"] = env
+        return _Proc(stdout="no id")
 
     monkeypatch.setattr(ig.subprocess, "run", fake_run)
-    ig._run_codex_image(tmp_path, out, "p", images=[str(ref)], retries=0)
-    assert "edit" in seen["cmd"] and "--image" in seen["cmd"]
-    ig._run_codex_image(tmp_path, out, "p", retries=0)
-    assert "generate" in seen["cmd"] and "--image" not in seen["cmd"]
+    ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", retries=0)
+    assert "OPENAI_API_KEY" not in seen["env"]     # codex 환경에 키 미전달
+
+
+def test_run_codex_image_attaches_refs_and_imagegen_stdin(tmp_path, monkeypatch):
+    """참조 첨부: images → cmd에 '-i <path>', 엔진 플래그, stdin은 '/imagegen ' 시작."""
+    from backend import imagegen as ig
+    monkeypatch.setattr(ig, "_GEN_DIR", tmp_path / "generated_images")
+    ref = tmp_path / "ref.png"
+    ref.write_bytes(b"REF")
+    seen = {}
+
+    def fake_run(cmd, input=None, env=None, **k):
+        seen["cmd"] = cmd
+        seen["input"] = input
+        return _Proc(stdout="no id")
+
+    monkeypatch.setattr(ig.subprocess, "run", fake_run)
+    ig._run_codex_image(tmp_path, tmp_path / "x.png", "p", images=[str(ref)], retries=0)
+    assert "-i" in seen["cmd"]
+    i = seen["cmd"].index("-i")
+    assert seen["cmd"][i + 1] == str(ref)          # 참조가 -i 인자로
+    assert "image_generation" in seen["cmd"]       # built-in 엔진 활성화 플래그
+    assert seen["input"].startswith("/imagegen ")  # stdin은 /imagegen 프롬프트
 
 
 def test_split_qc_retries_on_bad_ratio(tmp_path, monkeypatch):
@@ -438,7 +495,7 @@ def test_split_qc_retries_on_bad_ratio(tmp_path, monkeypatch):
     # 1차: ratio 0.01(불량 — 전체를 그림), 2차: 0.6(정상)
     ratios = iter([0.01, 0.6])
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": next(ratios)})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(lambda: next(ratios)))
     res = ig.split_scene_to_elements(proj, str(scene), "qc1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
@@ -459,7 +516,7 @@ def test_split_qc_marks_lowq_after_retry(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.005})  # 항상 불량
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.005))  # 항상 불량
     res = ig.split_scene_to_elements(proj, str(scene), "qc2",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
@@ -519,7 +576,7 @@ def test_split_qc_retries_on_bad_position(tmp_path, monkeypatch):
 
     pos_seq = iter([0.2, 0.9])                           # 1차 어긋남 → 재시도 정상
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
     res = ig.split_scene_to_elements(proj, str(scene), "pq1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
@@ -528,36 +585,38 @@ def test_split_qc_retries_on_bad_position(tmp_path, monkeypatch):
     assert calls["n"] >= 3                               # 요소 2회 + 배경 1회
 
 
-def test_split_retry_prompt_uses_new_file_path(tmp_path, monkeypatch):
-    """E2E 발견 버그 회귀: 재시도 프롬프트에 1차 경로가 들어가면 codex가 1차본을 raw로 덮어씀."""
+def test_split_retry_uses_new_file_path(tmp_path, monkeypatch):
+    """E2E 발견 버그 회귀: 재시도는 1차본을 덮어쓰지 말고 새 버전 파일(out2)로 출력해야 한다.
+    built-in 엔진은 rel_out을 프롬프트에 싣지 않으므로(회수 방식) 출력 대상은 _run_codex_image의 out 인자로 확인."""
     from PIL import Image
     from backend import imagegen as ig
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "storyboard").mkdir()
     scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
-    prompts = []
+    outs = []
 
     def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
-        prompts.append(prompt)
+        outs.append(Path(out).name)
         Image.new("RGBA", (100, 100)).save(out)
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
     pos_seq = iter([0.2, 0.9])                          # 1차 어긋남 → 재시도 OK
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
     res = ig.split_scene_to_elements(proj, str(scene), "rp1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
     assert el["qc"] == "retried_ok" and el["pos_score"] == 0.9     # 최종 pos 보고
-    retry_prompt = prompts[1]
-    assert "rp1__0_차_v2.png" in retry_prompt           # 재시도는 새 버전 파일 경로
+    assert outs[0] == "rp1__0_차.png"                   # 1차는 원본 경로
+    assert outs[1] == "rp1__0_차_v2.png"                # 재시도는 새 버전 파일(1차 덮어쓰기 방지)
     assert el["rel"].endswith("_v2.png")
 
 
-def test_split_lowq_rekeys_final_file(tmp_path, monkeypatch):
-    """lowq 확정 시 최종 파일에 chroma 재적용 가드(키잉 안 된 raw 잔존 방지)."""
+def test_split_lowq_keeps_green_raw_single_keying(tmp_path, monkeypatch):
+    """현행: lowq 확정 시 그린 출력은 raw 그대로 유지(AE에서 키잉) — 최종본 재키잉 없음.
+    QC 키잉본은 각 시도 파일에 1회씩만(최종 1차본 재적용 없음)."""
     from PIL import Image
     from backend import imagegen as ig
     proj = tmp_path / "p"; proj.mkdir()
@@ -570,19 +629,20 @@ def test_split_lowq_rekeys_final_file(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    def fake_chroma(a, b):
+    def fake_green(a, b):
         keyed.append(Path(a).name)
+        Image.new("RGBA", (100, 100), (0, 0, 0, 0)).save(b)   # QC 키잉본 기록(위치 QC 경로 유지)
         return {"transparent_ratio": 0.5}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", fake_chroma)
+    monkeypatch.setattr(ig, "chroma_key_green", fake_green)
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.1)    # 항상 어긋남 → lowq
     res = ig.split_scene_to_elements(proj, str(scene), "lq1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
     assert el["status"] == "completed_lowq"
     first = Path(el["rel"]).name
-    assert keyed.count(first) >= 2                       # post 1회 + lowq 가드 재적용 1회
+    assert keyed.count(first) == 1                       # 최종(1차)본은 QC용 1회만(재키잉 없음)
 
 
 def test_split_retry_retires_loser_no_duplicates(tmp_path, monkeypatch):
@@ -600,7 +660,7 @@ def test_split_retry_retires_loser_no_duplicates(tmp_path, monkeypatch):
 
     pos_seq = iter([0.2, 0.9])                          # 1차 탈락 → 재시도 합격
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
     ig.split_scene_to_elements(proj, str(scene), "dd1",
                                [{"name": "차", "location": "왼쪽"}], concurrency=1)
@@ -623,7 +683,7 @@ def test_split_lowq_retires_retry_file(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.1)     # 둘 다 탈락
     res = ig.split_scene_to_elements(proj, str(scene), "dd2",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
@@ -646,7 +706,7 @@ def test_split_writes_kinds_sidecar(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     ig.split_scene_to_elements(proj, str(scene), "kd",
                                [{"name": "남자", "location": "좌", "kind": "character"},
@@ -658,22 +718,22 @@ def test_split_writes_kinds_sidecar(tmp_path, monkeypatch):
 def test_gen_semaphore_limits_concurrency(tmp_path, monkeypatch):
     """전역 세마포어 — 동시 codex 이미지 실행이 상한을 넘지 않음(초과분 대기)."""
     import threading, time
-    from PIL import Image
     from backend import imagegen as ig
+    monkeypatch.setattr(ig, "_GEN_DIR", tmp_path / "generated_images")
     monkeypatch.setattr(ig, "_GEN_SEMA", threading.BoundedSemaphore(2))
     state = {"cur": 0, "peak": 0}
     lock = threading.Lock()
 
-    def fake_skill(prompt, cwd, **kw):
+    def fake_run(cmd, input=None, env=None, **kw):
         with lock:
             state["cur"] += 1
             state["peak"] = max(state["peak"], state["cur"])
         time.sleep(0.05)
         with lock:
             state["cur"] -= 1
-        return {"returncode": 1, "output_last": None}     # 파일 미생성 → 즉시 실패 경로
+        return _Proc(stdout="no thread id")               # 회수 불가 → no_file 경로
 
-    monkeypatch.setattr(ig, "run_skill", fake_skill)
+    monkeypatch.setattr(ig.subprocess, "run", fake_run)
     outs = [tmp_path / f"o{i}.png" for i in range(6)]
     ts = [threading.Thread(target=lambda o=o: ig._run_codex_image(tmp_path, o, "p", retries=0))
           for o in outs]
@@ -706,7 +766,7 @@ def test_split_aspect_mismatch_triggers_retry_not_stretch(tmp_path, monkeypatch)
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     res = ig.split_scene_to_elements(proj, str(scene), "ar1",
                                      [{"name": "차", "location": "좌", "kind": "object"}], concurrency=1)
@@ -735,7 +795,7 @@ def test_bg_retries_once_on_failure(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     res = ig.split_scene_to_elements(proj, str(scene), "bgr",
                                      [{"name": "차", "location": "좌", "kind": "object"}], concurrency=1)
@@ -756,7 +816,7 @@ def test_split_names_character_layers_with_char_suffix(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "chroma_key_green", _green_stub(0.5))
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     res = ig.split_scene_to_elements(proj, str(scene), "cs",
                                      [{"name": "남자", "location": "좌", "kind": "character"},

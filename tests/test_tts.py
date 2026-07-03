@@ -15,6 +15,24 @@ def test_clean_text_strips_directions_and_emoji():
     assert tts._clean_text("안녕(웃으며) 하세요 🙂") == "안녕 하세요"
 
 
+def test_clean_text_middle_dot_to_comma():
+    # 가운뎃점(U+00B7) — ElevenLabs가 붙여 읽어 → 쉼표로 끊어 읽기
+    assert tts._clean_text("미국·영국·프랑스") == "미국, 영국, 프랑스"
+
+
+def test_clean_text_middle_dot_variants():
+    # 한글 가운뎃점(U+318D)·홑화살괄호형(U+2027)도 동일 처리
+    assert tts._clean_text("사과ㆍ배") == "사과, 배"
+    assert tts._clean_text("가‧나") == "가, 나"
+
+
+def test_clean_text_middle_dot_no_double_space_or_comma():
+    # 가운뎃점 주변 공백/중복이 있어도 ", " 하나로 정리(이중 공백·", ," 방지)
+    assert tts._clean_text("미국 · 영국") == "미국, 영국"
+    assert tts._clean_text("가··나") == "가, 나"
+    assert tts._clean_text("·시작·") == "시작"
+
+
 def test_engine_and_ext_by_key(monkeypatch):
     monkeypatch.setattr(tts.env, "get_key", lambda k, *a: "KEY" if k == "ELEVENLABS_API_KEY" else "")
     assert tts._engine() == "elevenlabs" and tts._ext() == "mp3"

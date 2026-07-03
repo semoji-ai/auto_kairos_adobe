@@ -97,10 +97,16 @@ def scene_audio_name(sid: str) -> str:
 
 
 def _clean_text(text: str) -> str:
-    """TTS 전 가벼운 정리 — 지문(괄호)·이모지 제거. 한국어 발음 교정은 미적용(필요 시 확장)."""
+    """TTS 전 가벼운 정리 — 지문(괄호)·이모지 제거 + 단어 사이 가운뎃점을 쉼표로.
+    ElevenLabs가 가운뎃점(U+00B7 ·, U+318D ㆍ, U+2027 ‧)을 무시하고 앞뒤 단어를 붙여 읽어
+    → ", "로 치환해 또박또박 끊어 읽게 한다. 앞뒤 공백·연속 쉼표는 정리."""
     t = re.sub(r"[\(\[\{][^\)\]\}]*[\)\]\}]", "", text or "")
     t = re.sub(r"[\U0001F000-\U0001FAFF\U00002600-\U000027BF]", "", t)
-    return re.sub(r"\s+", " ", t).strip()
+    t = re.sub(r"\s*[·ㆍ‧]\s*", ", ", t)   # 가운뎃점 → 쉼표(끊어 읽기)
+    t = re.sub(r"\s+", " ", t)
+    t = re.sub(r"\s*,(?:\s*,)+", ",", t)                 # 연속 쉼표(예: 가운뎃점 중복) 축약
+    t = re.sub(r"\s+,", ",", t)                          # 쉼표 앞 공백 제거
+    return t.strip().strip(",").strip()
 
 
 def _parse_afinfo_duration(text: str) -> float:
