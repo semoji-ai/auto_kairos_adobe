@@ -13,6 +13,8 @@ var PIPE_STEPS = [
     done: function (s) { return s.scenes; },     prereq: function (s) { return s.manuscript; }, need: "원고(③) 먼저" },
   { name: "scene-review", num: "⑤", label: "씬 검토",
     done: function (s) { return s.review; },     prereq: function (s) { return s.scenes; },   need: "씬 분석(④) 먼저" },
+  { name: "apply-layouts", num: "⑤.5", label: "레이아웃 반영",
+    done: function (s) { return !!PIPE_RESULTS["apply-layouts"]; }, prereq: function (s) { return s.review; }, need: "씬 검토(⑤) 먼저" },
   { name: "entities",     num: "⑥", label: "엔티티",
     done: function (s) { return s.entities; },   prereq: function (s) { return s.scenes; },   need: "씬 분석(④) 먼저" },
   { name: "sheets",       num: "⑦", label: "시트 생성",
@@ -46,6 +48,17 @@ function _pipeResultText(name, res) {
   if (name === "manuscript")   return "원고 " + (res.score != null ? res.score : "?") + "점 " + (res.verdict || "") + " (" + (res.rounds || 0) + "R)";
   if (name === "scenes")       return "씬 " + (res.count || 0) + "개 (실사 " + (res.searched || 0) + ")";
   if (name === "scene-review") return "flags " + (res.flags || 0) + " · 이슈 " + (res.det_issues || 0);
+  if (name === "apply-layouts") {
+    var ch = res.changed || 0;
+    if (!ch) return "변경 없음(현행 유지)";
+    var applied = res.applied || [];
+    var parts = [];
+    for (var k = 0; k < applied.length && k < 3; k++) {
+      parts.push("씬" + applied[k].scene + "→" + applied[k].to);
+    }
+    var more = applied.length > 3 ? " …" : "";
+    return ch + "개 씬 레이아웃 반영(" + parts.join(", ") + more + ")";
+  }
   if (name === "entities")     return "엔티티 " + (res.entities || 0) + "개 · 역링크 " + (res.scenes_updated || 0);
   if (name === "sheets") {
     var sh = res.sheets || {};
