@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["decisions"],
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["sceneNumber", "apply"],
+        "properties": {
+          "sceneNumber": { "type": "number" },
+          "apply": { "type": "boolean" },
+          "layout": {
+            "type": "string",
+            "enum": ["headline_only", "items_list", "metric_spotlight", "quote", "bar", "cinematic"]
+          },
+          "shot_relation": { "type": "string", "enum": ["cut", "continue"] },
+          "reason": { "type": "string" },
+          "value": { "type": "string" },
+          "label": { "type": "string" },
+          "headline": { "type": "string" },
+          "sub": { "type": "string" },
+          "items": { "type": "array", "items": { "type": "string" } },
+          "quote_text": { "type": "string" },
+          "quote_who": { "type": "string" },
+          "values": { "type": "array", "items": { "type": "number" } },
+          "labels": { "type": "array", "items": { "type": "string" } },
+          "unit": { "type": "string" }
+        }
+      }
+    }
+  }
+}

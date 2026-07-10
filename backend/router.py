@@ -814,6 +814,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             "manuscript": lambda pd, ol: manuscript.run_manuscript_pipeline(pd, on_event=ol),
             "scenes": lambda pd, ol: scene_analysis.analyze_scenes(pd, enrich=True, on_event=ol),
             "scene-review": lambda pd, ol: scene_analysis.review_scenes(pd, on_event=ol),
+            # 검토 권고 레이아웃을 오케스트레이터 판단+데이터 게이트로 선별 적용(억지 다양화 없음)
+            "apply-layouts": lambda pd, ol: scene_analysis.apply_review_layouts(pd, on_event=ol),
             "entities": lambda pd, ol: entities.build_entity_registry(pd, on_event=ol),
             "sheets": lambda pd, ol: sheets.generate_all_sheets(pd, on_event=ol),
             "render": lambda pd, ol: scene_render.render_scenes(pd, on_event=ol),

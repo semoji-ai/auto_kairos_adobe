@@ -13,7 +13,10 @@ _SKILLS = _ROOT / "skills"
 _SCHEMAS = Path(__file__).resolve().parent / "schemas"
 _SCENE_SCHEMA = _SCHEMAS / "scene_specs.schema.json"
 _REVIEW_SCHEMA = _SCHEMAS / "scene_review.schema.json"
+_DECISION_SCHEMA = _SCHEMAS / "scene_layout_decision.schema.json"
 _LAYOUTS = {"headline_only", "items_list", "metric_spotlight", "bar", "quote", "map", "cinematic"}
+# 검토가 권고할 수 있고, 우리가 데이터를 채워 적용할 수 있는 '카드형' 레이아웃(map/cinematic은 대상 아님).
+_DATA_LAYOUTS = {"headline_only", "items_list", "metric_spotlight", "quote", "bar"}
 _REL = {"cut", "continue"}
 
 _SCENE_RE = re.compile(r"(?m)^[ \t]*<!--\s*SCENE\s*-->[ \t]*$")
@@ -235,6 +238,182 @@ def _review_scenes_llm(proj_dir: Path, scenes: list, *, on_event=None) -> dict:
                 "overall": str(data.get("overall") or "")}
     except Exception:
         return {"scenes": [], "flags": []}
+
+
+def _valid_layout_payload(layout: str, dec: dict) -> tuple:
+    """대상 레이아웃에 필요한 데이터가 결정적으로 유효한지 검증.
+    반환 (ok, fields) — ok=False면 데이터 부족(적용 금지). jsx가 읽는 필드명과 정확히 일치.
+    LLM 판단(apply=true)이라도 이 게이트를 통과 못하면 적용 안 함(빈 화면 렌더 방지)."""
+    if layout == "metric_spotlight":
+        v, lb = str(dec.get("value") or "").strip(), str(dec.get("label") or "").strip()
+        return (bool(v and lb), {"value": v, "label": lb})
+    if layout == "items_list":
+        items = [str(x).strip() for x in (dec.get("items") or []) if str(x).strip()]
+        hd = str(dec.get("headline") or "").strip()
+        return (len(items) >= 2, {"headline": hd, "items": items})
+    if layout == "quote":
+        qt = str(dec.get("quote_text") or "").strip()
+        return (bool(qt), {"quote_text": qt, "quote_who": str(dec.get("quote_who") or "").strip()})
+    if layout == "headline_only":
+        hd = str(dec.get("headline") or "").strip()
+        return (bool(hd), {"headline": hd, "sub": str(dec.get("sub") or "").strip()})
+    if layout == "bar":
+        vals = [x for x in (dec.get("values") or []) if isinstance(x, (int, float))]
+        labs = [str(x).strip() for x in (dec.get("labels") or [])]
+        ok = len(vals) >= 3 and len(labs) == len(vals)
+        return (ok, {"headline": str(dec.get("headline") or "").strip(),
+                     "chart": {"values": vals, "labels": labs, "unit": str(dec.get("unit") or "").strip()}})
+    return (False, {})
+
+
+def _suggested_layout(text: str) -> str:
+    """자유텍스트(검토 note/layout_fit)에서 카드형 레이아웃 권고명을 추출. 없으면 ''."""
+    t = str(text or "")
+    for lay in ("metric_spotlight", "items_list", "headline_only", "quote", "bar"):
+        if lay in t:
+            return lay
+    return ""
+
+
+def _layout_change_candidates(scenes: list, review_scenes: list) -> list:
+    """검토가 현재와 '다른' 카드형 레이아웃을 권고한(또는 warn한) 씬을 후보로. [(sceneNumber, 현재, 권고|'')].
+    검토 스키마는 layout_fit에 레이아웃명 또는 'ok'/'warn' 판정을 넣는다(둘 다 허용).
+    - layout_fit이 카드형 레이아웃명이고 현재와 다르면 그 값을 권고로.
+    - layout_fit이 'warn'이거나 note가 카드형을 언급하면 후보(권고는 note에서 추출, 없으면 ''→LLM이 결정)."""
+    fit_by = {r.get("sceneNumber"): r for r in (review_scenes or [])}
+    out = []
+    for s in scenes:
+        sn = s.get("sceneNumber")
+        cur = s.get("layout") or "cinematic"
+        r = fit_by.get(sn) or {}
+        fit = str(r.get("layout_fit") or "").strip()
+        note = str(r.get("note") or "")
+        if fit in _DATA_LAYOUTS and fit != cur:
+            out.append((sn, cur, fit))
+        elif fit == "warn" or _suggested_layout(note) or _suggested_layout(fit):
+            sug = _suggested_layout(note) or _suggested_layout(fit)
+            if sug != cur:                          # 이미 그 레이아웃이면 후보 아님
+                out.append((sn, cur, sug))
+    return out
+
+
+def apply_review_layouts(proj_dir, *, on_event=None) -> dict:
+    """검토 권고 레이아웃을 '오케스트레이터 판단 + 결정적 데이터 게이트'로 선별 적용.
+    억지 다양화 없음 — 검토가 플래그한 씬만, LLM이 apply=true로 판단하고 필수 데이터가
+    유효할 때만 변경. scenes.json은 버전 백업 후 갱신(무삭제). 반환 {applied, kept, changed} 또는 {error}."""
+    proj_dir = Path(proj_dir)
+    sp = proj_dir / "scenes.json"
+    rp = proj_dir / "scene_review.json"
+    if not sp.is_file():
+        return {"error": "scenes.json 필요 (씬 분석 먼저)"}
+    if not rp.is_file():
+        return {"error": "scene_review.json 필요 (씬 검토 먼저)"}
+    try:
+        doc = json.loads(sp.read_text(encoding="utf-8"))
+        scenes = doc.get("scenes") or []
+        review = json.loads(rp.read_text(encoding="utf-8"))
+    except Exception:
+        return {"error": "scenes.json/scene_review.json 파싱 실패"}
+
+    cands = _layout_change_candidates(scenes, review.get("scenes") or [])
+    if not cands:
+        if on_event:
+            on_event("레이아웃 변경 권고 없음 — 현행 유지")
+        return {"applied": [], "kept": [], "changed": 0}
+
+    by_num = {s.get("sceneNumber"): s for s in scenes}
+    note_by = {r.get("sceneNumber"): str(r.get("note") or "")
+               for r in (review.get("scenes") or [])}
+    lines = []
+    for sn, cur, sug in cands:
+        s = by_num.get(sn) or {}
+        lines.append(
+            f"### 씬 {sn} (현재 layout={cur}, 검토 권고={sug})\n"
+            f"검토 노트: {note_by.get(sn, '')}\n"
+            f"내레이션: {str(s.get('narration') or '')[:400]}")
+    prompt = (
+        "너는 영상 연출 오케스트레이터다. 아래 씬들은 씬검토가 현재 레이아웃 대신 다른 '카드형' "
+        "레이아웃을 권고한 씬이다. 각 씬에 대해, 권고 레이아웃에 **필요한 데이터가 내레이션에 "
+        "실제로 존재하는지** 판단해라. 존재하면 그 데이터를 정확히 채워 apply=true, 애매하거나 "
+        "데이터가 없으면 apply=false(현행 유지)로 답해라. 억지로 바꾸지 마라 — 확실할 때만 바꾼다.\n\n"
+        "레이아웃별 필수 데이터(정확히 이 필드로):\n"
+        "- metric_spotlight: value(핵심 수치 한 개, 예 '340kg'), label(그 수치 설명 한 줄)\n"
+        "- items_list: headline(제목), items(2~5개 항목 배열)\n"
+        "- quote: quote_text(실제 인용문), quote_who(발언자)\n"
+        "- headline_only: headline(핵심 한 줄), sub(선택 보조 한 줄)\n"
+        "- bar: headline, values(숫자 3개+ 배열), labels(같은 개수), unit\n\n"
+        "수치가 1개면 metric_spotlight, 3개+ 비교면 bar. 인용 부호가 있는 실제 발언만 quote.\n\n"
+        + "\n\n".join(lines)
+        + "\n\nscene_layout_decision JSON만 출력(각 씬 decisions 항목 1개)."
+    )
+    out = proj_dir / ".layout_decision.json"
+    if on_event:
+        on_event(f"레이아웃 판단(오케스트레이터) — 후보 {len(cands)}씬")
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_DECISION_SCHEMA),
+                               output_last=str(out), on_line=on_event)
+    if res.get("returncode") != 0 or not out.is_file():
+        return {"error": "레이아웃 판단 실패"}
+    try:
+        decisions = json.loads(out.read_text(encoding="utf-8")).get("decisions") or []
+    except Exception:
+        return {"error": "레이아웃 판단 파싱 실패"}
+
+    dec_by = {}
+    for d in decisions:
+        if not isinstance(d, dict):
+            continue
+        nd = dict(d)
+        if isinstance(nd.get("data"), dict):     # LLM이 데이터를 data{}에 중첩하는 변형 흡수
+            for k, v in nd["data"].items():
+                nd.setdefault(k, v)
+        sn = nd.get("sceneNumber", nd.get("scene"))   # sceneNumber/scene 둘 다 허용
+        try:
+            sn = int(sn)
+        except (TypeError, ValueError):
+            continue
+        dec_by[sn] = nd
+    applied, kept = [], []
+    for sn, cur, sug in cands:
+        d = dec_by.get(sn) or {}
+        target = str(d.get("layout") or sug)
+        if not d.get("apply") or target not in _DATA_LAYOUTS:
+            kept.append({"scene": sn, "reason": str(d.get("reason") or "apply=false")})
+            continue
+        ok, fields = _valid_layout_payload(target, d)
+        if not ok:
+            kept.append({"scene": sn, "reason": f"{target} 데이터 부족 — 현행 유지"})
+            continue
+        sc = by_num.get(sn)
+        if sc is None:
+            continue
+        sc["layout"] = target                       # 카드형은 이미지 대신 결정적 렌더 → asset_source 무관
+        for k in ("value", "label", "headline", "sub", "items", "quote_text", "quote_who", "chart"):
+            sc.pop(k, None)                          # 이전 레이아웃 잔여 데이터 제거(혼선 방지)
+        sc.update(fields)
+        applied.append({"scene": sn, "from": cur, "to": target})
+        if on_event:
+            on_event(f"씬{sn}: {cur} → {target} 적용")
+
+    if applied:
+        _version_backup(sp)                          # 무삭제 — scenes.v{n}.json 백업 후 갱신
+        sp.write_text(json.dumps({"scenes": scenes}, ensure_ascii=False, indent=2), encoding="utf-8")
+    for k in kept:
+        if on_event:
+            on_event(f"씬{k['scene']} 유지: {k['reason']}")
+    return {"applied": applied, "kept": kept, "changed": len(applied)}
+
+
+def _version_backup(path: Path) -> Path | None:
+    """path를 path.v{n}.json 으로 백업(무삭제·멱등). 반환 백업 경로 또는 None."""
+    if not path.is_file():
+        return None
+    stem = path.stem
+    n = 1
+    while (path.parent / f"{stem}.v{n}.json").exists():
+        n += 1
+    bak = path.parent / f"{stem}.v{n}.json"
+    bak.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+    return bak
 
 
 def review_scenes(proj_dir, *, on_event=None) -> dict:
