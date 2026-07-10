@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -89,8 +90,9 @@ def build_character_prompt(name: str, looks: str, rel_out: str) -> str:
     )
 
 
-# 전역 동시 이미지 생성 상한 — codex CLI 동시 폭주(rate limit) 방지 큐잉
-_GEN_SEMA = threading.BoundedSemaphore(max(1, int(os.environ.get("AK_GEN_CONCURRENCY", "3"))))
+# 전역 동시 이미지 생성 상한(공냥 codex-fleet) — 각 codex 세션을 격리 cwd로 병렬 스폰.
+# 기본 16, AK_GEN_CONCURRENCY로 조정(최대 ~32). rate limit은 _run_codex_image의 백오프가 흡수.
+_GEN_SEMA = threading.BoundedSemaphore(max(1, int(os.environ.get("AK_GEN_CONCURRENCY", "16"))))
 
 # codex 내장 image_generation 산출물 위치(thread별 폴더)
 _GEN_DIR = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex")) / "generated_images"
@@ -125,15 +127,20 @@ def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
     if size and size != "auto":
         clean = f"{clean}\n생성 크기 {size}."
     clean = f"{clean}\n이미지는 정확히 1장만 생성한다."   # 후보 2~3장 낭비 완화(긍정형)
+    # 격리 cwd — 각 codex 세션을 자기만의 빈 임시 폴더에서 실행(공냥 fleet 병렬 안전).
+    # 산출물은 generated_images/<thread>에서 회수하고 out은 절대경로라 cwd는 격리만 담당 →
+    # 동시 실행 시 서로의 프로젝트 파일을 훑어 '출력 섞임'이 나던 문제를 원천 차단.
+    work_cwd = tempfile.mkdtemp(prefix="akimg_")
     cmd = ["codex", "-a", "never", "--enable", "image_generation", "exec",
            "--json", "--skip-git-repo-check", "--ephemeral", "-s", "workspace-write",
-           "-C", str(proj_dir)]
+           "-C", work_cwd]
     for img in img_list:
         cmd += ["-i", img]
     cmd += ["-"]
     cenv = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}  # API 키 미전달
     last = ""
-    for attempt in range(retries + 1):
+    try:
+      for attempt in range(retries + 1):
         with _GEN_SEMA:
             proc = subprocess.run(cmd, input="/imagegen " + clean,
                                   env=cenv, capture_output=True, text=True)
@@ -161,8 +168,10 @@ def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
         if attempt < retries:
             continue
         break
-    reason = "rate_limit" if is_rate_limited(last) else "no_file"
-    return {"status": "failed", "error": reason, "log_tail": last[-300:]}
+      reason = "rate_limit" if is_rate_limited(last) else "no_file"
+      return {"status": "failed", "error": reason, "log_tail": last[-300:]}
+    finally:
+      shutil.rmtree(work_cwd, ignore_errors=True)   # 격리 cwd 정리
 
 
 def normalize_scene_image(png_path, target=(1920, 1080)) -> bool:

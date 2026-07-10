@@ -91,10 +91,8 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
     out_base = proj_dir / subdir
     out_base.mkdir(parents=True, exist_ok=True)
 
-    rendered = 0
-    skipped: list = []
-    prev_rel = ""
-    for sc in sorted(scene_list, key=lambda s: s.get("sceneNumber") or 0):
+    def _render_one(sc, prev_rel):
+        """한 씬을 시트(+선택 prev) 첨부로 렌더. 반환 (sn, res, rel)."""
         sn = sc.get("sceneNumber")
         refs = resolve_scene_refs(sc, ents, proj_dir)
         images: list = []
@@ -114,7 +112,7 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
             images.append(str(proj_dir / ps["rel"]))
             descriptors.append(f"{n}번 소품 시트 '{ps['name']}': 이 소품을 그대로 사용.")
             n += 1
-        has_prev = sc.get("shot_relation") == "continue" and bool(prev_rel)
+        has_prev = bool(prev_rel)
         if has_prev:
             images.append(str(proj_dir / prev_rel))
             descriptors.append(f"{n}번 직전 씬: 카메라·배경·톤이 이어지는 연속 장면 — "
@@ -124,8 +122,7 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
             descriptors.append("화면에는 배경과 사물만 담는다(무인 장면, 오직 공간과 오브젝트).")
         if base:
             images.append(str(base))
-            descriptors.append("마지막 세모지 베이스: 전체 그림체·색감 기준(베이스 인물 정체성 복사 금지).")
-
+            descriptors.append("마지막 세모지 베이스: 전체 그림체·색감만 참고(인물은 위 시트의 인물로 그린다).")
         out = imagegen.versioned_path(out_base, f"scene_{sn}.png")
         rel = out.relative_to(proj_dir).as_posix()
         prompt = build_scene_prompt(sc, descriptors, imagegen.load_style(), rel, has_prev=has_prev)
@@ -134,14 +131,40 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
         res = imagegen._run_codex_image(proj_dir, out, prompt, images=images or None,
                                         on_line=on_event, size="1792x1024",
                                         post=imagegen.normalize_scene_image)   # 와이드 요청+1080p 정규화
+        return sn, res, rel
+
+    ordered = sorted(scene_list, key=lambda s: s.get("sceneNumber") or 0)
+    cut = [s for s in ordered if s.get("shot_relation") != "continue"]
+    cont = [s for s in ordered if s.get("shot_relation") == "continue"]
+
+    rendered = 0
+    skipped: list = []
+    rel_by_num: dict = {}
+
+    def _apply(sn, res, rel):
+        nonlocal rendered
         if res.get("status") == "completed":
             scenes_mod.set_image_ref(proj_dir, sn, rel)
-            prev_rel = rel
+            rel_by_num[sn] = rel
             rendered += 1
         else:
             skipped.append({"scene": sn, "error": res.get("error")})
             if on_event:
                 on_event(f"씬 {sn} 실패 — {res.get('error')}")
+
+    # 공냥 codex-fleet 병렬 — cut 씬은 서로 독립이라 동시 렌더(각 codex 격리 cwd).
+    import os as _os
+    from concurrent.futures import ThreadPoolExecutor
+    workers = max(1, min(len(cut) or 1, int(_os.environ.get("AK_GEN_CONCURRENCY", "16"))))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for sn, res, rel in ex.map(lambda s: _render_one(s, ""), cut):
+            _apply(sn, res, rel)
+
+    # continue 씬은 직전 씬(sceneNumber-1)에 의존 → 번호 순 순차 렌더(prev 준비 보장).
+    for sc in cont:
+        prev_rel = rel_by_num.get((sc.get("sceneNumber") or 0) - 1, "")
+        sn, res, rel = _render_one(sc, prev_rel)
+        _apply(sn, res, rel)
 
     if on_event:
         on_event(f"씬 렌더 완료 — {rendered}/{len(scene_list)}, skip {len(skipped)}")

@@ -142,19 +142,27 @@ def generate_all_sheets(proj_dir, *, types=("character", "location", "prop"), on
 
     counts = {"character": 0, "location": 0, "prop": 0}
     skipped: list = []
-    for e in ents:
-        if e.get("type") not in types or not _wants_sheet(e):
-            continue
+    targets = [e for e in ents if e.get("type") in types and _wants_sheet(e)]
+
+    # 공냥 codex-fleet 병렬 — 시트는 서로 독립이라 동시 생성(각 codex는 격리 cwd). 순차 대비 대폭 단축.
+    import os as _os
+    from concurrent.futures import ThreadPoolExecutor
+    workers = max(1, min(len(targets) or 1, int(_os.environ.get("AK_GEN_CONCURRENCY", "16"))))
+
+    def _one(e):
         if on_event:
             on_event(f"시트 생성: {e.get('type')} {e.get('id')}")
-        res = generate_sheet(proj_dir, e, on_line=on_event)
-        if res.get("status") == "completed":
-            e["sheet"] = res["rel"]
-            counts[e["type"]] = counts.get(e["type"], 0) + 1
-        else:
-            skipped.append({"id": e.get("id"), "error": res.get("error")})
-            if on_event:
-                on_event(f"시트 실패: {e.get('id')} — {res.get('error')}")
+        return e, generate_sheet(proj_dir, e, on_line=on_event)
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for e, res in ex.map(_one, targets):
+            if res.get("status") == "completed":
+                e["sheet"] = res["rel"]
+                counts[e["type"]] = counts.get(e["type"], 0) + 1
+            else:
+                skipped.append({"id": e.get("id"), "error": res.get("error")})
+                if on_event:
+                    on_event(f"시트 실패: {e.get('id')} — {res.get('error')}")
 
     doc["entities"] = ents
     ep.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
