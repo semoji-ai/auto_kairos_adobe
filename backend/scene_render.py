@@ -67,8 +67,8 @@ def build_scene_prompt(scene, descriptors, style_desc, rel_out, *, has_prev=Fals
         f"{style_desc}\n\n## 장면\n{scene_desc}\n\n"
         f"[첨부 이미지 — 순서대로]\n{lines}\n\n## 생성 지시\n"
         f"image_gen 도구로 위 아트스타일의 이미지 1장을 생성해 현재 폴더의 {rel_out} 로 저장.\n"
-        f"첨부한 캐릭터·장소·소품 시트의 정체성을 그대로 유지(비율·형태를 새로 디자인하지 말 것). "
-        f"비율을 텍스트로 새로 지정하지 말 것. 텍스트 없음. 저장되면 'OK'만 답해."
+        f"첨부한 캐릭터·장소·소품 시트의 정체성(비율·형태)을 그대로 이어간다. "
+        f"비율은 첨부 이미지가 정한다. 화면은 일러스트만으로 채운다. 저장되면 'OK'만 답해."
     )
 
 
@@ -104,7 +104,7 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
             images.append(str(proj_dir / cs["rel"]))
             descriptors.append(f"{n}번 캐릭터 시트 '{cs['name']}': 이 인물을 그대로 사용 — "
                                f"얼굴·눈 스타일·헤어·의상 동일, 그리고 등신 비율·키·체형도 시트와 "
-                               f"정확히 같은 약 4등신 슬림 유지(사실적 성인 비율로 늘리지 말 것).")
+                               f"정확히 같은 약 4등신 슬림한 어린이형 비율 그대로 유지.")
             n += 1
         if refs["location_sheet"]:
             images.append(str(proj_dir / refs["location_sheet"]["rel"]))
@@ -121,7 +121,7 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
                                f"구도가 자연스럽게 이어지게.")
             n += 1
         if not refs["character_sheets"]:
-            descriptors.append("인물(사람)은 포함하지 말 것 — 배경/사물만.")
+            descriptors.append("화면에는 배경과 사물만 담는다(무인 장면, 오직 공간과 오브젝트).")
         if base:
             images.append(str(base))
             descriptors.append("마지막 세모지 베이스: 전체 그림체·색감 기준(베이스 인물 정체성 복사 금지).")

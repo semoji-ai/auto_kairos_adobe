@@ -31,8 +31,11 @@ def test_build_image_prompt():
 
 def test_build_image_prompt_nochar_forbids_base_person():
     pr = imagegen.build_image_prompt("전기차 충전 장면", "STYLE", "images/s1.png")
-    assert "베이스의 인물" in pr and "포함하지 말" in pr
+    # 공냥 긍정형 — 무캐릭터는 '배경과 사물만/무인 장면'으로(부정문 없이)
+    assert "배경과 사물만" in pr and "무인" in pr
     assert "캐릭터 시트" not in pr
+    for neg in ("말 것", "금지", "없음"):        # 네거티브 0개
+        assert neg not in pr, neg
 
 
 def test_build_image_prompt_character_branch():
@@ -47,8 +50,8 @@ def test_build_character_prompt_restyle():
     assert "1번 이미지의 캐릭터를 '지오'" in pr
     assert "그대로 유지" in pr and "헤어와 의상만" in pr
     assert "characters/char_지오.png" in pr
-    # 비율 텍스트 지시 금지 원칙이 프롬프트에 명시
-    assert "비율을 텍스트로 새로 지정하지 말 것" in pr
+    # 비율은 첨부 이미지가 정한다(긍정형 — "지정하지 말 것" 부정문 대신)
+    assert "비율은 첨부한 1번 이미지가 정한다" in pr
 
 
 def test_generate_one_attaches_base(tmp_path, monkeypatch):
@@ -67,7 +70,7 @@ def test_generate_one_attaches_base(tmp_path, monkeypatch):
     res = ig.generate_one(tmp_path, "ref_1.png", "전기차")
     assert res["status"] == "completed"
     assert seen["images"] == [str(tmp_path / "semoji_base.jpg")]
-    assert "베이스의 인물" in seen["prompt"]
+    assert "배경과 사물만" in seen["prompt"]        # 무캐릭터 긍정형 분기
 
 
 def test_generate_one_with_character_ref_order(tmp_path, monkeypatch):
@@ -827,12 +830,17 @@ def test_split_names_character_layers_with_char_suffix(tmp_path, monkeypatch):
     assert any(r.endswith("cs__1_책상.png") for r in rels)            # 사물 → 접미사 없음
 
 
-def test_style_forbids_grain_texture():
-    """스타일 명세 — codex 그레인/노이즈/텍스처 명시 금지(평면 일러스트 화질)."""
+def test_style_is_positive_smooth_no_negatives():
+    """스타일 명세 — 공냥 긍정형: 매끄러운 플랫 표면을 '긍정'으로 명시하고,
+    네거티브 트리거 어휘(grain/noise/halftone 등 '빼려는 대상')는 언급하지 않는다
+    (gpt-image가 언급된 부정 대상을 오히려 렌더하는 문제 회피)."""
     from backend import imagegen
     style = imagegen.load_style().lower()
-    for term in ("grain", "noise", "texture", "halftone", "smooth"):
-        assert term in style, term
+    # 긍정 평면 서술이 있어야
+    assert "smooth" in style and "flat" in style and "uniform" in style
+    # '빼려는 대상' 단어를 본문에 두지 않음(부정문 없이 긍정으로만 통제)
+    for neg in ("no ", "grain", "halftone", "noise"):
+        assert neg not in style, neg
 
 
 def test_flatten_colors_quantizes(tmp_path):
