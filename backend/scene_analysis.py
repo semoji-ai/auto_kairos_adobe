@@ -110,11 +110,17 @@ def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
             "shot_relation": d.get("shot_relation") if d.get("shot_relation") in ("cut", "continue") else "cut",
             "location": str(d.get("location") or ""),
             "props": list(d.get("props") or []),
-            # bar 레이아웃용 차트 데이터(다운스트림 jsx/manifest/storyboard가 소비) — 비 bar면 무시
+            # 카드형 레이아웃 데이터(다운스트림 jsx/manifest가 소비) — 해당 레이아웃 아니면 무시
             "headline": str(d.get("headline") or ""),
+            "sub": str(d.get("sub") or ""),
             "values": list(d.get("values") or []),
             "labels": list(d.get("labels") or []),
             "unit": str(d.get("unit") or ""),
+            "value": str(d.get("value") or ""),
+            "label": str(d.get("label") or ""),
+            "items": list(d.get("items") or []),
+            "quote_text": str(d.get("quote_text") or ""),
+            "quote_who": str(d.get("quote_who") or ""),
         })
 
     from backend.v3_import import _map_scene
@@ -132,11 +138,25 @@ def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
             m["location"] = s["location"]
         if s.get("props"):
             m["props"] = s["props"]
-        # bar 씬은 headline + chart{values,labels,unit}를 scenes.json으로 통과(jsx renderLayout bar 소비)
-        if s.get("layout") == "bar":
-            if s.get("headline"):
-                m["headline"] = s["headline"]
-            m["chart"] = {"values": s["values"], "labels": s["labels"], "unit": s["unit"]}
+        # 카드형 레이아웃 데이터 통과 + 결정적 안전장치:
+        # scene-analyze가 레이아웃을 배정했지만 필수 데이터가 없으면 cinematic으로 다운그레이드
+        # (빈 카드 렌더 방지). bar는 chart{} 구조로, 나머지는 jsx 필드명 그대로.
+        lay = s.get("layout")
+        if lay == "bar":
+            vals = [x for x in s.get("values", []) if isinstance(x, (int, float))]
+            labs = [str(x).strip() for x in s.get("labels", [])]
+            if len(vals) >= 3 and len(labs) == len(vals):
+                if s.get("headline"):
+                    m["headline"] = s["headline"]
+                m["chart"] = {"values": vals, "labels": labs, "unit": s.get("unit", "")}
+            else:
+                m["layout"] = "cinematic"          # 데이터 부족 → 이미지 씬으로
+        elif lay in ("metric_spotlight", "items_list", "quote", "headline_only"):
+            ok, fields = _valid_layout_payload(lay, s)
+            if ok:
+                m.update(fields)
+            else:
+                m["layout"] = "cinematic"          # 데이터 부족 → 이미지 씬으로(빈 카드 방지)
         adobe.append(m)
     (proj_dir / "scenes.json").write_text(
         json.dumps({"scenes": adobe}, ensure_ascii=False, indent=2), encoding="utf-8")

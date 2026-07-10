@@ -94,3 +94,38 @@ def test_analyze_scenes_nonbar_has_no_chart(tmp_path, monkeypatch):
     scene_analysis.analyze_scenes(tmp_path, enrich=False)
     s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
     assert "chart" not in s and "headline" not in s
+
+
+def test_analyze_passes_metric_data_when_present(tmp_path, monkeypatch):
+    """scene-analyze가 metric_spotlight를 데이터와 함께 내면 scenes.json에 value/label 통과."""
+    _setup(tmp_path, "보유율 96%.")
+    _patch_direct(monkeypatch, [
+        {"visual_summary": "v", "layout": "metric_spotlight",
+         "value": "96%", "label": "보유율"}])
+    scene_analysis.analyze_scenes(tmp_path)
+    s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert s["layout"] == "metric_spotlight" and s["value"] == "96%" and s["label"] == "보유율"
+
+
+def test_analyze_downgrades_dataless_layout_to_cinematic(tmp_path, monkeypatch):
+    """레이아웃만 배정하고 데이터가 없으면 cinematic으로 다운그레이드(빈 카드 렌더 방지)."""
+    _setup(tmp_path, "씬1.\n<!--SCENE-->\n씬2.\n<!--SCENE-->\n씬3.")
+    _patch_direct(monkeypatch, [
+        {"visual_summary": "v1", "layout": "metric_spotlight"},          # value/label 없음
+        {"visual_summary": "v2", "layout": "quote"},                     # quote_text 없음
+        {"visual_summary": "v3", "layout": "quote", "quote_text": "필요는 발명의 어머니"}])
+    scene_analysis.analyze_scenes(tmp_path)
+    s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"]
+    assert s[0]["layout"] == "cinematic"        # 데이터 없는 metric → 다운그레이드
+    assert s[1]["layout"] == "cinematic"        # 데이터 없는 quote → 다운그레이드
+    assert s[2]["layout"] == "quote" and s[2]["quote_text"] == "필요는 발명의 어머니"
+
+
+def test_analyze_downgrades_bar_without_enough_values(tmp_path, monkeypatch):
+    _setup(tmp_path, "매출.")
+    _patch_direct(monkeypatch, [
+        {"visual_summary": "v", "layout": "bar", "headline": "매출",
+         "values": [10, 20], "labels": ["a", "b"]}])       # 3개 미만
+    scene_analysis.analyze_scenes(tmp_path)
+    s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert s["layout"] == "cinematic"           # bar 데이터 부족 → 다운그레이드
