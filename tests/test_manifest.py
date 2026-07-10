@@ -281,3 +281,21 @@ def test_scene_manifest_skips_final(tmp_path):
     manifest.build_manifest(d)
     m2 = json.loads((d / "manifest.json").read_text())
     assert "skipFinal" not in m2 and len(m2["scenes"]) == 2
+
+
+def test_manifest_element_foot_green_chroma(tmp_path):
+    """그린 크로마(불투명) 레이어의 foot = '그린 아닌 픽셀'(피사체) 하단 중앙 — 알파 아님."""
+    from PIL import Image
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "gf", "imageRef": "storyboard/sb.png"}])
+    (d / "storyboard").mkdir(); Image.new("RGB", (200, 200)).save(d / "storyboard" / "sb.png")
+    lay = d / "layers"; lay.mkdir()
+    im = Image.new("RGB", (200, 200), (0, 255, 0))        # 전부 그린(불투명)
+    for y in range(40, 160):                              # 피사체(그린 아님): x60~120, y40~160
+        for x in range(60, 120):
+            im.putpixel((x, y), (200, 30, 40))
+    im.save(lay / "gf__0_인물.png")
+    Image.new("RGB", (200, 200), (10, 10, 10)).save(lay / "gf__bg.png")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    el = next(L for L in sc["layers"] if L["kind"] == "element")
+    assert el["foot"] == [90.0, 160.0]                    # 프레임 바닥(200)이 아니라 피사체 발밑(160)

@@ -47,15 +47,25 @@ def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
 
 
 def _alpha_foot(path: Path) -> list | None:
-    """불투명 영역 bbox의 하단 중앙 [x, y](레이어=컴프 좌표). 전부 투명/실패 시 None."""
+    """피사체 bbox의 하단 중앙 [x, y](레이어=컴프 좌표) — bob 피벗(전신=발, 상반신=절단점).
+    그린 크로마(불투명) 레이어는 '그린이 아닌 픽셀'을 피사체로, 구버전 알파 레이어는 알파를 사용.
+    피사체 없음/실패 시 None."""
     try:
         from PIL import Image
+        import numpy as np
         with Image.open(path) as im:
-            bbox = im.convert("RGBA").getchannel("A").getbbox()
-        if not bbox:
+            a = np.array(im.convert("RGBA"))
+        alpha = a[:, :, 3]
+        if int(alpha.min()) < 250:                       # 진짜 알파 있음(구버전) → 알파 마스크
+            mask = alpha > 128
+        else:                                            # 불투명(그린 크로마) → 그린 아닌 픽셀=피사체
+            r, g, b = a[:, :, 0].astype(int), a[:, :, 1].astype(int), a[:, :, 2].astype(int)
+            mask = ~((g > np.maximum(r, b) + 40) & (g > 110))
+        ys, xs = np.where(mask)
+        if xs.size == 0:
             return None
-        l, t, r, b = bbox
-        return [round((l + r) / 2, 1), float(b)]
+        # getbbox 관례(우/하 exclusive)에 맞춰 +1 — 중앙 x·바닥 y
+        return [round(float(int(xs.min()) + int(xs.max()) + 1) / 2, 1), float(int(ys.max()) + 1)]
     except Exception:
         return None
 
