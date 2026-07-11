@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend import scenes, themes, tts
+from backend import scenes, themes, tts, cues
 
 W, H, FPS = 1920, 1080, 30
 DEFAULT_DUR = 3.0
@@ -154,6 +154,12 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
         data_fields = {k: s[k] for k in
                        ("headline", "sub", "items", "value", "label", "chart", "quote_text", "quote_who")
                        if s.get(k) is not None}
+        # TTS 타임스탬프 기반 텍스트 등장 큐(초) — jsx가 레이아웃 텍스트 anim의 t0로 사용해
+        # 핵심 텍스트가 '발화되는 순간' 등장(내레이션 동기). 없으면 jsx가 기본 t0로 폴백.
+        if is_layout_scene:
+            cue = cues.scene_text_cue(proj_dir, s)
+            if cue is not None:
+                data_fields["textCue"] = cue
         out_scenes.append({
             "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
             "width": sw, "height": sh,

@@ -96,17 +96,30 @@ def scene_audio_name(sid: str) -> str:
     return f"tts_{sid}.{_ext()}"
 
 
-def _clean_text(text: str) -> str:
-    """TTS 전 가벼운 정리 — 지문(괄호)·이모지 제거 + 단어 사이 가운뎃점을 쉼표로.
-    ElevenLabs가 가운뎃점(U+00B7 ·, U+318D ㆍ, U+2027 ‧)을 무시하고 앞뒤 단어를 붙여 읽어
-    → ", "로 치환해 또박또박 끊어 읽게 한다. 앞뒤 공백·연속 쉼표는 정리."""
+def _light_clean(text: str) -> str:
+    """경량 정리(폴백) — 지문(괄호)·이모지 제거 + 가운뎃점→쉼표."""
     t = re.sub(r"[\(\[\{][^\)\]\}]*[\)\]\}]", "", text or "")
     t = re.sub(r"[\U0001F000-\U0001FAFF\U00002600-\U000027BF]", "", t)
-    t = re.sub(r"\s*[·ㆍ‧]\s*", ", ", t)   # 가운뎃점 → 쉼표(끊어 읽기)
+    t = re.sub(r"\s*[·ㆍ‧]\s*", ", ", t)
     t = re.sub(r"\s+", " ", t)
-    t = re.sub(r"\s*,(?:\s*,)+", ",", t)                 # 연속 쉼표(예: 가운뎃점 중복) 축약
-    t = re.sub(r"\s+,", ",", t)                          # 쉼표 앞 공백 제거
+    t = re.sub(r"\s*,(?:\s*,)+", ",", t)
+    t = re.sub(r"\s+,", ",", t)
     return t.strip().strip(",").strip()
+
+
+def _clean_text(text: str) -> str:
+    """TTS 전처리 — v3 KoreanTTSPreprocessor 이식(숫자·날짜·단위·영어약어 한글 음차 등) +
+    가운뎃점(·)→쉼표(ElevenLabs가 가운뎃점을 무시하고 붙여 읽는 문제). 전처리기 실패 시 경량 폴백."""
+    t = re.sub(r"\s*[·ㆍ‧]\s*", ", ", text or "")        # 가운뎃점 먼저(숫자 변환 전 끊어읽기 고정)
+    try:
+        from backend.korean_tts_preprocessor import KoreanTTSPreprocessor
+        out, _ = KoreanTTSPreprocessor().process_text(t)   # 괄호·이모지·마크다운 정리 포함
+    except Exception:
+        return _light_clean(t)
+    out = re.sub(r"\s*,(?:\s*,)+", ",", out)               # 연속 쉼표(가운뎃점 중복 등) 축약
+    out = re.sub(r",(?=\S)", ", ", out)                    # 쉼표 뒤 공백 보장
+    out = re.sub(r"\s+,", ",", out)                        # 쉼표 앞 공백 제거
+    return out.strip().strip(",").strip()
 
 
 def _parse_afinfo_duration(text: str) -> float:

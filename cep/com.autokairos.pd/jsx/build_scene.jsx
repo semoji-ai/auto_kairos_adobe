@@ -20,6 +20,9 @@ function akBuildScene(manifestPath) {
     }
     function ezOutPair(prop) { _ez(prop, 1, 10); _ez(prop, 2, TK.motion.easeOutInf); }
     function ezAll(prop, n) { for (var zi = 1; zi <= n; zi++) _ez(prop, zi, TK.motion.easeInf); }
+    // 텍스트 등장 t0 — manifest가 TTS 타임스탬프로 넣은 s.textCue(핵심 텍스트 발화 시각)가 있으면
+    // 그 시각에, 없으면 기본값 d로. 내레이션이 그 텍스트를 말하는 순간 등장.
+    function cueT0(s, d) { return (s && typeof s.textCue === "number") ? s.textCue : d; }
 
     // 폰트 해석 — AE 폰트 DB(app.fonts)에서 PS명 검증, 실패 시 패밀리 키워드 검색으로 보정.
     // AE가 못 찾으면 경고 수집(빌드 결과 문자열에 노출) — 조용한 폴백 금지.
@@ -349,13 +352,13 @@ function akBuildScene(manifestPath) {
             addRectL(comp, "accent", W / 2 - 60 * S, H * 0.30, 120 * S, 10 * S, c.accentRgb);
             addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.47, size: t.headline * S, rgb: c.textRgb,
                                                font: TK.fonts.headline, box: [W * 0.84, H * 0.34], leading: 1.25,
-                                               anim: s.textAnim || { type: "reveal", t0: 0.2, dur: 0.8 } });
+                                               anim: { type: "reveal", t0: cueT0(s, 0.2), dur: 0.8 } });
             if (s.sub) addTextL(comp, s.sub, { x: W / 2, y: H * 0.67, size: t.sub * S, rgb: c.mutedRgb,
                                                font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3,
                                                anim: { type: "slide", dir: "up", t0: 0.5, dur: 0.6 } });
         } else if (s.layout === "items_list") {
             addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.16, size: t.sub * 1.5 * S, rgb: c.textRgb, font: TK.fonts.headline,
-                                               anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
+                                               anim: { type: "reveal", t0: cueT0(s, 0.15), dur: 0.6 } });
             addRectL(comp, "rule", W * 0.16, H * 0.235, W * 0.68, 3 * S, c.accentRgb);   // 제목 밑줄
             var items = s.items || [];
             var y0 = H * 0.33, gap = Math.min(130 * S, (H * 0.58) / Math.max(1, items.length));
@@ -373,13 +376,13 @@ function akBuildScene(manifestPath) {
             }
         } else if (s.layout === "metric_spotlight") {
             addTextL(comp, s.value || "", { x: W / 2, y: H * 0.46, size: t.metric * S, rgb: c.accentRgb, font: TK.fonts.number,
-                                            anim: { type: "type", t0: 0.2, dur: 0.7 } });
+                                            anim: { type: "type", t0: cueT0(s, 0.2), dur: 0.7 } });
             addRectL(comp, "rule", W / 2 - 110 * S, H * 0.585, 220 * S, 5 * S, c.accentRgb);
             addTextL(comp, s.label || "", { x: W / 2, y: H * 0.68, size: t.metricLabel * S, rgb: c.textRgb,
                                             font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
         } else if (s.layout === "bar") {
             addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.13, size: t.sub * 1.4 * S, rgb: c.textRgb, font: TK.fonts.headline,
-                                               anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
+                                               anim: { type: "reveal", t0: cueT0(s, 0.15), dur: 0.6 } });
             var ch2 = s.chart || {}, labels = ch2.labels || [], vals = ch2.values || [];
             var n = Math.max(1, vals.length), maxV = 0;
             for (var vi = 0; vi < vals.length; vi++) if (vals[vi] > maxV) maxV = vals[vi];
@@ -420,7 +423,7 @@ function akBuildScene(manifestPath) {
                                   size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
             addTextL(comp, s.quote_text || "", { x: W / 2, y: qY, size: t.quote * S, rgb: c.textRgb,
                                                  font: qf, box: [qBoxW, qBoxH], leading: 1.5,
-                                                 anim: { type: "word_stagger", t0: 0.3, dur: 1.4 } });
+                                                 anim: { type: "word_stagger", t0: cueT0(s, 0.3), dur: 1.4 } });
             addTextL(comp, "”", { x: W / 2 + qBoxW / 2 + 70 * S, y: qY + qBoxH / 2 - 10 * S,
                                   size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
             addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2 + qBoxW / 2 - 200 * S, y: qY + qBoxH / 2 + 90 * S,
