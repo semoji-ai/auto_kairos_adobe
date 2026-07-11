@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["best_index", "reason", "scores"],
+  "properties": {
+    "best_index": { "type": "number" },
+    "reason": { "type": "string" },
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "fit", "note"],
+        "properties": {
+          "index": { "type": "number" },
+          "fit": { "type": "number" },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  }
+}

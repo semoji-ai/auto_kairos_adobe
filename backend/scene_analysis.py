@@ -168,8 +168,69 @@ def analyze_scenes(proj_dir, *, enrich: bool = True, on_event=None) -> dict:
     return {"scenes": str(proj_dir / "scenes.json"), "count": len(specs), "searched": searched}
 
 
+_PICK_SCHEMA = _SCHEMAS / "image_pick.schema.json"
+
+# 적합성 검사 기준(비전 판정관용) — 명시적·일관된 판단을 위한 6개 축 + 규칙.
+_IMG_CRITERIA = (
+    "## 적합성 판정 기준(각 후보를 0~100점으로 평가)\n"
+    "1) 내용 일치 (가중치 최상): 씬이 요구하는 '바로 그 실물/주제'를 실제로 담고 있는가. "
+    "검색어의 특정 대상(그 특허 문서·그 인물·그 제품·그 장소)과 다른 것이면 크게 감점.\n"
+    "2) 사실·시대 고증: 인물·복식·기술·건축이 내레이션의 시대/맥락과 맞는가. "
+    "시대착오(과거 장면의 현대 물건 등)는 감점.\n"
+    "3) 구도/프레이밍: 16:9 영상 컷으로 쓸 수 있는가. 과한 잘림·기울어짐·콜라주·여러 이미지 격자·"
+    "지배적 여백은 감점(피사체가 명확·중심이면 가점).\n"
+    "4) 화질: 선명하고 해상도가 충분한가. 흐림·픽셀 깨짐·심한 압축 아티팩트는 감점.\n"
+    "5) 클린함: 워터마크·스톡 로고·큰 오버레이 텍스트·출처 배너가 없을수록 가점.\n"
+    "6) 명확성: 주제가 한눈에 드러나는가. 관련 없는 배경/사물이 지배적이면 감점.\n"
+    "## 선택 규칙\n"
+    "- 최고점 후보가 60점 이상이면 그 번호를 best_index로. 60 미만(전부 부적합)이면 best_index=0.\n"
+    "- 점수가 비슷하면 1)내용 일치 > 2)고증 > 3)구도 순으로 우선한다.\n"
+    "- 의심스러우면 억지로 고르지 말고 0(부적합)으로 둔다 — 부적합보다 AI 생성 폴백이 낫다.\n"
+    "- scores에 후보별 fit 점수와 짧은 근거(note)를 남기고, reason에 선택/기각 요약을 쓴다."
+)
+
+
+def _pick_suitable_image(proj_dir: Path, scene: dict, cands: list, *, on_event=None):
+    """후보 이미지(로컬 다운로드된 것)를 codex 비전으로 적합성 판정 → 최적 후보 dict 또는 None.
+    후보가 1개면 그대로, 비전 실패/후보 0개면 None(→ generate 폴백)."""
+    usable = [c for c in cands if c.get("local")]
+    if not usable:
+        return None
+    images = [c["local"] for c in usable]
+    ctx = (f"제목: {scene.get('title', '')}\n요약: {scene.get('visual_summary', '')}\n"
+           f"내레이션: {str(scene.get('narration') or '')[:300]}\n"
+           f"검색어: {scene.get('search_query', '')}")
+    listing = "\n".join(f"{i + 1}번: {c.get('title', '') or '(제목 없음)'}" for i, c in enumerate(usable))
+    prompt = (
+        "너는 다큐멘터리 자료조사관이다. 아래 씬에 쓸 '실사 자료 이미지'를 첨부한 후보들 중에서 고른다. "
+        "첨부 순서 = 후보 번호(1번이 첫 이미지).\n\n"
+        f"## 씬\n{ctx}\n\n## 후보 목록\n{listing}\n\n"
+        f"{_IMG_CRITERIA}\n\nimage_pick JSON만 출력."
+    )
+    out = proj_dir / f".imgpick_{scene.get('sceneNumber')}.json"
+    res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_PICK_SCHEMA),
+                               output_last=str(out), images=images, on_line=on_event)
+    if res.get("returncode") != 0 or not out.is_file():
+        return None
+    try:
+        pick = json.loads(out.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    try:
+        bi = int(pick.get("best_index"))
+    except (TypeError, ValueError):
+        return None
+    if bi < 1 or bi > len(usable):        # 0=전부 부적합 → generate 폴백
+        if on_event:
+            on_event(f"S{scene.get('sceneNumber')} 실사 부적합(전부 기각) → 생성 폴백: "
+                     f"{str(pick.get('reason') or '')[:50]}")
+        return None
+    return usable[bi - 1]
+
+
 def _enrich_real_assets(proj_dir: Path, specs: list, *, on_event=None) -> int:
-    """asset_source=='search' 씬에 실사 1장 검색·다운로드 → imageRef. 실패는 격리. 붙은 수 반환."""
+    """asset_source=='search' 씬에 실사 1장 검색 → 적합성 검사(비전) → 최적 1장만 적용.
+    전부 부적합이면 링크 안 함(→ 이후 씬렌더의 generate가 폴백). 붙은 수 반환."""
     from backend import search
     from backend import scenes as scenes_mod
     n = 0
@@ -186,12 +247,16 @@ def _enrich_real_assets(proj_dir: Path, specs: list, *, on_event=None) -> int:
                 if on_event:
                     on_event(f"S{s['sceneNumber']} 실사 결과 없음: {q[:30]}")
                 continue
-            dl = search.save_image(proj_dir, imgs[0].get("url", ""), f"real_{s['sceneNumber']}.jpg")
+            cands = search.download_candidates(proj_dir, imgs, s.get("sceneNumber"))
+            chosen = _pick_suitable_image(proj_dir, s, cands, on_event=on_event)
+            if not chosen:                 # 적합성 검사 통과 없음 → generate 폴백
+                continue
+            dl = search.save_image(proj_dir, chosen.get("url", ""), f"real_{s['sceneNumber']}.jpg")
             if dl.get("status") == "completed":
                 scenes_mod.set_image_ref(proj_dir, s["sceneNumber"], dl["rel"])
                 n += 1
                 if on_event:
-                    on_event(f"S{s['sceneNumber']} 실사: {q[:30]}")
+                    on_event(f"S{s['sceneNumber']} 실사 선택: {q[:30]}")
         except Exception as e:  # noqa: BLE001 — 검색/다운로드 오류 격리(generate 폴백)
             if on_event:
                 on_event(f"S{s['sceneNumber']} 실사 실패: {e}")

@@ -12,7 +12,7 @@ def _patch_directions(monkeypatch, dirs):
     monkeypatch.setattr(scene_analysis, "_direct_scenes", lambda proj, segs, **k: dirs)
 
 
-def _patch_search(monkeypatch, *, images=None, fail=False):
+def _patch_search(monkeypatch, *, images=None, fail=False, suitable=True):
     def fake_search(q, engine="serper", count=12):
         if fail:
             return {"error": "no key", "images": []}
@@ -25,6 +25,11 @@ def _patch_search(monkeypatch, *, images=None, fail=False):
         return {"status": "completed", "path": str(f), "rel": f"{subdir}/{name}"}
     monkeypatch.setattr(search, "search_images", fake_search)
     monkeypatch.setattr(search, "save_image", fake_save)
+    # 적합성 검사 단계 모킹 — 후보 다운로드 + 비전 판정(suitable=최적 1장 / False=전부 부적합)
+    monkeypatch.setattr(search, "download_candidates",
+                        lambda pd, imgs, sid, **k: [{**imgs[0], "local": "cand.jpg"}] if imgs else [])
+    monkeypatch.setattr(scene_analysis, "_pick_suitable_image",
+                        lambda pd, s, cands, **k: (cands[0] if (suitable and cands) else None))
 
 
 def test_search_scene_gets_imageref(tmp_path, monkeypatch):
@@ -65,3 +70,14 @@ def test_asset_source_defaults_generate(tmp_path, monkeypatch):
     r = scene_analysis.analyze_scenes(tmp_path, enrich=False)
     s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"]
     assert s[0]["asset_source"] == "generate"
+
+
+def test_search_unsuitable_falls_back_to_generate(tmp_path, monkeypatch):
+    """검색 결과가 있어도 적합성 검사에서 전부 부적합이면 imageRef 비움(생성 폴백)."""
+    _setup(tmp_path)
+    _patch_directions(monkeypatch, [{"visual_summary": "특허", "asset_source": "search", "search_query": "q"}])
+    _patch_search(monkeypatch, suitable=False)
+    r = scene_analysis.analyze_scenes(tmp_path)
+    assert r["searched"] == 0
+    s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"]
+    assert s[0]["imageRef"] == ""

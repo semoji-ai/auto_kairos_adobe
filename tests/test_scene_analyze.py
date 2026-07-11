@@ -129,3 +129,69 @@ def test_analyze_downgrades_bar_without_enough_values(tmp_path, monkeypatch):
     scene_analysis.analyze_scenes(tmp_path)
     s = json.loads((tmp_path / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
     assert s["layout"] == "cinematic"           # bar 데이터 부족 → 다운그레이드
+
+
+# ===== Serper 실사 검색 + 멀티모달 적합성 검사 =====
+def test_pick_suitable_returns_chosen(tmp_path, monkeypatch):
+    scene = {"sceneNumber": 1, "visual_summary": "특허 문서", "search_query": "US 3691140 patent"}
+    (tmp_path / "c1.jpg").write_bytes(b"x"); (tmp_path / "c2.jpg").write_bytes(b"y")
+    cands = [{"url": "u1", "title": "특허", "local": str(tmp_path / "c1.jpg")},
+             {"url": "u2", "title": "딴것", "local": str(tmp_path / "c2.jpg")}]
+
+    def fake(prompt, cwd, *, output_schema=None, output_last=None, images=None, on_line=None, **k):
+        assert "적합성 판정 기준" in prompt and len(images) == 2   # 기준·이미지 전달
+        Path(output_last).write_text(json.dumps({"best_index": 1, "reason": "내용 일치"}), encoding="utf-8")
+        return {"returncode": 0}
+
+    monkeypatch.setattr(llm, "run_orchestrator", fake)
+    chosen = scene_analysis._pick_suitable_image(tmp_path, scene, cands)
+    assert chosen and chosen["url"] == "u1"
+
+
+def test_pick_suitable_rejects_all(tmp_path, monkeypatch):
+    scene = {"sceneNumber": 1, "visual_summary": "특허"}
+    (tmp_path / "c1.jpg").write_bytes(b"x")
+    cands = [{"url": "u1", "local": str(tmp_path / "c1.jpg")}]
+
+    def fake(prompt, cwd, *, output_schema=None, output_last=None, images=None, on_line=None, **k):
+        Path(output_last).write_text(json.dumps({"best_index": 0, "reason": "전부 부적합"}), encoding="utf-8")
+        return {"returncode": 0}
+
+    monkeypatch.setattr(llm, "run_orchestrator", fake)
+    assert scene_analysis._pick_suitable_image(tmp_path, scene, cands) is None   # → generate 폴백
+
+
+def test_pick_suitable_no_local_none(tmp_path):
+    cands = [{"url": "u1", "local": None}]
+    assert scene_analysis._pick_suitable_image(tmp_path, {"sceneNumber": 1}, cands) is None
+
+
+def test_enrich_applies_only_suitable(tmp_path, monkeypatch):
+    from backend import search, scenes as scenes_mod
+    (tmp_path / "scenes.json").write_text(json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "s1", "asset_source": "search", "search_query": "특허", "imageRef": ""}]}),
+        encoding="utf-8")
+    specs = [{"sceneNumber": 1, "asset_source": "search", "search_query": "특허", "visual_summary": "특허"}]
+    monkeypatch.setattr(search, "search_images", lambda q, **k: {"images": [{"url": "u1", "thumb": "t1"}]})
+    monkeypatch.setattr(search, "download_candidates",
+                        lambda pd, imgs, sid, **k: [{"url": "u1", "local": str(tmp_path / "c.jpg")}])
+    (tmp_path / "c.jpg").write_bytes(b"x")
+    monkeypatch.setattr(scene_analysis, "_pick_suitable_image",
+                        lambda pd, s, cands, **k: {"url": "u1"})
+    monkeypatch.setattr(search, "save_image", lambda pd, url, name, **k: {"status": "completed", "rel": "images/search/real_1.jpg"})
+    applied = {}
+    monkeypatch.setattr(scenes_mod, "set_image_ref", lambda pd, n, rel: applied.update({n: rel}))
+    got = scene_analysis._enrich_real_assets(tmp_path, specs)
+    assert got == 1 and applied == {1: "images/search/real_1.jpg"}
+
+
+def test_enrich_skips_when_unsuitable(tmp_path, monkeypatch):
+    from backend import search, scenes as scenes_mod
+    specs = [{"sceneNumber": 1, "asset_source": "search", "search_query": "특허"}]
+    monkeypatch.setattr(search, "search_images", lambda q, **k: {"images": [{"url": "u1"}]})
+    monkeypatch.setattr(search, "download_candidates", lambda pd, imgs, sid, **k: [{"url": "u1", "local": "x"}])
+    monkeypatch.setattr(scene_analysis, "_pick_suitable_image", lambda pd, s, cands, **k: None)  # 전부 부적합
+    called = {"save": 0}
+    monkeypatch.setattr(search, "save_image", lambda *a, **k: called.__setitem__("save", 1) or {"status": "completed"})
+    got = scene_analysis._enrich_real_assets(tmp_path, specs)
+    assert got == 0 and called["save"] == 0   # 부적합이면 다운로드·적용 안 함

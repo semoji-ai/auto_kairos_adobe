@@ -58,6 +58,27 @@ def search_images(query: str, engine: str = "serper", count: int = 12) -> dict:
     return {"error": f"unknown engine: {engine}", "images": []}
 
 
+def download_candidates(proj_dir: Path, images: list, sid, *, limit: int = 6,
+                        subdir: str = "images/search/_candidates") -> list:
+    """검색 결과 상위 limit개의 썸네일을 로컬로 받아 적합성 검사(비전)용 경로를 붙인다.
+    반환: [{**image, local: 경로|None}] (다운로드 실패분은 local=None). 무삭제 버전 저장."""
+    out_dir = proj_dir / subdir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = []
+    for i, img in enumerate(images[:limit]):
+        url = img.get("thumb") or img.get("url") or ""
+        local = None
+        if url:
+            dest = versioned_path(out_dir, f"cand_{sid}_{i + 1}.jpg")
+            try:
+                _download(url, dest)
+                local = str(dest)
+            except Exception:
+                local = None
+        out.append({**img, "local": local})
+    return out
+
+
 def save_image(proj_dir: Path, url: str, name: str, subdir: str = "images/search") -> dict:
     """검색 결과 1장 다운로드 → proj/subdir/name (무삭제 버전)."""
     out_dir = proj_dir / subdir
