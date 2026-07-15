@@ -6,6 +6,10 @@ node_modules/
 logs/
 *.log
 
+# 로컬 시크릿/설정 (키 유출 방지 — .env.example만 커밋)
+.env
+.env.local
+
 # 생성 산출물 (재생성 가능 — 커밋 안 함)
 projects/*/scenes.json
 projects/*/logs/
