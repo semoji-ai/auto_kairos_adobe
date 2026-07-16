@@ -7,7 +7,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, video
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, video, upscale
 from backend import brief, manuscript, scene_analysis, entities, sheets, scene_render
 from backend.research import orchestrator as research_orch
 from backend.codex_runner import run_skill
@@ -606,6 +606,47 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             vault.log_work(proj_dir, "video",
                            f"씬{sc.get('sceneNumber')} {model} 영상 생성")
             return {"result": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
+
+    # ── 이미지 업스케일(Upscayl) — 이미지 작업 후 선택적 후처리(4K, 줌 연출 대비) ──
+    if method == "GET" and p == "/api/upscale/status":
+        return 200, upscale.upscale_status()
+
+    if method == "POST" and p == "/api/scenes/upscale":
+        b = body or {}
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
+        st = upscale.upscale_status()
+        if not st["installed"] or not st["models"]:
+            return 422, {"error": f"업스케일 준비 안 됨 — {st['hint']}"}
+        data = scenes.load_scenes(proj_dir)
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        if not sc.get("_image"):
+            return 422, {"error": "씬 이미지 먼저 생성/링크 필요"}
+        # 콘텐츠 타입: 실사(search)면 photo, 아니면 illustration(생성 semoji)
+        content = "photo" if (sc.get("asset_source") == "search") else "illustration"
+        scale = int(b.get("scale") or 2)
+        model = (b.get("model") or "").strip() or None
+        src = proj_dir / sc["_image"]
+        out = src.with_name(f"{src.stem}_up{src.suffix}")
+        jobs = ctx["jobs"]
+        jid = jobs.create("upscale", b.get("project_id", ""))
+        sn = sc.get("sceneNumber")
+
+        def _do(proj_dir=proj_dir, src=src, out=out, content=content, scale=scale,
+                model=model, sn=sn, jid=jid):
+            res = upscale.upscale_image(str(src), str(out), content=content, scale=scale,
+                                        model=model, on_event=lambda ln: jobs.append_log(jid, ln))
+            if res.get("status") != "completed":
+                raise RuntimeError(res.get("error", "업스케일 실패"))
+            rel = Path(res["path"]).relative_to(proj_dir).as_posix()
+            scenes.set_image_ref(proj_dir, sn, rel)      # 업스케일본을 씬 이미지로(원본은 보존)
+            vault.log_work(proj_dir, "upscale", f"씬{sn} {res['model']} x{scale} 업스케일")
+            return {"result": res, "imageRef": rel}
         run_async(jobs, jid, _do)
         return 200, {"job_id": jid, "status": "running"}
 
