@@ -440,6 +440,9 @@ function bindSheetToolbar() {
     var ns = _needChecked(1, "레이어 분리"); if (!ns) return;
     analyzeLayers(ns);            // 여러 씬이면 탭 모달 — 분석 병렬, 분리도 병렬 잡
   });
+  on("sa-video", function () {
+    if (typeof openVideoModal === "function") openVideoModal();   // video.js — 이미지→비디오 모달(1개 씬)
+  });
   on("sa-tts", function () {
     var ns = _needChecked(1, "TTS 생성"); if (ns) _runSeq(ns, genTts);
   });

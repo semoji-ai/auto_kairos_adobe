@@ -203,12 +203,23 @@
     .col-work .tts-play { width:auto; margin:0; padding:3px 9px; font-size:13px; }
     .col-work .tts-dur { font-size:11px; color:#c5c8cc; font-family:ui-monospace,monospace; }
 
-    /* 모달(이미지 생성 + 레이어 선택 공용) */
-    #genModal, #layerModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
+    /* 모달(이미지 생성 + 레이어 선택 + 비디오 변환 공용) */
+    #genModal, #layerModal, #videoModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
       display:flex; align-items:center; justify-content:center; }
-    #genModal[hidden], #layerModal[hidden] { display:none; }
-    #genModal .gen-box, #layerModal .gen-box { width:min(440px,92vw); max-height:88vh; overflow-y:auto;
+    #genModal[hidden], #layerModal[hidden], #videoModal[hidden] { display:none; }
+    #genModal .gen-box, #layerModal .gen-box, #videoModal .gen-box { width:min(440px,92vw); max-height:88vh; overflow-y:auto;
       background:#23262b; border:1px solid #33363c; border-radius:10px; padding:16px; }
+    #videoModal select, #videoModal input[type="text"], #videoModal input[type="number"], #videoModal textarea {
+      width:100%; box-sizing:border-box; padding:7px; margin:3px 0;
+      background:#1b1d21; color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
+    #videoModal .video-chk { display:flex; align-items:center; gap:8px; padding:5px 2px; cursor:pointer; }
+    #videoModal .video-chk input { width:16px; height:16px; margin:0; }
+    #videoModal .gen-head { display:flex; justify-content:space-between; align-items:center;
+      font-size:14px; font-weight:600; margin-bottom:8px; }
+    #videoModal .gen-actions { display:flex; gap:8px; margin-top:10px; }
+    #videoModal .gen-actions button { flex:1; }
+    #videoModal button:disabled { opacity:0.4; cursor:not-allowed; }
+    #videoModal .video-genprompt { background:#444; }
     /* 레이어 선택 체크리스트 + 씬 탭 */
     #layerTabs { display:flex; gap:3px; flex-wrap:wrap; margin:6px 0 0; }
     #layerTabs .layer-tab { width:auto; margin:0; padding:5px 12px; font-size:12px;
@@ -331,6 +342,7 @@
               <span class="sab-hint">체크한 씬에:</span>
               <button id="sa-img" title="씬 이미지 생성">▣ 이미지</button>
               <button id="sa-layer" title="레이어 분리(1개 씬만)">⧉ 레이어</button>
+              <button id="sa-video" title="비디오 변환(이미지→비디오, 1개 씬만)">🎬 비디오</button>
               <button id="sa-tts" title="TTS 생성">♪ 음성</button>
               <button id="sa-motion" title="모션 플랜(LLM)">◈ 모션</button>
               <button id="sa-comp" title="AE 컴프로 내보내기">▶ 컴프</button>
@@ -486,6 +498,23 @@
     </div>
   </div>
 
+  <!-- 비디오 변환 — 이미지→비디오 모달 -->
+  <div id="videoModal" hidden>
+    <div class="gen-box">
+      <div class="gen-head"><span id="videoModalTitle">비디오 변환</span> <button id="videoClose" class="mini">✕</button></div>
+      <div id="videoModelWrap"></div>
+      <div id="videoParams"></div>
+      <div class="label">프롬프트</div>
+      <textarea id="videoPrompt" rows="4" placeholder="i2v 프롬프트 — 직접 입력하거나 [LLM 프롬프트 생성]으로 자동 작성"></textarea>
+      <button id="videoGenPrompt" class="video-genprompt mini">✨ LLM 프롬프트 생성</button>
+      <div class="gen-actions">
+        <button id="videoGenerate">생성</button>
+        <button id="videoCancel" class="alt">닫기</button>
+      </div>
+      <div class="box" id="videoStatus" style="min-height:16px">—</div>
+    </div>
+  </div>
+
   <script src="js/main.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/planning.js"></script>
@@ -494,6 +523,7 @@
   <script src="vendor/maplibre-gl.js"></script>
   <script src="js/mapgen.js"></script>
   <script src="js/storyboard.js"></script>
+  <script src="js/video.js"></script>
   <script src="js/gallery.js"></script>
   <script src="js/genmodal.js"></script>
   <script src="js/assistant.js"></script>
