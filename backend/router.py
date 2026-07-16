@@ -7,7 +7,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, video
 from backend import brief, manuscript, scene_analysis, entities, sheets, scene_render
 from backend.research import orchestrator as research_orch
 from backend.codex_runner import run_skill
@@ -545,6 +545,78 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return {"result": res}
         run_async(jobs, jid, _do)
         return 200, {"job_id": jid, "status": "running"}
+
+    # ── 이미지→비디오(i2v) — 이미지 작업 후 '레이어 분리'와 나란한 분기(Higgsfield CLI) ──
+    if method == "GET" and p == "/api/video/models":
+        # 씬→비디오 모델 레지스트리 + 힉스필드 상태(파라미터는 CLI에서 동적 조회)
+        return 200, video.list_models()
+
+    if method == "POST" and p == "/api/video/prompt":
+        b = body or {}
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
+        data = scenes.load_scenes(proj_dir)
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("video-prompt", b.get("project_id", ""))
+        model = (b.get("model") or "seedance_2_0").strip()
+
+        def _do(proj_dir=proj_dir, sc=sc, model=model, jid=jid):
+            res = video.build_video_prompt(proj_dir, sc, model,
+                                           on_event=lambda ln: jobs.append_log(jid, ln))
+            if res.get("error"):
+                raise RuntimeError(res["error"])
+            return res            # {prompt}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
+
+    if method == "POST" and p == "/api/video/generate":
+        b = body or {}
+        proj_dir = _proj_dir(root, b.get("project_id", ""))
+        if proj_dir is None:
+            return 404, {"error": "프로젝트 없음"}
+        st = video.higgsfield_status()
+        if not st["installed"] or not st["authed"]:
+            return 422, {"error": f"힉스필드 준비 안 됨 — {st['hint']}"}
+        data = scenes.load_scenes(proj_dir)
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        if not sc.get("_image"):
+            return 422, {"error": "씬 이미지 먼저 생성/링크 필요"}
+        model = (b.get("model") or "seedance_2_0").strip()
+        prompt = (b.get("prompt") or "").strip()
+        if not prompt:
+            return 400, {"error": "prompt 필요(먼저 /api/video/prompt로 생성 가능)"}
+        params = b.get("params") or {}
+        jobs = ctx["jobs"]
+        jid = jobs.create("video", b.get("project_id", ""))
+        img = str(proj_dir / sc["_image"])
+        name = f"scene_{sc.get('sceneNumber')}_{model}"
+
+        def _do(proj_dir=proj_dir, sc=sc, img=img, model=model, params=params,
+                prompt=prompt, name=name, jid=jid):
+            res = video.generate_video(proj_dir, img, model, params, prompt,
+                                       out_name=name, on_event=lambda ln: jobs.append_log(jid, ln))
+            if res.get("status") != "completed":
+                raise RuntimeError(res.get("error", "비디오 생성 실패"))
+            vault.log_work(proj_dir, "video",
+                           f"씬{sc.get('sceneNumber')} {model} 영상 생성")
+            return {"result": res}
+        run_async(jobs, jid, _do)
+        return 200, {"job_id": jid, "status": "running"}
+
+    if method == "GET" and p == "/api/video/list":
+        pid = query.get("project_id", "")
+        proj_dir = _proj_dir(root, pid)
+        if proj_dir is None:
+            return 200, {"videos": []}
+        vd = proj_dir / "video"
+        names = sorted(f.name for f in vd.glob("*.mp4")) if vd.is_dir() else []
+        return 200, {"videos": names, "dir": str(vd)}
 
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")
