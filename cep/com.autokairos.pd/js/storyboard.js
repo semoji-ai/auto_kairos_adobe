@@ -443,6 +443,20 @@ function bindSheetToolbar() {
   on("sa-video", function () {
     if (typeof openVideoModal === "function") openVideoModal();   // video.js — 이미지→비디오 모달(1개 씬)
   });
+  on("sa-upscale", function () {
+    var ns = _needChecked(1, "업스케일"); if (!ns) return;
+    // 상태 게이트: 미설치면 중단(첫 호출에서 1회만 확인)
+    fetch(BACKEND + "/api/upscale/status")
+      .then(function (r) { return r.json(); })
+      .then(function (st) {
+        if (!st || !st.installed || !st.models || !st.models.length) {
+          alert("업스케일 미설치 — ./install.sh --upscayl" + (st && st.hint ? ("\n" + st.hint) : ""));
+          return;
+        }
+        _runSeq(ns, upscaleScene);
+      })
+      .catch(function (e) { alert("업스케일 상태 확인 실패: " + e); });
+  });
   on("sa-tts", function () {
     var ns = _needChecked(1, "TTS 생성"); if (ns) _runSeq(ns, genTts);
   });
@@ -615,6 +629,31 @@ function genSceneImage(n) {
           resolve();
         }, function (logs) {
           if (logs.length) _rowStatus(n, "씬 이미지 생성 중... " + logs[logs.length - 1]);
+        });
+      });
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+function upscaleScene(n) {
+  _rowStatus(n, "업스케일 중... (로컬 GPU, 수 초)");
+  return fetch(BACKEND + "/api/scenes/upscale", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "running" || !j.job_id) { _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
+      return new Promise(function (resolve) {
+        _awaitJob(j.job_id, function (job) {
+          var res = job.result && job.result.result;
+          var ok = job.status === "completed" && res;
+          if (ok) {
+            _rowStatus(n, "업스케일 완료 ✓ " + (res.model || "") + " x" + (res.scale || ""));
+            refreshRow(n);
+          } else {
+            _rowStatus(n, "실패: " + JSON.stringify(job.error || job));
+          }
+          resolve();
         });
       });
     })
