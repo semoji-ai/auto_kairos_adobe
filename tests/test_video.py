@@ -97,3 +97,35 @@ def test_result_url_and_to_sec():
     assert video._result_url('{"data":{"video_url":"https://a/b.mp4"}}') == "https://a/b.mp4"
     assert video._result_url("noise https://c/d.mp4 tail") == "https://c/d.mp4"
     assert video._to_sec("20m") == 1200 and video._to_sec("90s") == 90 and video._to_sec("1h") == 3600
+
+
+def test_account_status(monkeypatch):
+    monkeypatch.setattr(video.shutil, "which", lambda b: "/bin/higgsfield")
+    monkeypatch.setattr(video, "_run", lambda a, **k: _CP(0, json.dumps(
+        {"credits": 3918.6, "email": "x@y.com", "subscription_plan_type": "ultra"})))
+    st = video.account_status()
+    assert st["authed"] and st["credits"] == 3918.6 and st["plan"] == "ultra" and st["email"] == "x@y.com"
+
+
+def test_account_status_not_installed(monkeypatch):
+    monkeypatch.setattr(video.shutil, "which", lambda b: None)
+    assert video.account_status()["authed"] is False
+
+
+def test_estimate_cost(monkeypatch):
+    seen = {}
+    def fake_run(a, **k):
+        seen["cmd"] = a
+        return _CP(0, json.dumps({"credits": 22.5}))
+    monkeypatch.setattr(video.shutil, "which", lambda b: "/bin/higgsfield")
+    monkeypatch.setattr(video, "_run", fake_run)
+    r = video.estimate_cost("seedance_2_0", {"resolution": "1080p", "duration": 5})
+    assert r["credits"] == 22.5
+    assert "cost" in seen["cmd"] and "seedance_2_0" in seen["cmd"]
+    assert "--resolution" in seen["cmd"] and "1080p" in seen["cmd"]
+
+
+def test_estimate_cost_error(monkeypatch):
+    monkeypatch.setattr(video.shutil, "which", lambda b: "/bin/higgsfield")
+    monkeypatch.setattr(video, "_run", lambda a, **k: _CP(1, "", "bad model"))
+    assert "error" in video.estimate_cost("nope", {})

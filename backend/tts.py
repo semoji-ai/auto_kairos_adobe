@@ -25,6 +25,14 @@ VOICE_SETTINGS = {
 }
 SAY_VOICE = os.environ.get("TTS_SAY_VOICE", "Yuna")     # 폴백용 한국어 보이스
 
+# 패널 드롭다운용 ElevenLabs 모델 목록(v2/v3 계열). id=model_id.
+TTS_MODELS = [
+    {"id": "eleven_multilingual_v2", "label": "Multilingual v2 (안정·기본)"},
+    {"id": "eleven_v3", "label": "v3 (표현력·최신)"},
+    {"id": "eleven_turbo_v2_5", "label": "Turbo v2.5 (빠름·저지연)"},
+    {"id": "eleven_flash_v2_5", "label": "Flash v2.5 (초저지연)"},
+]
+
 _VOICES_FILE = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "voices.json"
 
 

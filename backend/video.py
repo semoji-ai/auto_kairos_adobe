@@ -95,6 +95,47 @@ def _model_params(model: str) -> list:
     return params
 
 
+def account_status() -> dict:
+    """로그인 계정·플랜·남은 크레딧. {authed, email, plan, credits} (토큰 값은 노출 안 함)."""
+    if shutil.which(HF) is None:
+        return {"authed": False, "email": "", "plan": "", "credits": None}
+    try:
+        p = _run(["account", "status", "--json"], timeout=20)
+        if p.returncode == 0:
+            d = json.loads(p.stdout or "{}")
+            return {"authed": True, "email": d.get("email", ""),
+                    "plan": d.get("subscription_plan_type", ""), "credits": d.get("credits")}
+    except Exception:
+        pass
+    return {"authed": False, "email": "", "plan": "", "credits": None}
+
+
+def estimate_cost(model: str, params: dict | None = None, *, image: str | None = None) -> dict:
+    """생성 전 예상 크레딧 추산(실 생성 안 함). {credits} 또는 {error}.
+    params는 모델 파라미터(resolution/duration/mode 등). image 주면 i2v 기준으로."""
+    if shutil.which(HF) is None:
+        return {"error": "higgsfield CLI 미설치"}
+    cmd = ["generate", "cost", model, "--prompt", "motion"]
+    if image and Path(image).is_file():
+        cmd += ["--start-image", str(image)]
+    for k, v in (params or {}).items():
+        if v is None or v == "":
+            continue
+        cmd += [f"--{k}", str(v)]
+    cmd += ["--json"]
+    try:
+        p = _run(cmd, timeout=30)
+    except Exception as e:
+        return {"error": str(e)[:100]}
+    if p.returncode != 0:
+        return {"error": ((p.stdout or "") + (p.stderr or ""))[:150].strip()}
+    try:
+        d = json.loads(p.stdout or "{}")
+        return {"credits": d.get("credits")}
+    except Exception:
+        return {"error": "비용 파싱 실패"}
+
+
 def list_models() -> dict:
     """패널용 모델 레지스트리 + 힉스필드 상태. {status, models:[{id,label,params:[...]}]}."""
     st = higgsfield_status()

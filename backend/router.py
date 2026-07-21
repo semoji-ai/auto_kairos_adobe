@@ -334,7 +334,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             b = body or {}
             tts.set_tts_config(proj_dir, style=b.get("style"), voice_id=b.get("voice_id"),
                                model=b.get("model"), voice_settings=b.get("voice_settings"))
-        return 200, {"config": tts.effective_voice(proj_dir), "presets": tts.load_voice_presets()}
+        return 200, {"config": tts.effective_voice(proj_dir), "presets": tts.load_voice_presets(),
+                     "models": tts.TTS_MODELS}
 
     if p == "/api/llm/settings" and method in ("GET", "POST"):
         if method == "POST":
@@ -550,6 +551,27 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
     if method == "GET" and p == "/api/video/models":
         # 씬→비디오 모델 레지스트리 + 힉스필드 상태(파라미터는 CLI에서 동적 조회)
         return 200, video.list_models()
+
+    if method == "GET" and p == "/api/video/account":
+        # 로그인 계정·플랜·남은 크레딧(패널 상단 표시)
+        return 200, video.account_status()
+
+    if method == "POST" and p == "/api/video/cost":
+        # 예상 소모 크레딧 추산(생성 안 함). {model, params, sceneNumber?}
+        b = body or {}
+        model = (b.get("model") or "").strip()
+        if not model:
+            return 400, {"error": "model 필요"}
+        img = None
+        pid = b.get("project_id", "")
+        if pid and b.get("sceneNumber") is not None:
+            proj_dir = _proj_dir(root, pid)
+            if proj_dir is not None:
+                data = scenes.load_scenes(proj_dir)
+                sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+                if sc and sc.get("_image"):
+                    img = str(proj_dir / sc["_image"])
+        return 200, video.estimate_cost(model, b.get("params") or {}, image=img)
 
     if method == "POST" and p == "/api/video/prompt":
         b = body or {}
