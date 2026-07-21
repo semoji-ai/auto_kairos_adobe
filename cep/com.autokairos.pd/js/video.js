@@ -33,46 +33,63 @@ function openVideoModal() {
         $("videoStatus").textContent = "사용 가능한 모델이 없습니다.";
         return;
       }
+      var defaults = _readVideoModalDefaults();   // localStorage ak_video_defaults(설정 탭)
       $("videoModelWrap").innerHTML = '<div class="label">모델</div>'
         + '<select id="videoModel"></select>';
       var sel = $("videoModel");
       sel.innerHTML = VIDEO_MODELS.map(function (m) {
-        return '<option value="' + _esc(m.id) + '">' + _esc(m.label || m.id) + '</option>';
+        var selAttr = (defaults && defaults.model === m.id) ? " selected" : "";
+        return '<option value="' + _esc(m.id) + '"' + selAttr + '>' + _esc(m.label || m.id) + '</option>';
       }).join("");
-      sel.addEventListener("change", _renderVideoParams);
-      _renderVideoParams();
+      sel.addEventListener("change", function () { _renderVideoParams(); });
+      _renderVideoParams(defaults && defaults.model === sel.value ? defaults.params : null);
       _setVideoBusy(false);
       $("videoStatus").textContent = "모델·파라미터를 고르고 프롬프트를 작성하세요.";
     })
     .catch(function (e) { $("videoStatus").textContent = "모델 목록 오류: " + e; });
 }
 
-/* 선택 모델의 params → 컨트롤 동적 렌더(prompt 파라미터는 제외 — 별도 textarea 사용) */
-function _renderVideoParams() {
+/* localStorage ak_video_defaults(설정 탭 저장값) 읽기 */
+function _readVideoModalDefaults() {
+  try {
+    var raw = window.localStorage.getItem("ak_video_defaults");
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+/* 선택 모델의 params → 컨트롤 동적 렌더(prompt 파라미터는 제외 — 별도 textarea 사용).
+   presetVals(있으면) 로 기본값을 덮어씀(설정 탭 저장값 프리필) */
+function _renderVideoParams(presetVals) {
   var m = _currentVideoModel();
   var box = $("videoParams");
   if (!m) { box.innerHTML = ""; return; }
+  var pv = presetVals || {};
   var html = "";
   (m.params || []).forEach(function (p) {
     if (p.name === "prompt") return;
     var id = "vp_" + p.name;
     var lab = '<div class="label">' + _esc(p.name) + (p.required ? " *" : "") + '</div>';
+    var has = Object.prototype.hasOwnProperty.call(pv, p.name);
     if (p.type === "boolean") {
+      var on = has ? !!pv[p.name] : !!p['default'];
       html += '<label class="video-chk"><input type="checkbox" data-name="' + _esc(p.name)
-        + '" data-type="boolean" id="' + id + '"' + (p['default'] ? " checked" : "") + '> '
+        + '" data-type="boolean" id="' + id + '"' + (on ? " checked" : "") + '> '
         + _esc(p.name) + (p.required ? " *" : "") + '</label>';
     } else if (p.enum && p.enum.length) {
+      var cur = has ? pv[p.name] : p['default'];
       html += lab + '<select data-name="' + _esc(p.name) + '" data-type="string" id="' + id + '">'
         + p.enum.map(function (opt) {
           return '<option value="' + _esc(opt) + '"'
-            + (String(opt) === String(p['default']) ? " selected" : "") + '>' + _esc(opt) + '</option>';
+            + (String(opt) === String(cur) ? " selected" : "") + '>' + _esc(opt) + '</option>';
         }).join("") + '</select>';
     } else if (p.type === "integer") {
+      var iv = has ? pv[p.name] : p['default'];
       html += lab + '<input type="number" data-name="' + _esc(p.name) + '" data-type="integer" id="' + id
-        + '" value="' + (p['default'] != null ? _esc(p['default']) : "") + '">';
+        + '" value="' + (iv != null ? _esc(iv) : "") + '">';
     } else {
+      var sv = has ? pv[p.name] : p['default'];
       html += lab + '<input type="text" data-name="' + _esc(p.name) + '" data-type="string" id="' + id
-        + '" value="' + (p['default'] != null ? _esc(p['default']) : "") + '">';
+        + '" value="' + (sv != null ? _esc(sv) : "") + '">';
     }
   });
   box.innerHTML = html;
