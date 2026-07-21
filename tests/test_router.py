@@ -773,7 +773,7 @@ def test_llm_settings_get_default(tmp_path, monkeypatch):
     monkeypatch.delenv("AK_ORCHESTRATOR", raising=False)
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("GET", "/api/llm/settings", {}, None, ctx)
-    assert code == 200 and body["orchestrator"] == "claude" and "claude" in body["choices"]
+    assert code == 200 and body["orchestrator"] == "codex" and "claude" in body["choices"]
 
 
 def test_llm_settings_post(tmp_path, monkeypatch):

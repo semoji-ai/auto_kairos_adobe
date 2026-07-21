@@ -2,18 +2,18 @@ from pathlib import Path
 from backend import llm
 
 
-def test_default_orchestrator_claude(tmp_path, monkeypatch):
+def test_default_orchestrator_codex(tmp_path, monkeypatch):
     monkeypatch.setattr(llm, "_CFG", tmp_path / "llm_config.json")
     monkeypatch.delenv("AK_ORCHESTRATOR", raising=False)
-    assert llm.get_orchestrator() == "claude"
+    assert llm.get_orchestrator() == "codex"    # 기본값 = codex(클로드 토큰 절약)
 
 
 def test_set_get_orchestrator(tmp_path, monkeypatch):
     monkeypatch.setattr(llm, "_CFG", tmp_path / "llm_config.json")
-    llm.set_orchestrator("codex")
-    assert llm.get_orchestrator() == "codex"
-    llm.set_orchestrator("이상한값")          # 검증 → claude로
+    llm.set_orchestrator("claude")
     assert llm.get_orchestrator() == "claude"
+    llm.set_orchestrator("이상한값")          # 검증 → 기본값(codex)로
+    assert llm.get_orchestrator() == "codex"
 
 
 def test_run_orchestrator_routes_text_to_claude(tmp_path, monkeypatch):

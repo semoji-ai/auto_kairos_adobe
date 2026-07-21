@@ -10,7 +10,7 @@ from backend import codex_runner, claude_runner
 
 _CFG = Path(__file__).resolve().parents[1] / "data" / "llm_config.json"
 VALID = ("claude", "codex")
-DEFAULT = "claude"
+DEFAULT = "codex"   # 기본 오케스트레이터 = codex(클로드 토큰 절약). 패널/AK_ORCHESTRATOR로 claude 선택 가능
 
 
 def get_orchestrator() -> str:
