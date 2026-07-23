@@ -44,3 +44,36 @@ def test_build_cmd_with_images():
 def test_build_cmd_multiple_images():
     cmd = build_codex_cmd(images=["/a.png", "/b.png"])
     assert cmd.count("-i") == 2
+
+
+# ===== codex strict 스키마 자동 변환/폴백 =====
+def test_strictify_schema_sets_strict():
+    from backend.codex_runner import strictify_schema
+    src = {"type": "object", "additionalProperties": True,
+           "required": ["a"],
+           "properties": {"a": {"type": "string"},
+                          "b": {"type": "array", "items": {
+                              "type": "object", "additionalProperties": True,
+                              "properties": {"x": {"type": "number"}}}}}}
+    out = strictify_schema(src)
+    assert out["additionalProperties"] is False and set(out["required"]) == {"a", "b"}
+    inner = out["properties"]["b"]["items"]
+    assert inner["additionalProperties"] is False and inner["required"] == ["x"]   # 중첩도 변환
+    assert src["additionalProperties"] is True                                     # 원본 불변
+
+
+def test_schema_strictifiable_detects_freeform_object():
+    from backend.codex_runner import schema_strictifiable
+    ok = {"type": "object", "properties": {"a": {"type": "string"}}}
+    free = {"type": "object", "properties": {"m": {"type": "object", "additionalProperties": True}}}
+    assert schema_strictifiable(ok) is True
+    assert schema_strictifiable(free) is False        # 자유형 map → strict 불가
+
+
+def test_strict_schema_file_returns_none_for_freeform(tmp_path):
+    import json as _j
+    from backend.codex_runner import _strict_schema_file
+    p = tmp_path / "s.json"
+    p.write_text(_j.dumps({"type": "object", "properties": {"m": {"type": "object"}}}), encoding="utf-8")
+    path, tmp = _strict_schema_file(str(p))
+    assert path is None and tmp is False               # 폴백 신호
