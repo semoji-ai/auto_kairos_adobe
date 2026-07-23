@@ -36,6 +36,9 @@ def schema_strictifiable(obj) -> bool:
     is_obj = t == "object" or (isinstance(t, list) and "object" in t)
     if is_obj and not isinstance(obj.get("properties"), dict):
         return False                                   # 자유형 map → strict 불가
+    is_arr = t == "array" or (isinstance(t, list) and "array" in t)
+    if is_arr and "items" not in obj:
+        return False                                   # items 없는 배열 → strict 불가
     return all(schema_strictifiable(v) for v in obj.values())
 
 

@@ -77,3 +77,11 @@ def test_strict_schema_file_returns_none_for_freeform(tmp_path):
     p.write_text(_j.dumps({"type": "object", "properties": {"m": {"type": "object"}}}), encoding="utf-8")
     path, tmp = _strict_schema_file(str(p))
     assert path is None and tmp is False               # 폴백 신호
+
+
+def test_schema_strictifiable_detects_bare_array():
+    from backend.codex_runner import schema_strictifiable
+    bare = {"type": "object", "properties": {"a": {"type": "array"}}}          # items 없음
+    ok = {"type": "object", "properties": {"a": {"type": "array", "items": {"type": "string"}}}}
+    assert schema_strictifiable(bare) is False      # codex: array schema missing items
+    assert schema_strictifiable(ok) is True

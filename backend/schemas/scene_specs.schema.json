@@ -1,7 +1,9 @@
 {
   "type": "object",
   "additionalProperties": true,
-  "required": ["scenes"],
+  "required": [
+    "scenes"
+  ],
   "properties": {
     "scenes": {
       "type": "array",
@@ -9,19 +11,74 @@
         "type": "object",
         "additionalProperties": true,
         "properties": {
-          "visual_summary": { "type": "string" },
-          "image_prompt": { "type": "string" },
-          "characters": { "type": "array" },
-          "layout": { "type": "string", "enum": ["headline_only", "items_list", "metric_spotlight", "bar", "quote", "map", "cinematic"] },
-          "asset_source": { "type": "string", "enum": ["generate", "search"] },
-          "search_query": { "type": "string" },
-          "shot_relation": { "type": "string", "enum": ["cut", "continue"] },
-          "location": { "type": "string" },
-          "props": { "type": "array" },
-          "headline": { "type": "string" },
-          "values": { "type": "array" },
-          "labels": { "type": "array" },
-          "unit": { "type": "string" }
+          "visual_summary": {
+            "type": "string"
+          },
+          "image_prompt": {
+            "type": "string"
+          },
+          "characters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "headline_only",
+              "items_list",
+              "metric_spotlight",
+              "bar",
+              "quote",
+              "map",
+              "cinematic"
+            ]
+          },
+          "asset_source": {
+            "type": "string",
+            "enum": [
+              "generate",
+              "search"
+            ]
+          },
+          "search_query": {
+            "type": "string"
+          },
+          "shot_relation": {
+            "type": "string",
+            "enum": [
+              "cut",
+              "continue"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "props": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "headline": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unit": {
+            "type": "string"
+          }
         }
       }
     }
