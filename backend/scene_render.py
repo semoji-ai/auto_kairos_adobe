@@ -31,6 +31,33 @@ def _sheet_rel(proj_dir: Path, ent) -> str:
     return ""
 
 
+def _variant_for_scene(ent, scene_number):
+    """이 씬에 해당하는 시기 변주(variant) — variants[].scenes에 씬 번호가 있으면 그것.
+    없으면 None(대표 시트 사용). 일대기에서 유년기/전성기 등 나이에 맞는 시트를 고른다."""
+    try:
+        sn = int(scene_number)
+    except (TypeError, ValueError):
+        return None
+    for v in ((ent or {}).get("variants") or []):
+        scenes = v.get("scenes") or []
+        try:
+            if sn in {int(x) for x in scenes}:
+                return v
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _character_sheet_for_scene(proj_dir: Path, ent, scene_number) -> tuple:
+    """씬 시기에 맞는 캐릭터 시트 (rel, 시기라벨). 변주 시트 없으면 대표 시트로 폴백."""
+    v = _variant_for_scene(ent, scene_number)
+    if v:
+        vrel = str(v.get("sheet") or "").strip()
+        if vrel and (proj_dir / vrel).is_file():
+            return vrel, str(v.get("label") or "")
+    return _sheet_rel(proj_dir, ent), ""
+
+
 def resolve_scene_refs(scene, entities_by_id, proj_dir) -> dict:
     """씬의 character_ids/location_id/prop_ids → 존재하는 시트 rel(이름 동반).
     {character_sheets:[{rel,name}], location_sheet:{rel,name}|{}, prop_sheets:[{rel,name}]}."""
@@ -38,9 +65,9 @@ def resolve_scene_refs(scene, entities_by_id, proj_dir) -> dict:
     char_sheets = []
     for cid in (scene.get("character_ids") or []):
         ent = entities_by_id.get(cid)
-        rel = _sheet_rel(proj_dir, ent)
+        rel, era = _character_sheet_for_scene(proj_dir, ent, scene.get("sceneNumber"))
         if rel:
-            char_sheets.append({"rel": rel, "name": (ent or {}).get("name") or cid})
+            char_sheets.append({"rel": rel, "name": (ent or {}).get("name") or cid, "era": era})
     location_sheet = {}
     lid = scene.get("location_id")
     if lid:
@@ -100,9 +127,11 @@ def render_scenes(proj_dir, *, subdir=_SUBDIR, on_event=None) -> dict:
         n = 1
         for cs in refs["character_sheets"]:
             images.append(str(proj_dir / cs["rel"]))
-            descriptors.append(f"{n}번 캐릭터 시트 '{cs['name']}': 이 인물을 그대로 사용 — "
+            era = f"({cs['era']} 시기) " if cs.get("era") else ""
+            descriptors.append(f"{n}번 캐릭터 시트 '{cs['name']}'{era}: 이 인물을 그대로 사용 — "
                                f"얼굴·눈 스타일·헤어·의상 동일, 그리고 등신 비율·키·체형도 시트와 "
-                               f"정확히 같은 약 4등신 슬림한 어린이형 비율 그대로 유지.")
+                               f"정확히 같은 약 4등신 슬림한 어린이형 비율 그대로 유지. "
+                               f"나이·복장은 이 시트가 정한다.")
             n += 1
         if refs["location_sheet"]:
             images.append(str(proj_dir / refs["location_sheet"]["rel"]))

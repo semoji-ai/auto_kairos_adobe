@@ -143,3 +143,20 @@ def test_render_normalizes_to_1080p(tmp_path, monkeypatch):
     r = scene_render.render_scenes(tmp_path)
     assert r["rendered"] == 1
     assert _Im.open(tmp_path / "scenes/scene_1.png").size == (1920, 1080)
+
+
+def test_variant_sheet_selected_by_scene(tmp_path):
+    from backend import scene_render as SR
+    (tmp_path / "references/characters").mkdir(parents=True)
+    (tmp_path / "references/characters/base.png").write_bytes(b"b")
+    (tmp_path / "references/characters/youth.png").write_bytes(b"y")
+    ent = {"id": "c1", "name": "메시", "sheet": "references/characters/base.png",
+           "variants": [{"key": "youth", "label": "13세", "scenes": [5, 6],
+                         "sheet": "references/characters/youth.png"}]}
+    # 씬5 → 변주 시트, 씬20 → 대표 시트
+    r5 = SR.resolve_scene_refs({"sceneNumber": 5, "character_ids": ["c1"]}, {"c1": ent}, tmp_path)
+    r20 = SR.resolve_scene_refs({"sceneNumber": 20, "character_ids": ["c1"]}, {"c1": ent}, tmp_path)
+    assert r5["character_sheets"][0]["rel"].endswith("youth.png")
+    assert r5["character_sheets"][0]["era"] == "13세"
+    assert r20["character_sheets"][0]["rel"].endswith("base.png")
+    assert r20["character_sheets"][0]["era"] == ""

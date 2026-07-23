@@ -18,11 +18,21 @@ description: 씬별 free-text 엔티티 태그를 비디오 전체 정규화 레
    - location → `{space, mood, lighting}`
    - prop → `{form, material, color}`
 4. `first_scene`(최초 등장 씬 번호), `scenes`(등장 씬 번호 배열).
+5. **시기(나이) 변주 — `variants`** (character 전용, 필요할 때만):
+   일대기처럼 **한 인물이 여러 시기에 걸쳐 나오고 외모가 크게 달라지면**(유년기↔성인, 수십 년 격차)
+   엔티티는 **하나로 두고** `variants` 배열로 시기를 나눈다. 같은 사람이므로 엔티티를 쪼개지 말 것.
+   - 각 variant: `key`(kebab, 예 `youth-2000`), `label`(예 "13세 유소년기"),
+     `visual`(그 시기의 `{appearance, hair, outfit}`), `scenes`(그 시기에 해당하는 씬 번호 배열).
+   - **모든 등장 씬이 정확히 한 variant에 배정**되게 나눈다(빠짐·중복 없이).
+   - 엔티티 최상위 `visual`에는 **대표 시기**(가장 많이 나오는 시기)의 모습을 적는다 — 여러 시기를
+     한 문장에 섞어 쓰지 말 것(시트가 뒤섞인다).
+   - 시기 구분이 불필요한 인물(짧게 한 시점만 등장)은 `variants`를 넣지 않는다.
 
 ## 출력
 entities JSON만 출력:
 ```
-{ "entities": [ { "id", "type", "name", "aliases": [...], "visual": {...}, "first_scene", "scenes": [...] } ] }
+{ "entities": [ { "id", "type", "name", "aliases": [...], "visual": {...}, "first_scene", "scenes": [...],
+                  "variants": [ { "key", "label", "visual": {...}, "scenes": [...] } ] } ] }
 ```
 - 모든 출현이 어떤 엔티티의 `name` 또는 `aliases`에 정확히 포함되어야 한다(역링크가 정확 일치로 매칭함).
 - 근거 없는 엔티티를 새로 만들지 말 것. 출현에 있는 대상만.

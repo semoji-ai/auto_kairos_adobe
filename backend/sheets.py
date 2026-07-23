@@ -26,12 +26,23 @@ def _looks_from_visual(visual: dict) -> str:
     return ", ".join(parts) if parts else "원본 그대로"
 
 
-def build_character_sheet_prompt(name: str, visual: dict, rel_out: str) -> str:
+def build_character_sheet_prompt(name: str, visual: dict, rel_out: str,
+                                 *, era_label: str = "", identity_ref: bool = False) -> str:
     """베이스 캐릭터 시트(1번 첨부)를 기준으로 새 캐릭터 시트 생성(사용자 확정 공식).
     1번에서 유지: 그림체·눈 스타일·등신 비율·레이아웃. 바꾸는 것: 헤어·의상·인상만.
+    era_label: 시기 변주("13세 유소년기" 등) — 그 시기 모습만 한 시트에 담게 한다(시기 혼재 방지).
+    identity_ref=True: 2번으로 같은 인물의 대표 시트가 첨부됨 → 이목구비 정체성을 이어받는다.
     참조 [[feedback_codex_image_generation_cli_rule]]."""
     looks = _looks_from_visual(visual)
     exprs = ", ".join(str(e) for e in (visual or {}).get("expressions") or []) or "기본 표정들"
+    era = ""
+    if era_label:
+        era = (f" 이 시트는 '{name}'의 **{era_label}** 시기 한 가지 모습만 담는다 — "
+               f"모든 칸(턴어라운드·클로즈업·표정)이 같은 나이·같은 복장으로 일관되게. ")
+    ident = ""
+    if identity_ref:
+        ident = ("2번 이미지는 같은 인물의 다른 시기 시트다 — 얼굴 이목구비의 정체성(같은 사람으로 보이게)을 "
+                 "이어받되, 나이·헤어·복장은 이 시트의 시기에 맞춘다. ")
     return (
         f"1번 이미지는 다음 4가지의 절대 기준이다(반드시 1번을 그대로 따른다): "
         f"①플랫 세모지 일러스트 그림체, "
@@ -39,6 +50,7 @@ def build_character_sheet_prompt(name: str, visual: dict, rel_out: str) -> str:
         f"③1번과 정확히 동일한 등신 비율·키·체형(머리가 약간 크고 몸은 슬림하며 키가 짧은 약 4등신을 "
         f"그대로 유지 — 시트와 같은 어린이형 슬림 비율), "
         f"④시트 레이아웃(전신 턴어라운드 정면·측면·후면 + 얼굴 클로즈업 + 표정 5컷). "
+        f"{ident}{era}"
         f"바꾸는 것은 오직 헤어(모양·색)·의상·전체 인상(성별·연령)뿐: '{name}' — {looks}. "
         f"표정 칸 정서: {exprs}. 화면은 일러스트만으로 채운다."
     )
@@ -83,27 +95,35 @@ _SUBDIR = {"character": "references/characters",
            "prop": "references/props"}
 
 
-def generate_sheet(proj_dir, entity, *, on_line=None) -> dict:
-    """엔티티 1개 시트 생성 → references/<type>/<id>.png. {status,path,rel}|{status:failed,error}."""
+def generate_sheet(proj_dir, entity, *, on_line=None, variant: dict | None = None,
+                   identity_sheet: str | None = None) -> dict:
+    """엔티티 1개 시트 생성 → references/<type>/<id>[__variant].png. {status,path,rel}|{status:failed,error}.
+    variant: 시기 변주({key,label,visual}) — 주면 그 시기 모습만 담고 파일명에 __key를 붙인다.
+    identity_sheet: 같은 인물의 대표 시트 경로 — 2번으로 첨부해 이목구비 정체성을 잇는다."""
     proj_dir = Path(proj_dir)
     etype = entity.get("type")
     eid = entity.get("id") or "entity"
     name = entity.get("name") or eid
-    visual = entity.get("visual") or {}
+    visual = (variant or {}).get("visual") or entity.get("visual") or {}
     subdir = _SUBDIR.get(etype)
     if not subdir:
         return {"status": "failed", "error": f"unknown type {etype}"}
     out_base = proj_dir / subdir
     out_base.mkdir(parents=True, exist_ok=True)
-    out = imagegen.versioned_path(out_base, f"{eid}.png")
+    vkey = str((variant or {}).get("key") or "").strip()
+    out = imagegen.versioned_path(out_base, f"{eid}__{vkey}.png" if vkey else f"{eid}.png")
     rel = out.relative_to(proj_dir).as_posix()
 
     if etype == "character":
         bs = base_sheet()
         if not bs:
             return {"status": "failed", "error": "semoji_base_sheet.png 없음 — 캐릭터 시트 불가"}
-        prompt = build_character_sheet_prompt(name, visual, rel)
-        images = [str(bs)]
+        idp = identity_sheet if (identity_sheet and Path(identity_sheet).is_file()) else None
+        prompt = build_character_sheet_prompt(
+            name, visual, rel,
+            era_label=str((variant or {}).get("label") or ""),
+            identity_ref=bool(idp))
+        images = [str(bs)] + ([idp] if idp else [])      # 1번=세모지 베이스, 2번=정체성 앵커
         size = "1536x1024"
     elif etype == "location":
         prompt = build_location_sheet_prompt(name, visual, rel)
@@ -163,6 +183,38 @@ def generate_all_sheets(proj_dir, *, types=("character", "location", "prop"), on
                 skipped.append({"id": e.get("id"), "error": res.get("error")})
                 if on_event:
                     on_event(f"시트 실패: {e.get('id')} — {res.get('error')}")
+
+    # 시기 변주 시트 — 캐릭터가 variants를 가지면 시기별로 1장씩(대표 시트를 정체성 앵커로 첨부).
+    # 대표 시트가 먼저 나와 있어야 하므로 위 루프 뒤에 실행. variant끼리는 병렬.
+    vjobs = []
+    for e in targets:
+        if e.get("type") != "character":
+            continue
+        for v in (e.get("variants") or []):
+            if str(v.get("key") or "").strip():
+                vjobs.append((e, v))
+    if vjobs:
+        if on_event:
+            on_event(f"시기 변주 시트 {len(vjobs)}장 생성(정체성 앵커 첨부)")
+
+        def _one_var(job):
+            e, v = job
+            anchor = str(e.get("sheet") or "")
+            anchor_abs = str(proj_dir / anchor) if anchor else None
+            if on_event:
+                on_event(f"변주 시트: {e.get('id')}__{v.get('key')} ({v.get('label', '')})")
+            return e, v, generate_sheet(proj_dir, e, on_line=on_event,
+                                        variant=v, identity_sheet=anchor_abs)
+
+        vw = max(1, min(len(vjobs), int(_os.environ.get("AK_GEN_CONCURRENCY", "16"))))
+        with ThreadPoolExecutor(max_workers=vw) as ex:
+            for e, v, res in ex.map(_one_var, vjobs):
+                if res.get("status") == "completed":
+                    v["sheet"] = res["rel"]
+                    counts["character"] = counts.get("character", 0) + 1
+                else:
+                    skipped.append({"id": f"{e.get('id')}__{v.get('key')}",
+                                    "error": res.get("error")})
 
     doc["entities"] = ents
     ep.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")

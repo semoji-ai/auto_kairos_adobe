@@ -138,3 +138,36 @@ def test_build_base_sheet_prompt_has_turnaround_and_expressions(tmp_path, monkey
 def test_build_base_sheet_no_base_fails(monkeypatch):
     monkeypatch.setattr(imagegen, "base_img", lambda: None)
     assert sheets.build_base_character_sheet()["status"] == "failed"
+
+
+# ===== 시기(나이) 변주 시트 =====
+def test_character_sheet_prompt_era_and_identity():
+    from backend import sheets as S
+    p = S.build_character_sheet_prompt("메시", {"hair": "긴 머리", "outfit": "유스 유니폼"}, "x.png",
+                                       era_label="13세 유소년기", identity_ref=True)
+    assert "13세 유소년기" in p and "한 가지 모습만" in p      # 시기 혼재 방지
+    assert "2번 이미지는 같은 인물" in p                        # 정체성 앵커
+    p2 = S.build_character_sheet_prompt("메시", {}, "x.png")
+    assert "시기" not in p2.split("바꾸는 것은")[0] or "2번 이미지는 같은 인물" not in p2
+
+
+def test_generate_sheet_variant_filename_and_visual(tmp_path, monkeypatch):
+    from backend import sheets as S, imagegen
+    seen = {}
+
+    def fake(proj_dir, out, prompt, *, images=None, on_line=None, size=None, **k):
+        seen["out"] = str(out); seen["prompt"] = prompt; seen["images"] = images
+        Path(out).parent.mkdir(parents=True, exist_ok=True); Path(out).write_bytes(b"x")
+        return {"status": "completed", "path": str(out)}
+
+    monkeypatch.setattr(imagegen, "_run_codex_image", fake)
+    monkeypatch.setattr(S, "base_sheet", lambda: tmp_path / "base.png")
+    (tmp_path / "base.png").write_bytes(b"b")
+    (tmp_path / "anchor.png").write_bytes(b"a")
+    ent = {"id": "char-messi", "type": "character", "name": "메시", "visual": {"hair": "짧은"}}
+    var = {"key": "youth-2000", "label": "13세", "visual": {"hair": "긴 머리"}}
+    r = S.generate_sheet(tmp_path, ent, variant=var, identity_sheet=str(tmp_path / "anchor.png"))
+    assert r["status"] == "completed"
+    assert "char-messi__youth-2000.png" in seen["out"]      # 파일명에 variant key
+    assert "긴 머리" in seen["prompt"]                       # variant visual 사용
+    assert len(seen["images"]) == 2                          # 베이스 + 정체성 앵커

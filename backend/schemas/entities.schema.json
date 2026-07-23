@@ -16,7 +16,21 @@
           "aliases": { "type": "array" },
           "visual": { "type": "object" },
           "first_scene": { "type": "integer" },
-          "scenes": { "type": "array" }
+          "scenes": { "type": "array" },
+          "variants": {
+            "type": "array",
+            "description": "같은 인물의 시기(나이)별 변주. 일대기처럼 외모가 크게 달라질 때만.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "key": { "type": "string" },
+                "label": { "type": "string" },
+                "visual": { "type": "object" },
+                "scenes": { "type": "array" }
+              }
+            }
+          }
         }
       }
     }
