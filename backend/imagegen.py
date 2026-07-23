@@ -166,6 +166,7 @@ def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
             time.sleep(20 * (attempt + 1))
             continue
         if attempt < retries:
+            time.sleep(5 * (attempt + 1))   # 일반 실패도 짧게 쉬고 재시도(즉시 재시도는 같은 일시조건에 재차 실패)
             continue
         break
       reason = "rate_limit" if is_rate_limited(last) else "no_file"

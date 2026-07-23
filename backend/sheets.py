@@ -134,7 +134,9 @@ def generate_sheet(proj_dir, entity, *, on_line=None, variant: dict | None = Non
         images = [str(imagegen.base_img())] if imagegen.base_img() else None
         size = "1024x1024"
 
-    res = imagegen._run_codex_image(proj_dir, out, prompt, images=images, on_line=on_line, size=size)
+    # 변주 시트는 첨부가 2장(베이스+정체성 앵커)이라 실패율이 조금 높아 재시도를 늘린다.
+    res = imagegen._run_codex_image(proj_dir, out, prompt, images=images, on_line=on_line,
+                                    size=size, retries=4 if variant else 2)
     if res.get("status") == "completed":
         return {"status": "completed", "path": str(out), "rel": rel}
     return {"status": "failed", "error": res.get("error", "no_file")}
