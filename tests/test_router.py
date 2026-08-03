@@ -1006,3 +1006,41 @@ def test_themes_endpoints(tmp_path, monkeypatch):
     st, res = router.handle_request("POST", "/api/themes/set-scene", {},
         {"project_id": "p1", "sceneNumber": 1, "theme_id": "semoji"}, {"root": tmp_path})
     assert st == 200 and res["themeOverride"] == "semoji"
+
+
+def test_pipeline_status_reports_stage_done(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    proj = tmp_path / "p1"
+    (proj / "strategy").mkdir(parents=True)
+    (proj / "strategy" / "options.md").write_text("x", encoding="utf-8")
+    code, body = handle_request("GET", "/api/pipeline/status",
+                                {"project_id": "p1"}, None, ctx)
+    assert code == 200
+    names = [s["name"] for s in body["stages"]]
+    from backend.pipeline import PIPELINE
+    assert names == PIPELINE
+    by = {s["name"]: s for s in body["stages"]}
+    assert by["plan-explore"]["done"] is True
+    assert by["deep-research"]["done"] is False
+
+
+def test_pipeline_status_project_not_found(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("GET", "/api/pipeline/status",
+                             {"project_id": "nope"}, None, ctx)
+    assert code == 404
+
+
+def test_pipeline_run_stage_rejects_unknown_stage(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    (tmp_path / "p1").mkdir()
+    code, body = handle_request("POST", "/api/pipeline/run-stage", {},
+                                {"project_id": "p1", "stage": "hack"}, ctx)
+    assert code == 400
+
+
+def test_pipeline_run_stage_project_not_found(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = handle_request("POST", "/api/pipeline/run-stage", {},
+                             {"project_id": "nope", "stage": "plan-explore"}, ctx)
+    assert code == 404

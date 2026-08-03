@@ -647,3 +647,19 @@ def test_backend_autostart_on_health_fail():
     assert "createProcess" in js
     assert "-m backend.app" in js
     assert 'cd -P' in js               # 심링크 설치에서도 레포 루트 해석
+
+
+def test_duration_free_input():
+    """분량 자유 입력(숫자) + 프리셋 버튼."""
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="newDuration" type="number"' in html
+    assert 'data-dur="5"' in html          # 프리셋 버튼
+
+
+def test_planning_stepper_ui():
+    """기획 탭 단계별 스텝퍼 + 단계 실행."""
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="pipeStepper"' in html
+    js = (PANEL / "js" / "planning.js").read_text(encoding="utf-8")
+    assert "/api/pipeline/status" in js
+    assert "/api/pipeline/run-stage" in js

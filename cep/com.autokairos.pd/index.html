@@ -231,9 +231,13 @@
           <option value="semoji">semoji</option>
           <option value="iromism">iromism</option>
         </select>
-        <select id="newDuration">
-          <option value="1분">1분</option><option value="3분">3분</option><option value="5분">5분</option>
-        </select>
+        <span style="display:flex;gap:4px;align-items:center">
+          <input id="newDuration" type="number" min="1" value="3" style="width:52px" title="분량(분)">분
+          <button class="mini alt" data-dur="1" type="button">1</button>
+          <button class="mini alt" data-dur="3" type="button">3</button>
+          <button class="mini alt" data-dur="5" type="button">5</button>
+          <button class="mini alt" data-dur="10" type="button">10</button>
+        </span>
       </div>
       <button id="btnCreate">만들기</button>
     </div>
@@ -261,7 +265,9 @@
     <div id="tab-content">
       <!-- 기획 탭 -->
       <div id="tab-planning">
-        <button id="btnRunPipeline" title="기획→리서치→원고 6단계 자동 실행">🚀 기획→원고 파이프라인 실행</button>
+        <div class="label">단계별 진행 — 각 단계 산출물을 검토·수정한 뒤 다음 단계를 실행하세요</div>
+        <div id="pipeStepper" class="box" style="min-height:32px">—</div>
+        <button id="btnRunPipeline" class="mini alt" title="기획→리서치→원고 6단계 자동 실행(개입 없이 끝까지)">🚀 6단계 전체 자동 실행</button>
         <div class="box" id="pipelineStatus" style="min-height:16px">—</div>
         <div class="label">결과물 (기획·리서치·원고)</div>
         <button id="btnReloadFiles">파일 새로고침</button>

@@ -101,6 +101,39 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             jobs.set_status(jid, "failed", error=f"rc={result['returncode']}")
         return 200, {"job_id": jid, "status": jobs.get(jid)["status"]}
 
+    if method == "GET" and p == "/api/pipeline/status":
+        pid = query.get("project_id", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": f"project not found: {pid}"}
+        stages = []
+        for name in pipeline.PIPELINE:
+            out = skills_cfg.load_config(SKILLS_DIR, name)["output"]
+            stages.append({"name": name, "output": out,
+                           "done": (proj_dir / out).exists()})
+        return 200, {"stages": stages}
+
+    if method == "POST" and p == "/api/pipeline/run-stage":
+        b = body or {}
+        pid = b.get("project_id", "")
+        stage = b.get("stage", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": f"project not found: {pid}"}
+        if stage not in pipeline.PIPELINE:
+            return 400, {"error": f"unknown stage: {stage}"}
+        jobs = ctx["jobs"]
+        jid = jobs.create("pipeline-stage", pid)
+        def _do_stage(proj_dir=proj_dir, jid=jid, stage=stage):
+            r = pipeline.run_one(SKILLS_DIR, proj_dir, stage,
+                                 on_line=lambda ln: jobs.append_log(jid, ln))
+            if r["status"] != "completed":
+                raise RuntimeError(f"{stage}: {r.get('error')}")
+            jobs.set_status(jid, "running", artifact_paths=[r["output"]])
+            return {"status": "completed", "stage": stage, "output": r["output"]}
+        run_async(jobs, jid, _do_stage)
+        return 200, {"job_id": jid, "status": "running"}
+
     if method == "POST" and p == "/api/pipeline/run":
         b = body or {}
         pid = b.get("project_id", "")

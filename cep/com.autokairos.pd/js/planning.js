@@ -61,6 +61,75 @@ function savePlanningFile() {
     .catch(function (e) { $("planEditStatus").textContent = "오류: " + e; });
 }
 
+/* ===== 단계별 게이트 스텝퍼 =====
+   /api/pipeline/status 로 단계별 완료 상태를 그리고, 단계 하나씩 실행 →
+   산출물이 편집기에 자동 오픈 → 검토 후 사용자가 다음 단계를 직접 실행. */
+var STAGE_LABELS = { "plan-explore": "① 기획탐색", "deep-research": "② 딥리서치",
+                     "draft-write": "③ 초안", "target-research": "④ 타겟리서치",
+                     "finalize-manuscript": "⑤ 원고확정", "review-refine": "⑥ 검수" };
+var _STAGE_RUNNING = null;
+
+function loadStepper() {
+  if (!SELECTED_PROJECT) { $("pipeStepper").textContent = "프로젝트를 먼저 선택하세요."; return; }
+  fetch(BACKEND + "/api/pipeline/status?project_id=" + encodeURIComponent(SELECTED_PROJECT))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var stages = j.stages || [];
+      var firstPending = -1;
+      for (var i = 0; i < stages.length; i++) if (firstPending < 0 && !stages[i].done) firstPending = i;
+      $("pipeStepper").innerHTML = stages.map(function (s, i) {
+        var running = _STAGE_RUNNING === s.name;
+        var icon = running ? "⏳" : (s.done ? "✅" : "○");
+        var runnable = !_STAGE_RUNNING && (s.done || i === firstPending || firstPending < 0);
+        var label = (STAGE_LABELS[s.name] || s.name) + " " + icon;
+        return runnable
+          ? '<button class="mini alt" data-stage="' + s.name + '" title="' +
+            (s.done ? "재실행(산출물 덮어씀)" : "이 단계 실행") + '">' + label + "</button>"
+          : '<span style="opacity:.55;margin:0 4px">' + label + "</span>";
+      }).join(" → ");
+      var btns = $("pipeStepper").querySelectorAll("button[data-stage]");
+      for (var b = 0; b < btns.length; b++) {
+        btns[b].addEventListener("click", function () { runStage(this.getAttribute("data-stage")); });
+      }
+    })
+    .catch(function (e) { $("pipeStepper").textContent = "오류: " + e; });
+}
+
+function runStage(stage) {
+  if (_STAGE_RUNNING) return;
+  _STAGE_RUNNING = stage;
+  $("pipelineStatus").textContent = (STAGE_LABELS[stage] || stage) + " 실행 중…";
+  loadStepper();
+  fetch(BACKEND + "/api/pipeline/run-stage", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, stage: stage }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "running" || !j.job_id) {
+        _STAGE_RUNNING = null; loadStepper();
+        $("pipelineStatus").textContent = "시작 실패: " + JSON.stringify(j); return;
+      }
+      _awaitJob(j.job_id, function (job) {
+        _STAGE_RUNNING = null;
+        loadStepper(); loadPlanningFiles();
+        if (job.status === "completed") {
+          var out = (job.artifact_paths || [])[0] || "";
+          var name = out.split("/").slice(-2).join("/");
+          $("pipelineStatus").textContent = "✅ " + (STAGE_LABELS[stage] || stage) +
+            " 완료 — 산출물을 검토·수정한 뒤 다음 단계를 실행하세요.";
+          if (name) viewPlanningFile(name.indexOf("/") > 0 && out.indexOf(SELECTED_PROJECT) > 0
+            ? out.split(SELECTED_PROJECT + "/")[1] : name);
+        } else {
+          $("pipelineStatus").textContent = "❌ " + (STAGE_LABELS[stage] || stage) +
+            " 실패: " + (job.error || "") + " — 같은 단계를 재실행해 복구하세요.";
+        }
+      }, function (logs) {
+        if (logs && logs.length) $("pipelineStatus").textContent = logs[logs.length - 1];
+      }, 2400);
+    })
+    .catch(function (e) { _STAGE_RUNNING = null; loadStepper(); $("pipelineStatus").textContent = "오류: " + e; });
+}
+
 /* 기획→리서치→원고 6단계 파이프라인 — 비동기 잡 + 폴링(스테이지 로그 표시) */
 function runPipeline() {
   if (!SELECTED_PROJECT) { $("pipelineStatus").textContent = "프로젝트를 먼저 선택하세요."; return; }
@@ -87,7 +156,7 @@ function runPipeline() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  $("btnReloadFiles").addEventListener("click", loadPlanningFiles);
+  $("btnReloadFiles").addEventListener("click", function () { loadPlanningFiles(); loadStepper(); });
   $("btnRunPipeline").addEventListener("click", runPipeline);
   $("btnSavePlanFile").addEventListener("click", savePlanningFile);
 });
