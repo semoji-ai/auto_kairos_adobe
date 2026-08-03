@@ -47,6 +47,11 @@ def check(text: str) -> dict:
         v.append(f"줄 길이 표준편차 {len_std:.1f} — 실측 하한(≈6.9)보다 균일. 짧은 문장 연타와 긴 호흡을 섞어 리듬을 만들 것(너무 매끈한 원고 금지).")
     if hangul_years:
         v.append("숫자를 한글로 풀어씀 — 세모지는 아라비아 숫자 표기(예: 2022년, 672골).")
+    colloq_all = len(re.findall(r"(거죠|이죠|잖아요|거든요|는데요|인데요|네요|까요)", "\n".join(lines)))
+    report_all = len(re.findall(r"다고 (합니다|해요|했습니다|하는데요)", "\n".join(lines)))
+    if len(lines) >= 10 and colloq_all + report_all == 0:
+        v.append("구어체(~거죠/잖아요/거든요)와 전달체(~다고 합니다)가 전무 — 코퍼스 전 문서에 최소 1회 이상 존재. "
+                 "공감 지점에 구어체를, 간접 사실에 전달체를 섞을 것.")
     return {"ok": not v, "violations": v,
             "metrics": {"polite": round(polite, 3), "colloq": round(colloq, 3),
                         "plain": round(plain, 3), "line_len_std": round(len_std, 2),
@@ -57,4 +62,20 @@ def check_project(proj_dir: Path) -> dict:
     fp = proj_dir / "final_manuscript.md"
     if not fp.exists():
         return {"ok": False, "violations": ["final_manuscript.md 없음"], "metrics": {}}
-    return check(fp.read_text(encoding="utf-8"))
+    text = fp.read_text(encoding="utf-8")
+    r = check(text)
+    # 분량 검사 — plan.md 분량 목표 대비 ±30% 이탈 시 위반
+    from backend import skills_cfg
+    m = re.search(r"(\d+(?:\.\d+)?)", skills_cfg.parse_plan_fields(proj_dir).get("분량", ""))
+    if m:
+        lo = int(float(m.group(1)) * skills_cfg.CHARS_PER_MIN[0])
+        hi = int(float(m.group(1)) * skills_cfg.CHARS_PER_MIN[1])
+        nar = "\n".join(narration_lines(text))
+        chars = len(re.findall(r"[가-힣]", nar))
+        if chars < lo * 0.7 or chars > hi * 1.3:
+            r["violations"].append(
+                f"분량 이탈 — 나레이션 한글 {chars:,}자, 목표 {lo:,}~{hi:,}자. "
+                f"{'문장을 쳐내 압축' if chars > hi else '내용을 보강'}할 것.")
+            r["ok"] = False
+        r["metrics"]["nar_chars"] = chars
+    return r

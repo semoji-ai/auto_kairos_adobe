@@ -63,7 +63,7 @@ def test_gate_rewrites_once_on_fail(tmp_path, monkeypatch):
     calls = []
     def fake_run_skill(prompt, proj_dir, **kw):
         calls.append(prompt)
-        (proj / "final_manuscript.md").write_text(GOOD, encoding="utf-8")
+        (proj / "final_manuscript.md").write_text(GOOD * 8, encoding="utf-8")   # 분량 밴드 내
         return {"returncode": 0, "session_id": None}
     monkeypatch.setattr(pipeline, "run_skill", fake_run_skill)
     r = pipeline.apply_voice_gate(proj)
@@ -76,3 +76,18 @@ def test_gate_skipped_for_other_channels(tmp_path):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "plan.md").write_text("# t\n\n채널: iromism\n", encoding="utf-8")
     assert pipeline.apply_voice_gate(proj)["gate"] == "skipped"
+
+
+def test_no_colloq_no_report_fails():
+    txt = "\n".join(f"메시는 {1987+i}년에 새로운 기록을 세운 최고의 선수였습니다." for i in range(20))
+    r = verify_voice.check(txt)
+    assert not r["ok"]
+    assert any("전달체" in v or "구어체" in v for v in r["violations"])
+
+
+def test_duration_deviation_fails(tmp_path):
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "plan.md").write_text("# t\n\n채널: semoji\n분량: 5분\n", encoding="utf-8")
+    (proj / "final_manuscript.md").write_text(GOOD * 20, encoding="utf-8")  # 과대 분량(약 2,600자 > 상한 1,950)
+    r = verify_voice.check_project(proj)
+    assert any("분량" in v for v in r["violations"])
