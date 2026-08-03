@@ -15,6 +15,7 @@ PIPELINE = [
 def apply_voice_gate(proj_dir: Path, on_line=None) -> dict:
     """review-refine 뒤 문체 게이트. 채널에 voice 팩이 있을 때만 채점.
     실패 시 위반 항목만 겨냥해 1회 재작성 후 재채점(그래도 실패면 리포트만)."""
+    proj_dir = proj_dir.resolve()   # 상대 경로면 output_last가 codex cwd 기준으로 이중 결합됨
     plan = skills_cfg.parse_plan_fields(proj_dir)
     channel = plan.get("채널", "")
     if channel != "semoji":
