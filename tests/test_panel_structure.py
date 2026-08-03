@@ -638,3 +638,12 @@ def test_cut_bg_token_safe():
     jsx = (PANEL / "jsx" / "tylenol" / "build_from_json.jsx").read_text(encoding="utf-8")
     assert "resolveColor(cut.bg)" in jsx
     assert "[0-9a-fA-F]" in jsx        # hex 유효성 가드
+
+
+def test_backend_autostart_on_health_fail():
+    """health 실패 시 CEP createProcess로 python3 -m backend.app 자동 스폰 + 재시도."""
+    js = MAIN.read_text(encoding="utf-8")
+    assert "_spawnBackend" in js
+    assert "createProcess" in js
+    assert "-m backend.app" in js
+    assert 'cd -P' in js               # 심링크 설치에서도 레포 루트 해석

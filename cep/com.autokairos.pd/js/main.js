@@ -93,7 +93,26 @@ function _setHealth(ok, text) {
   var rc = $("btnReconnect"); if (rc) rc.hidden = ok;     // 연결되면 버튼 숨김
 }
 
-function checkBackend() {
+/* ===== 백엔드 자동 시작 =====
+   health 실패 시 CEP createProcess 로 python3 -m backend.app 스폰.
+   확장이 심링크로 설치돼 있어 cd -P 로 실제 레포 루트를 해석. */
+var _BACKEND_SPAWNED = false;
+
+function _spawnBackend() {
+  if (_BACKEND_SPAWNED) return false;
+  var cep = window.cep;
+  var adobe = window.__adobe_cep__;
+  if (!cep || !cep.process || !adobe) return false;
+  var extDir = decodeURI(adobe.getSystemPath("extension") || "").replace(/^file:\/\//, "");
+  if (!extDir) return false;
+  var cmd = 'cd -P "' + extDir + '" && cd ../.. && exec /usr/bin/env python3 -m backend.app';
+  var res = cep.process.createProcess("/bin/zsh", "-lc", cmd);
+  _BACKEND_SPAWNED = !(res && res.err);
+  return _BACKEND_SPAWNED;
+}
+
+function checkBackend(retriesLeft) {
+  if (typeof retriesLeft !== "number") retriesLeft = 0;
   _setHealth(false, "백엔드 확인 중…");
   fetch(BACKEND + "/health")
     .then(function (r) { return r.json(); })
@@ -105,7 +124,17 @@ function checkBackend() {
       loadLlmSetting();                                   // 오케스트레이터 LLM 선택값 로드
     })
     .catch(function () {
-      _setHealth(false, "백엔드 연결 안 됨 — app.py 실행 후 [연결]");
+      if (retriesLeft > 0) {
+        _setHealth(false, "백엔드 시작 대기 중… (" + retriesLeft + ")");
+        setTimeout(function () { checkBackend(retriesLeft - 1); }, 800);
+        return;
+      }
+      if (_spawnBackend()) {                              // 자동 스폰 후 재시도
+        _setHealth(false, "백엔드 자동 시작 중…");
+        setTimeout(function () { checkBackend(5); }, 800);
+        return;
+      }
+      _setHealth(false, "백엔드 연결 안 됨 — python3 -m backend.app 실행 후 [연결]");
     });
 }
 
