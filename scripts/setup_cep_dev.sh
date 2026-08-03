@@ -21,6 +21,6 @@ echo "   -> $EXT_DIR/com.autokairos.pd"
 
 echo ""
 echo "완료. 이제:"
-echo "  1) 백엔드 실행:  python3 \"$(cd "$(dirname "$0")/.." && pwd)/backend/app.py\""
+echo "  1) 백엔드 실행:  cd \"$(cd "$(dirname "$0")/.." && pwd)\" && python3 -m backend.app"
 echo "  2) After Effects 2026 실행"
 echo "  3) 메뉴: Window > Extensions > auto_kairos PD (PoC)"
