@@ -66,28 +66,26 @@ def apply_voice_gate(proj_dir: Path, on_line=None) -> dict:
     if channel != "semoji":
         return {"gate": "skipped"}
     out = proj_dir / "final_manuscript.md"
-    r = verify_voice.check_project(proj_dir)
-    judge = _run_judge(proj_dir, out.read_text(encoding="utf-8"), on_line=on_line)
-    if on_line:
-        on_line(f"[gate] 지표: {'PASS' if r['ok'] else 'FAIL'} {r['metrics']} · "
-                f"이해도 심사: {'PASS' if judge['pass'] else 'FAIL'} {judge['issues'][:2]}")
-    if r["ok"] and judge["pass"]:
-        return {"gate": "pass", "metrics": r["metrics"]}
-    prompt = build_rewrite_prompt(out.read_text(encoding="utf-8"),
-                                  r["violations"], judge["issues"])
-    res = run_skill(prompt, proj_dir, session_id=sessions.load_session(proj_dir),
-                    output_last=str(out), on_line=on_line)
-    if res.get("session_id"):
-        sessions.save_session(proj_dir, res["session_id"])
-    r2 = verify_voice.check_project(proj_dir)
-    judge2 = _run_judge(proj_dir, out.read_text(encoding="utf-8"), on_line=on_line)
-    ok2 = r2["ok"] and judge2["pass"]
-    if on_line:
-        on_line(f"[gate] 재작성 후 — 지표: {'PASS' if r2['ok'] else 'FAIL'} {r2['metrics']} · "
-                f"이해도: {'PASS' if judge2['pass'] else 'FAIL'}")
-    return {"gate": "pass" if ok2 else "fail_after_rewrite",
-            "metrics": r2["metrics"],
-            "violations": r2["violations"] + judge2["issues"]}
+    max_rewrites = 3
+    r = judge = None
+    for rnd in range(max_rewrites + 1):
+        r = verify_voice.check_project(proj_dir)
+        judge = _run_judge(proj_dir, out.read_text(encoding="utf-8"), on_line=on_line)
+        if on_line:
+            on_line(f"[gate] 라운드 {rnd} — 지표: {'PASS' if r['ok'] else 'FAIL'} {r['metrics']} · "
+                    f"이해도 심사: {'PASS' if judge['pass'] else 'FAIL'} {judge['issues'][:2]}")
+        if r["ok"] and judge["pass"]:
+            return {"gate": "pass", "metrics": r["metrics"], "rounds": rnd}
+        if rnd == max_rewrites:
+            break
+        prompt = build_rewrite_prompt(out.read_text(encoding="utf-8"),
+                                      r["violations"], judge["issues"])
+        res = run_skill(prompt, proj_dir, session_id=sessions.load_session(proj_dir),
+                        output_last=str(out), on_line=on_line)
+        if res.get("session_id"):
+            sessions.save_session(proj_dir, res["session_id"])
+    return {"gate": "fail_after_rewrite", "metrics": r["metrics"],
+            "rounds": max_rewrites, "violations": r["violations"] + judge["issues"]}
 
 
 def run_one(skills_dir: Path, proj_dir: Path, name: str, on_line=None) -> dict:
