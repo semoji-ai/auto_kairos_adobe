@@ -23,8 +23,10 @@ def build_judge_prompt(text: str) -> str:
         "숫자·사실이 나열만 되지 않고 의미 부여가 따라오는가 / 시간 순서가 역행하지 않는가 / "
         "지표를 맞추려 억지로 넣은 듯한 문장(어색한 ~잖아요/~거든요 등)이 없는가.\n\n"
         "## 원고\n" + text + "\n\n"
-        '결과를 JSON 한 줄로만 출력: {"pass": true|false, "issues": ["어색한 문장을 그대로 인용 + 무엇이 문제인지", ...]}\n'
-        "사소한 취향 문제는 issues에 넣지 말 것 — 중학생 이해·흐름을 실제로 해치는 것만."
+        '결과를 JSON 한 줄로만 출력: {"issues": [{"quote": "어색한 문장 그대로 인용", "why": "무엇이 문제인지", "severity": "major|minor"}, ...]}\n'
+        "severity 기준 — major: 중학생이 뜻을 못 알아듣거나 흐름이 실제로 끊기는 문제(조사 오류, 시간 역행, 의미 모호, 억지 삽입). "
+        "minor: 뜻은 통하지만 더 매끄러울 수 있는 표현 취향. **더 나은 표현이 떠오른다는 이유만으로 major를 주지 말 것.** "
+        "문제가 없으면 빈 배열."
     )
 
 
@@ -52,7 +54,12 @@ def _run_judge(proj_dir: Path, text: str, on_line=None) -> dict:
     try:
         m = re.search(r"\{.*\}", out.read_text(encoding="utf-8"), re.S)
         v = json.loads(m.group(0))
-        return {"pass": bool(v.get("pass")), "issues": list(v.get("issues", []))}
+        issues = list(v.get("issues", []))
+        if issues and isinstance(issues[0], dict):      # severity 스키마
+            majors = [f"{i.get('quote','')} — {i.get('why','')}" for i in issues
+                      if i.get("severity") == "major"]
+            return {"pass": not majors, "issues": majors}
+        return {"pass": bool(v.get("pass", not issues)), "issues": issues}   # 구 스키마 폴백
     except Exception:
         return {"pass": True, "issues": []}
 

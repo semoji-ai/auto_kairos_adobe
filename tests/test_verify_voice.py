@@ -118,7 +118,8 @@ def test_gate_runs_judge_and_rewrite(tmp_path, monkeypatch):
     def fake_run_skill(prompt, proj_dir, output_last=None, **kw):
         calls.append(prompt)
         if "JSON 한 줄" in prompt:      # 심사 프롬프트만
-            verdict = '{"pass": %s, "issues": ["숫자 나열 끊김"]}' % ("false" if len(calls) == 1 else "true")
+            verdict = ('{"issues": [{"quote": "x", "why": "숫자 나열 끊김", "severity": "major"}]}'
+                       if len(calls) == 1 else '{"issues": [{"quote": "y", "why": "취향", "severity": "minor"}]}')
             __import__("pathlib").Path(output_last).write_text(verdict, encoding="utf-8")
         else:
             (proj / "final_manuscript.md").write_text(GOOD * 8, encoding="utf-8")
