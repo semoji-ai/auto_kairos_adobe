@@ -68,7 +68,8 @@ def test_gate_rewrites_once_on_fail(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline, "run_skill", fake_run_skill)
     r = pipeline.apply_voice_gate(proj)
     assert r["gate"] == "pass"
-    assert len(calls) == 1 and "평서체" in calls[0]
+    rewrites = [c for c in calls if "평서체" in c]
+    assert len(rewrites) == 1          # 심사 2회 + 재작성 1회 중 재작성만 위반 포함
 
 
 def test_gate_skipped_for_other_channels(tmp_path):
@@ -91,3 +92,38 @@ def test_duration_deviation_fails(tmp_path):
     (proj / "final_manuscript.md").write_text(GOOD * 20, encoding="utf-8")  # 과대 분량(약 2,600자 > 상한 1,950)
     r = verify_voice.check_project(proj)
     assert any("분량" in v for v in r["violations"])
+
+
+def test_judge_prompt_targets_comprehension():
+    from backend import pipeline
+    p = pipeline.build_judge_prompt("원고본문")
+    assert "중학생" in p and "JSON" in p and "원고본문" in p
+
+
+def test_rewrite_prompt_prioritizes_flow():
+    from backend import pipeline
+    p = pipeline.build_rewrite_prompt("원고", ["평서체 6회"], ["숫자 나열 끊김"])
+    assert p.index("자연스러") < p.index("평서체 6회")   # 우선순위: 흐름 > 지표
+    assert "에피소드" in p                                # 분량 조절은 문장 쳐내기가 아니라 에피소드 단위
+    assert "억지" in p                                    # 지표 스터핑 금지 명시
+
+
+def test_gate_runs_judge_and_rewrite(tmp_path, monkeypatch):
+    """regex PASS여도 심사 FAIL이면 재작성. 재작성 후 심사 재실행."""
+    from backend import pipeline
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "plan.md").write_text("# t\n\n채널: semoji\n분량: 5분\n", encoding="utf-8")
+    (proj / "final_manuscript.md").write_text(GOOD * 8, encoding="utf-8")
+    calls = []
+    def fake_run_skill(prompt, proj_dir, output_last=None, **kw):
+        calls.append(prompt)
+        if "JSON 한 줄" in prompt:      # 심사 프롬프트만
+            verdict = '{"pass": %s, "issues": ["숫자 나열 끊김"]}' % ("false" if len(calls) == 1 else "true")
+            __import__("pathlib").Path(output_last).write_text(verdict, encoding="utf-8")
+        else:
+            (proj / "final_manuscript.md").write_text(GOOD * 8, encoding="utf-8")
+        return {"returncode": 0, "session_id": None}
+    monkeypatch.setattr(pipeline, "run_skill", fake_run_skill)
+    r = pipeline.apply_voice_gate(proj)
+    assert r["gate"] == "pass"
+    assert len(calls) == 3    # 심사 FAIL → 재작성 → 심사 PASS
