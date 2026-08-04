@@ -128,3 +128,12 @@ def test_gate_runs_judge_and_rewrite(tmp_path, monkeypatch):
     r = pipeline.apply_voice_gate(proj)
     assert r["gate"] == "pass"
     assert len(calls) == 3    # 심사 FAIL → 재작성 → 심사 PASS
+
+
+def test_terminology_rules_present():
+    """직역 방지 3단 판단이 팩과 심사 프롬프트에 존재."""
+    from pathlib import Path
+    from backend import pipeline
+    pack = (Path("data/artstyle/semoji-voice.md")).read_text(encoding="utf-8")
+    assert "통용어" in pack and "입단 테스트" in pack and "직역" in pack
+    assert "직역" in pipeline.build_judge_prompt("x")
