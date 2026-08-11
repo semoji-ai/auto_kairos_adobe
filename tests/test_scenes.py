@@ -321,3 +321,39 @@ def test_load_scenes_exposes_resolved_theme(tmp_path, monkeypatch):
     assert data["_theme"]["id"] == "semoji"
     assert data["scenes"][0]["_theme"]["id"] == "semoji"
     assert data["scenes"][1]["_theme"]["id"] == "dark_broadcast"
+
+
+def test_text_accessors_fallback_to_narration():
+    from backend import scenes
+    s = {"narration": "원고 (지문) 입니다"}
+    assert scenes.subtitle_text(s) == "원고 (지문) 입니다"
+    assert scenes.tts_text(s) == "원고 입니다"          # 지문 제거된 정리본
+    s2 = {"narration": "원고", "narration_tts": "발음", "subtitle_text": "자막"}
+    assert scenes.tts_text(s2) == "발음"
+    assert scenes.subtitle_text(s2) == "자막"
+
+
+def test_update_texts_saves_and_clears(tmp_path):
+    import json
+    from backend import scenes
+    (tmp_path / "scenes.json").write_text(json.dumps(
+        {"scenes": [{"sceneNumber": 1, "sceneId": "a", "narration": "원고"}]}), encoding="utf-8")
+    res = scenes.update_texts(tmp_path, 1, narration_tts="발음", subtitle_text="자막")
+    assert res["ok"] and res["narration_tts"] == "발음"
+    d = json.loads((tmp_path / "scenes.json").read_text())
+    assert d["scenes"][0]["subtitle_text"] == "자막"
+    # 빈 문자열 = 필드 제거(원고 폴백 복귀), None = 건드리지 않음
+    scenes.update_texts(tmp_path, 1, subtitle_text="")
+    d = json.loads((tmp_path / "scenes.json").read_text())
+    assert "subtitle_text" not in d["scenes"][0]
+    assert d["scenes"][0]["narration_tts"] == "발음"
+    assert scenes.update_texts(tmp_path, 9, narration_tts="x")["error"]
+
+
+def test_load_scenes_exposes_effective_texts(tmp_path):
+    import json
+    from backend import scenes
+    (tmp_path / "scenes.json").write_text(json.dumps(
+        {"scenes": [{"sceneNumber": 1, "sceneId": "a", "narration": "원고입니다"}]}), encoding="utf-8")
+    s = scenes.load_scenes(tmp_path)["scenes"][0]
+    assert s["_tts_text"] == "원고입니다" and s["_subtitle_text"] == "원고입니다"

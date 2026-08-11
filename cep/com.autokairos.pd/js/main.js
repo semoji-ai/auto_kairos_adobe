@@ -546,6 +546,8 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnReconnect").addEventListener("click", checkBackend);
   $("btnBuild").addEventListener("click", buildComp);
   $("btnBuildAll").addEventListener("click", buildComp);
+  var btl = $("btnTimelineAll");
+  if (btl) btl.addEventListener("click", function () { exportToTimeline(null); });
   $("btnQueueRender").addEventListener("click", queueRender);
   $("btnSubtitles").addEventListener("click", buildSubtitles);
   $("btnProjects").addEventListener("click", loadProjects);

@@ -207,6 +207,16 @@ function loadSheet() {
     .catch(function (e) { $("sheet").textContent = "오류: " + e; });
 }
 
+/* 저장된 전용 텍스트가 원고와 다르면 배지 + 원고에서 다시 채우기 버튼.
+   원고를 고쳐도 전용 텍스트를 자동으로 덮어쓰지 않으므로, 어긋남을 눈에 보이게 한다. */
+function _teBadge(n, kind, stored, narration) {
+  var st = (stored || "").trim();
+  if (!st || st === (narration || "").trim()) return "";
+  return ' <span class="te-diff">원고와 다름</span>'
+    + '<button class="mini te-reset" data-scene="' + n + '" data-kind="' + kind + '"'
+    + ' title="이 칸을 비워 원고 기준으로 되돌립니다">원고에서 다시 채우기</button>';
+}
+
 function renderRow(s, dir) {
   var n = s.sceneNumber;
   var media = _previewHTML(s, dir);   // 컴프 결과 미리보기(배경+레이아웃+자막)
@@ -238,6 +248,26 @@ function renderRow(s, dir) {
     + '  <div class="col-work">'
     +      '<div class="work-dots" title="이미지·레이어·음성·모션 진행 상태">'
     +        _dot("이미지", st.image) + _dot("레이어", st.layers) + _dot("음성", st.tts) + _dot("모션", st.motion)
+    +      '</div>'
+    // 씬 전용 버튼 — 체크박스와 무관하게 이 씬에만 즉시 실행
+    +      '<div class="row-acts">'
+    +        '<button class="ra" data-act="img" data-scene="' + n + '" title="이 씬 이미지 재생성">▣</button>'
+    +        '<button class="ra" data-act="tts" data-scene="' + n + '" title="이 씬 TTS 재생성">♪</button>'
+    +        '<button class="ra" data-act="txt" data-scene="' + n + '" title="TTS·자막 텍스트 편집">✎</button>'
+    +        '<button class="ra" data-act="tl" data-scene="' + n + '" title="이 씬을 현재 타임라인에 배치">⤓</button>'
+    +      '</div>'
+    // 텍스트 편집 패널(✎ 토글) — TTS용/자막용 분리
+    +      '<div class="txt-edit" data-scene="' + n + '" hidden>'
+    +        '<div class="te-label">TTS 텍스트 <span class="te-hint">발음용 — 비우면 원고 사용</span>'
+    +          _teBadge(n, "tts", s.narration_tts, s.narration) + '</div>'
+    +        '<textarea class="te-tts" data-scene="' + n + '" rows="3">' + _esc(s._tts_text || "") + '</textarea>'
+    +        '<div class="te-label">자막 텍스트 <span class="te-hint">화면 표시용 — 비우면 원고 사용</span>'
+    +          _teBadge(n, "sub", s.subtitle_text, s.narration) + '</div>'
+    +        '<textarea class="te-sub" data-scene="' + n + '" rows="3">' + _esc(s._subtitle_text || "") + '</textarea>'
+    +        '<div class="te-acts">'
+    +          '<button class="mini te-save" data-scene="' + n + '">저장</button>'
+    +          '<button class="mini te-regen" data-scene="' + n + '">저장 후 TTS 재생성</button>'
+    +        '</div>'
     +      '</div>'
     + (chars ? '<div class="work-chars">👤 ' + _esc(chars) + '</div>' : '')
     +      (s._audio
@@ -311,6 +341,31 @@ function bindRows(scope) {
     cbs[cb].addEventListener("change", function () {
       var n = this.getAttribute("data-scene");
       if (this.checked) SEL_SCENES[n] = true; else delete SEL_SCENES[n];
+    });
+  }
+  var acts = scope.querySelectorAll("button.ra");
+  for (var a = 0; a < acts.length; a++) {
+    acts[a].addEventListener("click", function () {
+      var n = this.getAttribute("data-scene");
+      var act = this.getAttribute("data-act");
+      if (act === "img") { genSceneImage(n); }
+      else if (act === "tts") { genTts(n); }
+      else if (act === "txt") { toggleTextEditor(n); }
+      else if (act === "tl") { exportToTimeline(parseInt(n, 10)); }
+    });
+  }
+  var saves = scope.querySelectorAll("button.te-save");
+  for (var sv = 0; sv < saves.length; sv++) {
+    saves[sv].addEventListener("click", function () { saveSceneTexts(this.getAttribute("data-scene"), false); });
+  }
+  var regens = scope.querySelectorAll("button.te-regen");
+  for (var rg = 0; rg < regens.length; rg++) {
+    regens[rg].addEventListener("click", function () { saveSceneTexts(this.getAttribute("data-scene"), true); });
+  }
+  var resets = scope.querySelectorAll("button.te-reset");
+  for (var rs = 0; rs < resets.length; rs++) {
+    resets[rs].addEventListener("click", function () {
+      resetSceneText(this.getAttribute("data-scene"), this.getAttribute("data-kind"));
     });
   }
   var thumbs = scope.querySelectorAll("img.lyr");
@@ -724,6 +779,85 @@ function genTts(n) {
     })
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
+
+/* ✎ — 행의 텍스트 편집 패널 열고 닫기 */
+function toggleTextEditor(n) {
+  var pane = $("sheet").querySelector('.txt-edit[data-scene="' + n + '"]');
+  if (!pane) return;
+  pane.hidden = !pane.hidden;
+  if (!pane.hidden) {
+    var tas = pane.querySelectorAll("textarea");
+    for (var i = 0; i < tas.length; i++) _autosize(tas[i]);
+  }
+}
+
+/* TTS·자막 텍스트 저장. regen=true면 저장 후 그 씬 TTS 재생성. */
+function saveSceneTexts(n, regen) {
+  var pane = $("sheet").querySelector('.txt-edit[data-scene="' + n + '"]');
+  if (!pane) return;
+  var tts = pane.querySelector(".te-tts").value;
+  var sub = pane.querySelector(".te-sub").value;
+  _rowStatus(n, "텍스트 저장 중...");
+  return fetch(BACKEND + "/api/scenes/texts", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10),
+      narration_tts: tts, subtitle_text: sub,
+    }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.ok) { _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
+      _rowStatus(n, "텍스트 저장됨 ✓");
+      if (regen) return genTts(n);
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+/* 전용 텍스트 필드를 비워 원고 기준으로 되돌림. kind: "tts" | "sub" */
+function resetSceneText(n, kind) {
+  var b = { project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) };
+  b[kind === "tts" ? "narration_tts" : "subtitle_text"] = "";
+  _rowStatus(n, "원고 기준으로 되돌리는 중...");
+  return fetch(BACKEND + "/api/scenes/texts", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.ok) { _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
+      _rowStatus(n, "원고 기준으로 되돌림 ✓");
+      refreshRow(n);
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+/* ⤓ — 씬 컴프를 현재 타임라인(활성 컴프, 없으면 Final)에 시간대로 배치.
+   sceneNumber=null이면 전체. 시작 시점은 TTS 길이 누적(없는 씬은 5초)으로 계산. */
+function exportToTimeline(sceneNumber) {
+  var say = sceneNumber == null
+    ? function (m) { var e = $("aeresult"); if (e) e.textContent = m; }
+    : function (m) { _rowStatus(sceneNumber, m); };
+  if (!SELECTED_PROJECT) { say("프로젝트를 먼저 선택하세요."); return; }
+  var bodyObj = { project_id: SELECTED_PROJECT };
+  if (sceneNumber != null) bodyObj.sceneNumber = sceneNumber;
+  say("타임라인 배치 계획 계산 중...");
+  return fetch(BACKEND + "/api/timeline/plan", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bodyObj),
+  }).then(function (r) { return r.json(); })
+    .then(function (plan) {
+      if (plan.error || !plan.items || !plan.items.length) {
+        say("실패: " + JSON.stringify(plan.error || "배치할 씬 없음")); return;
+      }
+      var jsx;
+      try { jsx = readLocal("./jsx/place_on_timeline.jsx"); }
+      catch (e) { say("jsx 로드 실패: " + e); return; }
+      say("타임라인 배치 중... (" + plan.items.length + "개)");
+      var call = "\nakPlaceOnTimeline(" + JSON.stringify(JSON.stringify(plan)) + ");";
+      return evalScript(jsx + call).then(function (r) { say(r || "(빈 응답 — AE 콘솔 확인)"); });
+    })
+    .catch(function (e) { say("오류: " + e); });
+}
+
+function exportAllToTimeline() { exportToTimeline(null); }
 
 function loadTtsSettings() {
   if (!SELECTED_PROJECT) return;

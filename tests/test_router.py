@@ -1044,3 +1044,36 @@ def test_pipeline_run_stage_project_not_found(tmp_path):
     code, _ = handle_request("POST", "/api/pipeline/run-stage", {},
                              {"project_id": "nope", "stage": "plan-explore"}, ctx)
     assert code == 404
+
+
+def _tmp_ctx(tmp_path, scenes_list):
+    proj = tmp_path / "p1"
+    (proj / "audio").mkdir(parents=True)
+    (proj / "scenes.json").write_text(json.dumps({"scenes": scenes_list}, ensure_ascii=False),
+                                      encoding="utf-8")
+    return {"root": tmp_path, "jobs": JobRegistry()}
+
+
+def test_scenes_texts_endpoint(tmp_path):
+    ctx = _tmp_ctx(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "narration": "원고"}])
+    code, body = handle_request("POST", "/api/scenes/texts", {},
+                                {"project_id": "p1", "sceneNumber": 1,
+                                 "narration_tts": "발음", "subtitle_text": "자막"}, ctx)
+    assert code == 200 and body["ok"]
+    d = json.loads((tmp_path / "p1" / "scenes.json").read_text(encoding="utf-8"))
+    assert d["scenes"][0]["narration_tts"] == "발음"
+    assert d["scenes"][0]["subtitle_text"] == "자막"
+    code, _ = handle_request("POST", "/api/scenes/texts", {},
+                             {"project_id": "없음", "sceneNumber": 1}, ctx)
+    assert code == 404
+
+
+def test_timeline_plan_endpoint(tmp_path):
+    ctx = _tmp_ctx(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "narration": "가"},
+                              {"sceneNumber": 2, "sceneId": "b", "narration": "나"}])
+    code, body = handle_request("POST", "/api/timeline/plan", {}, {"project_id": "p1"}, ctx)
+    assert code == 200 and len(body["items"]) == 2
+    assert body["items"][0]["start"] == 0.0 and body["items"][1]["start"] == 5.0
+    code, one = handle_request("POST", "/api/timeline/plan", {},
+                               {"project_id": "p1", "sceneNumber": 2}, ctx)
+    assert code == 200 and len(one["items"]) == 1 and one["items"][0]["start"] == 5.0

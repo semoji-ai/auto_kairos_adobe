@@ -178,6 +178,24 @@
     .col-work .tts-play { width:auto; margin:0; padding:3px 9px; font-size:13px; }
     .col-work .tts-dur { font-size:11px; color:#c5c8cc; font-family:ui-monospace,monospace; }
 
+    /* 씬 전용 버튼 줄 — 체크박스 없이 그 씬에만 즉시 실행 */
+    .col-work .row-acts { display:flex; gap:3px; margin-top:5px; }
+    .col-work .row-acts .ra { width:auto; margin:0; padding:3px 7px; font-size:12px; line-height:1.1;
+      background:#2c2f36; border:1px solid #3a3d44; }
+    .col-work .row-acts .ra:hover { background:#3a6df0; border-color:#3a6df0; }
+    /* TTS·자막 텍스트 편집 패널(✎ 토글) */
+    .col-work .txt-edit { margin-top:6px; padding:6px; background:#1b1d21;
+      border:1px solid #33363c; border-radius:6px; }
+    .col-work .txt-edit[hidden] { display:none; }
+    .col-work .te-label { font-size:11px; color:#9aa0a6; margin:3px 0 2px; }
+    .col-work .te-hint { color:#6d7278; }
+    .col-work .te-diff { color:#e8b339; margin-left:4px; }
+    .col-work .te-reset { width:auto; margin:0 0 0 4px; padding:1px 6px; font-size:10px; }
+    .col-work .txt-edit textarea { width:100%; box-sizing:border-box; font-size:12px;
+      background:#23262b; color:#e6e6e6; border:1px solid #33363c; border-radius:4px; padding:4px; }
+    .col-work .te-acts { display:flex; gap:4px; margin-top:5px; }
+    .col-work .te-acts .mini { width:auto; margin:0; }
+
     /* 모달(이미지 생성 + 레이어 선택 공용) */
     #genModal, #layerModal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100;
       display:flex; align-items:center; justify-content:center; }
@@ -321,6 +339,7 @@
               <button id="btnRefreshCharacters" class="alt">캐릭터</button>
               <button id="btnGalRefresh" class="alt">소스</button>
               <button id="btnBuildAll" class="alt" title="전체 씬을 AE 컴프로 조립">🎬 전체 컴프</button>
+              <button id="btnTimelineAll" class="alt" title="모든 씬 컴프를 현재 타임라인에 시간대로 배치(길이=TTS, 없으면 5초)">⤓ 타임라인</button>
               <button id="btnQueueRender" class="alt" title="Final 컴프를 렌더 큐에 추가">📤 렌더 큐</button>
               <button id="btnSubtitles" class="alt" title="TTS 타임스탬프 기반 말자막 일괄 생성(Final 컴프)">💬 말자막</button>
             </div>

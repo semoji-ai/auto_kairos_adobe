@@ -43,6 +43,41 @@ def test_line_cues_empty_alignment():
     assert subtitles.line_cues({"text": "안녕", "characters": [], "starts": [], "ends": []}) == []
 
 
+def _ts(text, chars, starts, ends):
+    return {"text": text, "characters": chars, "starts": starts, "ends": ends}
+
+
+def test_mapped_cues_identical_text_matches_line_cues():
+    ts = _ts("안녕 하세요", ["안", "녕", " ", "하", "세", "요"],
+             [0.0, 0.2, 0.4, 0.5, 0.7, 0.9], [0.2, 0.4, 0.5, 0.7, 0.9, 1.1])
+    assert subtitles.mapped_cues(ts, "안녕 하세요", max_len=3) == subtitles.line_cues(ts, max_len=3)
+    assert subtitles.mapped_cues(ts, "", max_len=3) == subtitles.line_cues(ts, max_len=3)
+
+
+def test_mapped_cues_uses_subtitle_text_within_sentence_span():
+    # TTS는 숫자를 풀어 읽고, 자막은 숫자 그대로 — 문장 수 1:1
+    ts = _ts("이천이십육 년.", list("이천이십육 년."),
+             [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+             [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+    cues = subtitles.mapped_cues(ts, "2026년.", max_len=20)
+    assert [c["text"] for c in cues] == ["2026년."]      # 화면에는 자막 텍스트
+    assert cues[0]["start"] == 0.0 and cues[0]["end"] == 0.8
+
+
+def test_mapped_cues_sentence_count_mismatch_falls_back_to_ratio():
+    ts = _ts("가나. 다라.", list("가나. 다라."),
+             [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+    cues = subtitles.mapped_cues(ts, "합친 자막", max_len=20)     # 문장 1개 vs 2개
+    assert [c["text"] for c in cues] == ["합친 자막"]
+    assert cues[0]["start"] == 0.0 and cues[0]["end"] == 0.7
+
+
+def test_split_sentences():
+    assert subtitles.split_sentences("가. 나! 다?") == ["가.", "나!", "다?"]
+    assert subtitles.split_sentences("경계 없음") == ["경계 없음"]
+    assert subtitles.split_sentences("") == []
+
+
 def _proj(tmp_path, scenes_list):
     proj = tmp_path / "p"
     (proj / "audio").mkdir(parents=True)
@@ -82,6 +117,37 @@ def test_build_subtitles_offsets_and_fallback(tmp_path, monkeypatch):
     assert srt.startswith("1\n00:00:00,000 --> 00:00:01,100\n안녕 하세요\n")
     assert " --> " in srt
     assert res["json"].endswith("subtitles.json") and res["srt"].endswith("subtitles.srt")
+
+
+def test_build_subtitles_prefers_subtitle_text(tmp_path, monkeypatch):
+    """자막 필드가 따로 있으면 화면 텍스트는 그쪽, 타이밍은 alignment 범위 안."""
+    proj = _proj(tmp_path, [{
+        "sceneNumber": 1, "sceneId": "aaa",
+        "narration": "2026년.", "narration_tts": "이천이십육 년.", "subtitle_text": "2026년.",
+    }])
+    (proj / "audio" / "tts_aaa.mp3").write_bytes(b"x")
+    (proj / "audio" / "tts_aaa.timestamps.json").write_text(json.dumps(_ts(
+        "이천이십육 년.", list("이천이십육 년."),
+        [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+        [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])), encoding="utf-8")
+    monkeypatch.setattr(subtitles.tts, "audio_duration", lambda p: 1.0)
+
+    subtitles.build_subtitles(proj)
+    cues = json.loads((proj / "subtitles.json").read_text(encoding="utf-8"))["cues"]
+    assert [c["text"] for c in cues] == ["2026년."]
+    assert cues[0]["start"] == 0.0 and cues[0]["end"] == 0.8
+
+
+def test_build_subtitles_fallback_uses_subtitle_text(tmp_path):
+    """타임스탬프 없는 씬도 자막 필드를 쓴다(TTS 발음 텍스트가 아니라)."""
+    proj = _proj(tmp_path, [{
+        "sceneNumber": 1, "sceneId": "aaa", "narration": "원고",
+        "narration_tts": "발음용 텍스트", "subtitle_text": "자막용 텍스트",
+        "duration_estimate_sec": 4,
+    }])
+    subtitles.build_subtitles(proj)
+    cues = json.loads((proj / "subtitles.json").read_text(encoding="utf-8"))["cues"]
+    assert [c["text"] for c in cues] == ["자막용 텍스트"]
 
 
 def test_build_subtitles_no_audio_uses_estimate(tmp_path, monkeypatch):

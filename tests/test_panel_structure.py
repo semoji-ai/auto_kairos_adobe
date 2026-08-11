@@ -663,3 +663,16 @@ def test_planning_stepper_ui():
     js = (PANEL / "js" / "planning.js").read_text(encoding="utf-8")
     assert "/api/pipeline/status" in js
     assert "/api/pipeline/run-stage" in js
+
+
+def test_timeline_export_wired():
+    """전체 타임라인 버튼 + jsx 배치 함수 + 씬 행 버튼."""
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="btnTimelineAll"' in html
+    jsx = (PANEL / "jsx" / "place_on_timeline.jsx").read_text(encoding="utf-8")
+    assert "function akPlaceOnTimeline" in jsx
+    sb = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    for fn in ["function exportToTimeline", "function toggleTextEditor", "function saveSceneTexts"]:
+        assert fn in sb, fn
+    for act in ['data-act="img"', 'data-act="tts"', 'data-act="txt"', 'data-act="tl"']:
+        assert act in sb, act

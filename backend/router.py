@@ -7,7 +7,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, timeline
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -222,6 +222,23 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         res = scenes.update_narration(proj_dir, sn, b.get("narration", ""))
         return (200, res) if res.get("ok") else (404, res)
 
+    if method == "POST" and p == "/api/scenes/texts":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        res = scenes.update_texts(proj_dir, b.get("sceneNumber"),
+                                  narration_tts=b.get("narration_tts"),
+                                  subtitle_text=b.get("subtitle_text"))
+        return (200, res) if res.get("ok") else (404, res)
+
+    if method == "POST" and p == "/api/timeline/plan":
+        b = body or {}
+        proj_dir = root / b.get("project_id", "")
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        return 200, timeline.build_plan(proj_dir, only_scene=b.get("sceneNumber"))
+
     if method == "POST" and p in ("/api/scenes/add", "/api/scenes/delete",
                                   "/api/scenes/split", "/api/scenes/merge"):
         b = body or {}
@@ -251,8 +268,10 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             def _do(proj_dir=proj_dir, data=data, voice=voice, jid=jid):
                 results = []
                 for s in data["scenes"]:
-                    text = (s.get("narration_tts") or s.get("narration") or "")
+                    text = scenes.tts_text(s)
                     res = tts.generate_scene_tts(proj_dir, s.get("sceneId"), text, voice=voice)
+                    if res.get("status") == "completed":   # 실제 합성 텍스트를 확정 저장
+                        scenes.update_texts(proj_dir, s.get("sceneNumber"), narration_tts=text)
                     results.append({"sceneNumber": s.get("sceneNumber"), **res})
                     jobs.append_log(jid, f"S{s.get('sceneNumber')}: {res.get('status')}")
                 if not any(x.get("status") == "completed" for x in results):
@@ -267,11 +286,13 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         sc = next((s for s in data["scenes"] if s.get("sceneNumber") == sn), None)
         if not sc:
             return 404, {"error": "씬 없음"}
-        text = (sc.get("narration_tts") or sc.get("narration") or "")
+        text = b.get("text") if (b.get("text") or "").strip() else scenes.tts_text(sc)
         if not text.strip():
             return 422, {"error": "내레이션 비어있음"}
         jid = jobs.create("tts", b.get("project_id", ""))
         res = tts.generate_scene_tts(proj_dir, sc.get("sceneId"), text, voice=voice)
+        if res.get("status") == "completed":               # 실제 합성 텍스트를 확정 저장
+            scenes.update_texts(proj_dir, sn, narration_tts=text)
         jobs.set_status(jid, "completed" if res.get("status") == "completed" else "failed",
                         artifact_paths=[str(proj_dir / "audio")])
         return 200, {"job_id": jid, "result": res}

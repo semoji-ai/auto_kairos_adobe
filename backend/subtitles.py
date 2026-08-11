@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from backend import scenes, tts
@@ -24,6 +25,77 @@ def split_lines(text: str, max_len: int = MAX_LINE) -> list:
     if cur:
         lines.append(cur)
     return lines
+
+
+def split_sentences(text: str) -> list:
+    """문장 경계(.!?。) 기준 분할. 경계가 없으면 [전체]."""
+    parts = [p.strip() for p in re.split(r"(?<=[.!?。])\s+", (text or "").strip()) if p.strip()]
+    return parts
+
+
+def _spread(text: str, start: float, end: float, max_len: int) -> list:
+    """text를 줄로 나눠 [start, end] 구간에 글자수 비율로 배분."""
+    lines = split_lines(text, max_len)
+    if not lines:
+        return []
+    total = sum(len(L) for L in lines) or 1
+    span = max(0.0, end - start)
+    cues, t = [], start
+    for i, L in enumerate(lines):
+        w = span * (len(L) / total)
+        e = end if i == len(lines) - 1 else t + w
+        cues.append({"text": L, "start": round(t, 3), "end": round(e, 3)})
+        t = e
+    return cues
+
+
+def _sentence_span(ts: dict, sent: str, ci: int) -> tuple:
+    """alignment 문자열을 ci부터 소비하며 sent의 [start, end, 다음 ci]. 못 찾으면 (None, None, ci)."""
+    chars, starts, ends = ts.get("characters", []), ts.get("starts", []), ts.get("ends", [])
+    first = last = None
+    for ch in sent:
+        if ch.isspace():
+            continue
+        while ci < len(chars) and chars[ci] != ch:
+            ci += 1
+        if ci >= len(chars):
+            break
+        if first is None:
+            first = ci
+        last = ci
+        ci += 1
+    if first is None or last is None:
+        return None, None, ci
+    try:
+        return float(starts[first]), float(ends[last]), ci
+    except (IndexError, ValueError, TypeError):
+        return None, None, ci
+
+
+def mapped_cues(ts: dict, sub_text: str, max_len: int = MAX_LINE) -> list:
+    """자막 텍스트(sub_text)를 TTS alignment 시간에 얹어 [{text,start,end}] (씬 로컬).
+
+    TTS 텍스트와 자막 텍스트를 문장 단위로 짝지어, 문장의 alignment 구간 안에서
+    자막 줄들을 글자수 비율로 나눈다. 문장 수가 다르면 씬 전체 구간에 비율 배분.
+    자막 텍스트가 TTS 텍스트와 같으면 line_cues와 같은 결과가 된다."""
+    tts_txt = ts.get("text", "")
+    sub_text = (sub_text or "").strip()
+    if not sub_text or sub_text == tts_txt.strip():
+        return line_cues(ts, max_len)
+    tts_sents, sub_sents = split_sentences(tts_txt), split_sentences(sub_text)
+    starts, ends = ts.get("starts", []), ts.get("ends", [])
+    if not starts or not ends:
+        return []
+    scene_start, scene_end = float(starts[0]), float(ends[-1])
+    if len(tts_sents) != len(sub_sents) or not tts_sents:
+        return _spread(sub_text, scene_start, scene_end, max_len)
+    cues, ci = [], 0
+    for tsent, ssent in zip(tts_sents, sub_sents):
+        s0, s1, ci = _sentence_span(ts, tsent, ci)
+        if s0 is None:
+            return _spread(sub_text, scene_start, scene_end, max_len)
+        cues.extend(_spread(ssent, s0, s1, max_len))
+    return cues
 
 
 def _load_ts(proj_dir: Path, sid: str) -> dict | None:
@@ -97,11 +169,11 @@ def build_subtitles(proj_dir: Path) -> dict:
         sid = s.get("sceneId")
         ts = _load_ts(proj_dir, sid) if sid else None
         if ts and ts.get("characters"):
-            for c in line_cues(ts):
+            for c in mapped_cues(ts, scenes.subtitle_text(s)):
                 cues_all.append({"start": round(offset + c["start"], 3),
                                  "end": round(offset + c["end"], 3), "text": c["text"]})
         else:
-            text = (s.get("narration_tts") or s.get("narration") or "").strip()
+            text = scenes.subtitle_text(s)
             if text:
                 no_ts.append(s.get("sceneNumber"))
                 lines = split_lines(text)

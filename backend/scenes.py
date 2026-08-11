@@ -126,6 +126,9 @@ def load_scenes(proj_dir: Path) -> dict:
             "tts": bool(sid and aud.is_dir() and any(aud.glob(f"*{sid}*"))),
             "motion": bool(sid and (proj_dir / f"motion_{sid}.json").is_file()),
         }
+        # 유효 텍스트(필드가 비면 원고 폴백) — 패널이 편집기 초기값으로 사용
+        s["_tts_text"] = tts_text(s)
+        s["_subtitle_text"] = subtitle_text(s)
         s["_theme"] = themes.resolve_theme(proj_dir, s)   # 씬별 resolve(override 반영)
     data["_theme"] = themes.resolve_theme(proj_dir, None)  # 프로젝트 전역 테마
     data["dir"] = str(proj_dir)
@@ -145,6 +148,47 @@ def update_narration(proj_dir: Path, scene_number: int, narration: str) -> dict:
                 s["narration_dirty"] = True
                 fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
                 return {"ok": True, "sceneNumber": scene_number}
+        return {"error": f"scene {scene_number} 없음"}
+
+
+def tts_text(scene: dict) -> str:
+    """씬의 TTS 발음용 텍스트. narration_tts 없으면 narration을 정리해서 반환(저장은 안 함)."""
+    t = (scene.get("narration_tts") or "").strip()
+    if t:
+        return t
+    from backend import tts as _tts
+    return _tts._clean_text(scene.get("narration") or "")
+
+
+def subtitle_text(scene: dict) -> str:
+    """씬의 화면 자막용 텍스트. subtitle_text 없으면 narration."""
+    t = (scene.get("subtitle_text") or "").strip()
+    return t if t else (scene.get("narration") or "").strip()
+
+
+def update_texts(proj_dir: Path, scene_number: int,
+                 narration_tts: str | None = None,
+                 subtitle_text: str | None = None) -> dict:
+    """씬의 TTS/자막 텍스트 저장(부분 갱신). 빈 문자열이면 필드 제거(= 원고 폴백으로 복귀)."""
+    with _LOCK:
+        fp = _path(proj_dir)
+        if not fp.is_file():
+            return {"error": "scenes.json 없음"}
+        data = json.loads(fp.read_text(encoding="utf-8"))
+        for s in data.get("scenes", []):
+            if s.get("sceneNumber") == scene_number:
+                for key, val in (("narration_tts", narration_tts),
+                                 ("subtitle_text", subtitle_text)):
+                    if val is None:
+                        continue
+                    if val.strip():
+                        s[key] = val
+                    else:
+                        s.pop(key, None)
+                fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                return {"ok": True, "sceneNumber": scene_number,
+                        "narration_tts": s.get("narration_tts", ""),
+                        "subtitle_text": s.get("subtitle_text", "")}
         return {"error": f"scene {scene_number} 없음"}
 
 
