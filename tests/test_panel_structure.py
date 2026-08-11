@@ -548,10 +548,16 @@ def test_theme_selector_ui():
     assert "/api/themes/set-project" in js and "/api/themes/set-scene" in js
 
 
-def test_subtitle_anchor_centered():
-    """자막 — 점 텍스트 앵커를 sourceRectAtTime 중앙으로(베이스라인 좌하단 아님)."""
+def test_subtitle_single_layer_keyframed():
+    """자막은 레이어 1개 + Source Text 키프레임 — 줄마다 레이어를 만들면 AE가 멈춘다.
+
+    줄마다 텍스트 길이가 달라지므로 앵커 보정(sourceRectAtTime) 대신
+    가운데 정렬로 수평 위치를 고정한다."""
     jsx = (PANEL / "jsx" / "subtitle_layers.jsx").read_text(encoding="utf-8")
-    assert "sourceRectAtTime" in jsx and "Anchor Point" in jsx
+    assert "setValueAtTime" in jsx and "CENTER_JUSTIFY" in jsx
+    assert "Anchor Point" in jsx and "Position" in jsx
+    assert "akRemoveLegacySubLayers" in jsx          # 예전 줄별 레이어 정리
+    assert "comp.layers.addText" in jsx and jsx.count("comp.layers.addText") == 1
 
 
 def test_preview_hatch_matches_pattern_kind():
@@ -570,13 +576,14 @@ def test_jsx_skips_final_for_scene_comp():
 
 
 def test_all_text_anchors_centered():
-    """모든 텍스트(점/박스)·자막 앵커를 sourceRectAtTime 중앙으로 — 베이스라인 어긋남 방지."""
+    """씬 컴프 텍스트 앵커는 sourceRectAtTime 중앙으로 — 베이스라인 어긋남 방지.
+
+    (자막 레이어는 내용이 시간에 따라 바뀌어 고정 앵커를 쓸 수 없다 —
+     test_subtitle_single_layer_keyframed 참고.)"""
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
     # addTextL이 box 유무와 무관하게 sourceRectAtTime으로 앵커 설정
     assert jsx.count("sourceRectAtTime") >= 1
     assert "Anchor Point" in jsx and "rc.left + rc.width / 2" in jsx
-    sub = (PANEL / "jsx" / "subtitle_layers.jsx").read_text(encoding="utf-8")
-    assert "sourceRectAtTime(0" in sub
 
 
 def test_kinetic_typo_animator():
@@ -676,3 +683,14 @@ def test_timeline_export_wired():
         assert fn in sb, fn
     for act in ['data-act="img"', 'data-act="tts"', 'data-act="txt"', 'data-act="tl"']:
         assert act in sb, act
+
+
+def test_sheet_toolbar_batches_checked_scenes():
+    """컴프·말자막이 체크한 씬 목록을 한 번에 넘긴다(씬마다 반복 호출 금지)."""
+    sb = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert 'id="sa-sub"' in HTML.read_text(encoding="utf-8") or "sa-sub" in sb
+    assert "_assemble(ns," in sb                 # 목록을 통째로
+    assert "buildSubtitles(ns," in sb
+    assert "_runSeq(ns, function (n) {\n      return Promise.resolve(buildSceneComp(n));" not in sb
+    main = (PANEL / "js" / "main.js").read_text(encoding="utf-8")
+    assert "sceneNumbers" in main               # 배열 파라미터 전송

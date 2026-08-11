@@ -161,3 +161,37 @@ def test_build_subtitles_no_audio_uses_estimate(tmp_path, monkeypatch):
     # 씬2 오프셋 = 씬1 estimate(5초); 씬2 길이=기본 3.0
     assert cues[1]["start"] == 5.0
     assert res["scenes_no_ts"] == [1, 2]
+
+
+def test_build_subtitles_only_scenes_keeps_global_offsets(tmp_path):
+    """체크한 씬만 빌드해도 시각은 전체 기준 — 부분 빌드가 타이밍을 어긋내지 않는다."""
+    proj = _proj(tmp_path, [
+        {"sceneNumber": 1, "sceneId": "a", "narration": "첫째", "duration_estimate_sec": 4},
+        {"sceneNumber": 2, "sceneId": "b", "narration": "둘째", "duration_estimate_sec": 4},
+        {"sceneNumber": 3, "sceneId": "c", "narration": "셋째", "duration_estimate_sec": 4},
+    ])
+    res = subtitles.build_subtitles(proj, only_scenes=[3])
+    cues = json.loads((proj / "subtitles.json").read_text(encoding="utf-8"))["cues"]
+    assert [c["text"] for c in cues] == ["셋째"]
+    assert cues[0]["start"] == 8.0          # 앞 두 씬 길이만큼 밀려 있음
+    assert res["scenes_no_ts"] == [3]
+
+
+def test_subtitle_shows_original_not_tts_reading(tmp_path, monkeypatch):
+    """v3에서 넘어온 프로젝트: narration_tts는 숫자를 풀어 읽지만 자막은 원문."""
+    proj = _proj(tmp_path, [{
+        "sceneNumber": 1, "sceneId": "a",
+        "narration": "1970년대 이야기다.", "narration_tts": "천구백칠십 년대 이야기다.",
+    }])
+    (proj / "audio" / "tts_a.mp3").write_bytes(b"x")
+    chars = list("천구백칠십 년대 이야기다.")
+    (proj / "audio" / "tts_a.timestamps.json").write_text(json.dumps(_ts(
+        "천구백칠십 년대 이야기다.", chars,
+        [i * 0.1 for i in range(len(chars))],
+        [(i + 1) * 0.1 for i in range(len(chars))])), encoding="utf-8")
+    monkeypatch.setattr(subtitles.tts, "audio_duration", lambda p: 1.6)
+
+    subtitles.build_subtitles(proj)
+    cues = json.loads((proj / "subtitles.json").read_text(encoding="utf-8"))["cues"]
+    joined = " ".join(c["text"] for c in cues)
+    assert "1970년대" in joined and "천구백칠십" not in joined

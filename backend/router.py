@@ -321,16 +321,19 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         proj_dir = root / b.get("project_id", "")
         if not proj_dir.is_dir():
             return 404, {"error": "프로젝트 없음"}
-        mres = manifest.build_manifest(proj_dir, only_scene=b.get("sceneNumber"))
+        mres = manifest.build_manifest(proj_dir, only_scene=b.get("sceneNumber"),
+                                       only_scenes=b.get("sceneNumbers"))
+        scope = b.get("sceneNumbers") or ([b["sceneNumber"]] if b.get("sceneNumber") else None)
         vault.log_work(proj_dir, "assemble",
-                       f"매니페스트 빌드(씬 {mres.get('scenes')}개{', 씬 ' + str(b.get('sceneNumber')) + '만' if b.get('sceneNumber') else ''})")
+                       f"매니페스트 빌드(씬 {mres.get('scenes')}개"
+                       + (f", 씬 {','.join(str(x) for x in scope)}만" if scope else "") + ")")
         return 200, mres
 
     if method == "POST" and p == "/api/subtitles/build":
         proj_dir = root / (body or {}).get("project_id", "")
         if not proj_dir.is_dir():
             return 404, {"error": "프로젝트 없음"}
-        res = subtitles.build_subtitles(proj_dir)
+        res = subtitles.build_subtitles(proj_dir, only_scenes=(body or {}).get("sceneNumbers"))
         tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
         if tokens_path.is_file():
             res["ae_tokens"] = str(tokens_path)

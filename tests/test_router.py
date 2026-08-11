@@ -640,8 +640,9 @@ def test_assembly_manifest(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
     monkeypatch.setattr(r.manifest, "build_manifest",
-                        lambda proj_dir, only_scene=None: {"path": str(proj_dir / "manifest.json"),
-                                                           "scenes": 0, "only_scene": only_scene})
+                        lambda proj_dir, only_scene=None, only_scenes=None: {
+                            "path": str(proj_dir / "manifest.json"), "scenes": 0,
+                            "only_scene": only_scene, "only_scenes": only_scenes})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assembly/manifest", {}, {"project_id": "p"}, ctx)
     assert code == 200 and body["path"].endswith("manifest.json") and body["only_scene"] is None
@@ -652,7 +653,9 @@ def test_assembly_manifest_single_scene(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
     monkeypatch.setattr(r.manifest, "build_manifest",
-                        lambda proj_dir, only_scene=None: {"path": "x", "scenes": 1, "only_scene": only_scene})
+                        lambda proj_dir, only_scene=None, only_scenes=None: {
+                            "path": "x", "scenes": 1,
+                            "only_scene": only_scene, "only_scenes": only_scenes})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assembly/manifest", {},
                                 {"project_id": "p", "sceneNumber": 3}, ctx)
@@ -890,8 +893,9 @@ def test_subtitles_build_endpoint(monkeypatch, tmp_path):
     proj.mkdir()
     called = {}
 
-    def fake_build(proj_dir):
+    def fake_build(proj_dir, only_scenes=None):
         called["dir"] = str(proj_dir)
+        called["only_scenes"] = only_scenes
         return {"json": str(proj_dir / "subtitles.json"), "srt": str(proj_dir / "subtitles.srt"),
                 "lines": 7, "scenes_no_ts": [2]}
 
@@ -901,6 +905,10 @@ def test_subtitles_build_endpoint(monkeypatch, tmp_path):
     code, body = handle_request("POST", "/api/subtitles/build", {},
                                 {"project_id": "demoS"}, ctx)
     assert code == 200 and body["lines"] == 7 and body["scenes_no_ts"] == [2]
+    assert called["only_scenes"] is None
+    handle_request("POST", "/api/subtitles/build", {},
+                   {"project_id": "demoS", "sceneNumbers": [2, 5]}, ctx)
+    assert called["only_scenes"] == [2, 5]      # 체크한 씬만 빌드
     assert called["dir"] == str(proj)
     assert body["ae_tokens"].endswith("ae_tokens.json")     # manifest와 동일 토큰 경로
 
@@ -1077,3 +1085,18 @@ def test_timeline_plan_endpoint(tmp_path):
     code, one = handle_request("POST", "/api/timeline/plan", {},
                                {"project_id": "p1", "sceneNumber": 2}, ctx)
     assert code == 200 and len(one["items"]) == 1 and one["items"][0]["start"] == 5.0
+
+
+def test_assembly_manifest_scene_list(tmp_path, monkeypatch):
+    """체크한 씬 여러 개 — 한 번의 호출로 목록을 넘긴다."""
+    import backend.router as r
+    proj = tmp_path / "p"; proj.mkdir()
+    (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
+    monkeypatch.setattr(r.manifest, "build_manifest",
+                        lambda proj_dir, only_scene=None, only_scenes=None: {
+                            "path": "x", "scenes": len(only_scenes or []),
+                            "only_scene": only_scene, "only_scenes": only_scenes})
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, body = handle_request("POST", "/api/assembly/manifest", {},
+                                {"project_id": "p", "sceneNumbers": [1, 4, 9]}, ctx)
+    assert code == 200 and body["only_scenes"] == [1, 4, 9] and body["scenes"] == 3

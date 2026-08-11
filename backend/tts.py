@@ -108,13 +108,28 @@ def _parse_afinfo_duration(text: str) -> float:
     return float(m.group(1)) if m else 0.0
 
 
+_DUR_CACHE: dict = {}      # (경로, mtime_ns, size) -> 길이. 파일이 바뀌면 키가 달라져 자동 무효화
+
+
 def audio_duration(path: Path) -> float:
-    """afinfo로 길이(초). wav·mp3 모두 가능. 실패 시 0.0."""
+    """afinfo로 길이(초). wav·mp3 모두 가능. 실패 시 0.0.
+
+    씬이 100개 넘는 프로젝트는 시트를 열 때마다 afinfo를 그만큼 띄우게 되므로
+    (경로, mtime, 크기) 기준으로 캐시한다."""
+    try:
+        st = Path(path).stat()
+        key = (str(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return 0.0
+    if key in _DUR_CACHE:
+        return _DUR_CACHE[key]
     try:
         r = subprocess.run(["afinfo", str(path)], capture_output=True, text=True, timeout=20)
-        return _parse_afinfo_duration(r.stdout)
+        dur = _parse_afinfo_duration(r.stdout)
     except Exception:
         return 0.0
+    _DUR_CACHE[key] = dur
+    return dur
 
 
 def _eleven_fetch(text: str, cfg: dict | None = None):

@@ -56,13 +56,22 @@ def _alpha_foot(path: Path) -> list | None:
         return None
 
 
-def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
-    """manifest.json 생성. only_scene 지정 시 그 씬만(manifest_scene_{n}.json). 반환 {path, scenes}."""
+def build_manifest(proj_dir: Path, only_scene: int | None = None,
+                   only_scenes: list | None = None) -> dict:
+    """manifest.json 생성. 반환 {path, scenes}.
+
+    only_scene = 한 씬(manifest_scene_{n}.json), only_scenes = 여러 씬(manifest_subset.json).
+    둘 다 없으면 전체(manifest.json). 부분 빌드는 Final 컴프를 만들지 않는다(skipFinal)."""
     proj_dir = Path(proj_dir)
     data = scenes.load_scenes(proj_dir)
+    picked = None
+    if only_scenes:
+        picked = {int(x) for x in only_scenes}
+    elif only_scene is not None:
+        picked = {int(only_scene)}
     out_scenes = []
     for s in data.get("scenes", []):
-        if only_scene is not None and s.get("sceneNumber") != only_scene:
+        if picked is not None and s.get("sceneNumber") not in picked:
             continue
         sid = s.get("sceneId")
         audio = _abs(proj_dir, s["_audio"]) if s.get("_audio") else None
@@ -146,7 +155,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             "image": None if is_layout_scene else (_abs(proj_dir, s["_image"]) if s.get("_image") else None),
             "layers": layers,
             "audio": audio,
-            "subtitle": s.get("narration", "") or "",
+            "subtitle": scenes.subtitle_text(s),   # 화면 표시용(TTS 발음 텍스트 아님)
             "duration": dur,
             "layout": layout,
             **data_fields,
@@ -155,14 +164,20 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None) -> dict:
             **({"chartSpec": chart_spec} if chart_spec else {}),
         })
     mf = {"width": W, "height": H, "fps": FPS, "scenes": out_scenes}
-    if only_scene is not None:
-        mf["skipFinal"] = True   # 씬별 컴프 — Final은 전체 컴프 때만(jsx가 스킵)
+    if picked is not None:
+        mf["skipFinal"] = True   # 부분 빌드 — Final은 전체 컴프 때만(jsx가 스킵)
     tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
     if tokens_path.is_file():
         mf["ae_tokens"] = str(tokens_path)
     proj_theme = themes.resolve_theme(proj_dir, None)
     if proj_theme.get("colors"):
         mf["themeColors"] = proj_theme["colors"]   # jsx가 ae_tokens.colors 위에 오버라이드
-    out = proj_dir / (f"manifest_scene_{only_scene}.json" if only_scene is not None else "manifest.json")
+    if only_scenes:
+        name = "manifest_subset.json"
+    elif only_scene is not None:
+        name = f"manifest_scene_{only_scene}.json"
+    else:
+        name = "manifest.json"
+    out = proj_dir / name
     out.write_text(json.dumps(mf, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"path": str(out), "scenes": len(out_scenes)}

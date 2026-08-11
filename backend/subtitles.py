@@ -157,15 +157,22 @@ def _fmt_srt_time(sec: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-def build_subtitles(proj_dir: Path) -> dict:
-    """전 씬 자막 빌드 → subtitles.json([{start,end,text}] 전역) + subtitles.srt.
-    타임스탬프 없는 씬은 균등 분배 폴백. 반환 {json, srt, lines, scenes_no_ts}."""
+def build_subtitles(proj_dir: Path, only_scenes: list | None = None) -> dict:
+    """자막 빌드 → subtitles.json([{start,end,text}] 전역) + subtitles.srt.
+    타임스탬프 없는 씬은 균등 분배 폴백. 반환 {json, srt, lines, scenes_no_ts}.
+
+    only_scenes 를 주면 그 씬들의 자막만 담는다. 오프셋은 전체 씬 기준으로 누적하므로
+    부분 빌드도 전체 빌드와 같은 시각에 놓인다."""
     proj_dir = Path(proj_dir)
     data = scenes.load_scenes(proj_dir)
     durs = _scene_durations(proj_dir, data)
+    picked = {int(x) for x in only_scenes} if only_scenes else None
     cues_all, no_ts = [], []
     offset = 0.0
     for s, dur in zip(data.get("scenes", []), durs):
+        if picked is not None and s.get("sceneNumber") not in picked:
+            offset += dur                       # 건너뛰어도 시각은 전체 기준 유지
+            continue
         sid = s.get("sceneId")
         ts = _load_ts(proj_dir, sid) if sid else None
         if ts and ts.get("characters"):

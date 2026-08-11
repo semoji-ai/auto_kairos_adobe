@@ -264,3 +264,30 @@ def test_scene_manifest_skips_final(tmp_path):
     manifest.build_manifest(d)
     m2 = json.loads((d / "manifest.json").read_text())
     assert "skipFinal" not in m2 and len(m2["scenes"]) == 2
+
+
+def test_build_manifest_only_scenes_subset(tmp_path):
+    """체크한 씬 여러 개를 한 번에 — 전체를 돌지 않는다."""
+    import json as _j
+    from backend import manifest as _m
+    (tmp_path / "scenes.json").write_text(_j.dumps({"scenes": [
+        {"sceneNumber": i, "sceneId": f"s{i}", "narration": f"씬 {i}"} for i in range(1, 8)
+    ]}, ensure_ascii=False), encoding="utf-8")
+    res = _m.build_manifest(tmp_path, only_scenes=[2, 4, 6])
+    assert res["scenes"] == 3
+    assert res["path"].endswith("manifest_subset.json")
+    mf = _j.loads(Path(res["path"]).read_text(encoding="utf-8"))
+    assert [s["ae_comp_name"] for s in mf["scenes"]] == ["S02_s2", "S04_s4", "S06_s6"]
+    assert mf["skipFinal"] is True          # 부분 빌드는 Final을 다시 만들지 않음
+    # 전체 빌드는 그대로
+    assert _m.build_manifest(tmp_path)["scenes"] == 7
+
+
+def test_build_manifest_subtitle_uses_subtitle_text(tmp_path):
+    import json as _j
+    from backend import manifest as _m
+    (tmp_path / "scenes.json").write_text(_j.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "a", "narration": "1970년대",
+         "narration_tts": "천구백칠십 년대"}]}, ensure_ascii=False), encoding="utf-8")
+    mf = _j.loads(Path(_m.build_manifest(tmp_path)["path"]).read_text(encoding="utf-8"))
+    assert mf["scenes"][0]["subtitle"] == "1970년대"

@@ -432,9 +432,15 @@ function bindSheetToolbar() {
     var ns = _needChecked(1, "모션 플랜"); if (ns) _runSeq(ns, planMotion);
   });
   on("sa-comp", function () {
-    var ns = _needChecked(1, "AE 컴프"); if (ns) _runSeq(ns, function (n) {
-      return Promise.resolve(buildSceneComp(n));
-    });
+    var ns = _needChecked(1, "AE 컴프"); if (!ns) return;
+    // 체크한 씬 전체를 한 번에 — 씬마다 매니페스트·jsx를 반복하면 씬 많은 프로젝트에서 몇 분씩 걸린다
+    var st = $("sa-status");
+    _assemble(ns, function (m) { if (st) st.textContent = m; $("aeresult").textContent = m; });
+  });
+  on("sa-sub", function () {
+    var ns = _needChecked(1, "말자막"); if (!ns) return;
+    var st2 = $("sa-status");
+    buildSubtitles(ns, function (m) { if (st2) st2.textContent = m; $("aeresult").textContent = m; });
   });
   on("sa-map", function () {
     var ns = _needChecked(1, "지도 렌더"); if (!ns) return;
