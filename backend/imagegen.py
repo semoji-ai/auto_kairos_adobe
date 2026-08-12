@@ -382,6 +382,256 @@ def _retire_layer(out_base: Path, path: Path) -> None:
         pass
 
 
+QC_MIN, QC_MAX = 0.05, 0.98     # transparent_ratio 정상 범위(요소 레이어만)
+QC_POS_MIN = 0.5                # position_score 하한 — 미만이면 확대/이동돼 그려진 것
+
+ELEMENTS_SIDECAR = "{sid}__elements.json"
+KINDS_SIDECAR = "{sid}__kinds.json"
+
+
+def _scene_size(scene_image: str):
+    """씬 크기 — 모든 레이어를 이 크기로 정규화(겹침 보장). 실패 시 None."""
+    try:
+        return Image.open(scene_image).size
+    except Exception:
+        return None
+
+
+def _qc_feedback(ratio, pos):
+    """QC 불합격 사유 → 재시도 피드백 한 줄. 합격이면 None."""
+    if ratio is not None and ratio < QC_MIN:
+        return "이전 시도에서 마젠타 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 마젠타로."
+    if ratio is not None and ratio > QC_MAX:
+        return "이전 시도에서 요소가 거의 그려지지 않았다(전부 마젠타). 요소를 분명히 그려라."
+    if pos is not None and pos < QC_POS_MIN:
+        return ("이전 시도에서 요소가 원본과 다른 위치/크기로 그려졌다. "
+                "원본 씬에서 이 요소가 차지하는 정확히 같은 좌표·같은 크기로 그려라 — "
+                "확대하거나 중앙으로 옮기지 말 것.")
+    return None
+
+
+def _gen_element_once(proj_dir: Path, scene_image: str, out: Path, prompt: str, scene_size):
+    """요소 레이어 1회 생성 + 후처리 → (res, transparent_ratio, position_score)."""
+    ratio_box = {}
+
+    def _post(o):
+        # raw(chroma 전) 보존 — 텍스처/화질 검수용. layers/_raw/{name}(무삭제·덮어쓰기)
+        raw_dir = o.parent / "_raw"
+        raw_dir.mkdir(exist_ok=True)
+        shutil.copy(o, raw_dir / o.name)
+        flatten_colors(o)                       # 구름 얼룩 제거(색 양자화) → 그 후 마젠타 키잉
+        ratio_box.update(chroma_key_magenta(o, o))
+
+    res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
+    pos = None
+    if res.get("status") == "completed":
+        if scene_size and _aspect_mismatch(out, scene_size):
+            # 비율 자체가 다르면 늘리면 찌그러짐 → 리사이즈하지 않고 QC 불합격(pos=0)으로 재시도 유도
+            return res, ratio_box.get("transparent_ratio"), 0.0
+        if scene_size:
+            normalize_layer_size(out, scene_size)   # 같은 비율의 크기 변칙만 보정
+        pos = position_score(out, scene_image)      # 원위치 충실도
+    return res, ratio_box.get("transparent_ratio"), pos
+
+
+def generate_element_layer(proj_dir: Path, scene_image: str, sid: str, index: int, spec: dict,
+                           others: list, *, out_base: Path, scene_size=None,
+                           style: str | None = None, on_event=None) -> dict:
+    """요소 레이어 1개 생성(QC 불합격 시 1회 재시도, 탈락본은 _prev로).
+    전체 분리·낱개 재생성이 공유한다. 반환 {name, rel, status, qc, pos_score}."""
+    style = load_style() if style is None else style
+    scene_size = scene_size if scene_size is not None else _scene_size(scene_image)
+    name, loc = spec.get("name", f"el{index}"), spec.get("location", "")
+    # 캐릭터 레이어는 _char 접미사 — AE 레이어명에 노출 + 결정적 모션 규칙의 앵커
+    tag = "_char" if spec.get("kind") == "character" else ""
+    base_name = f"{sid}__{index}_{_layer_slug(name)}{tag}.png"
+    out = versioned_path(out_base, base_name)
+    rel = out.relative_to(proj_dir).as_posix()
+    prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
+    res, ratio, pos = _gen_element_once(proj_dir, scene_image, out, prompt, scene_size)
+    qc = None
+    fb = _qc_feedback(ratio, pos) if res.get("status") == "completed" else None
+    if fb:
+        out2 = versioned_path(out_base, base_name)              # 새 파일(무삭제)
+        rel2 = out2.relative_to(proj_dir).as_posix()
+        # 재시도 프롬프트는 반드시 새 파일 경로로 다시 빌드 — 1차 경로가 들어가면
+        # codex가 1차본을 raw로 덮어쓰고 out2는 미생성(E2E에서 발견된 버그)
+        prompt2 = build_element_layer_prompt(name, loc, style, rel2, others=others)
+        res2, ratio2, pos2 = _gen_element_once(proj_dir, scene_image, out2,
+                                               prompt2 + "\n[재시도 피드백] " + fb, scene_size)
+        if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2) is None:
+            _retire_layer(out_base, out)            # 탈락한 1차본 → _prev (중복 방지·무삭제)
+            out, rel, res, qc, pos = out2, rel2, res2, "retried_ok", pos2
+        else:
+            # 1차본 유지 + 저품질 표시. 최종 파일이 키잉 안 된 raw일 가능성 가드:
+            # 마젠타가 그대로면(투명비 ~0) chroma 재적용(멱등 — 이미 키잉된 파일엔 무해)
+            try:
+                if out.exists():
+                    rr = chroma_key_magenta(out, out)
+                    if scene_size:
+                        normalize_layer_size(out, scene_size)
+                    ratio = rr.get("transparent_ratio", ratio)
+            except Exception:
+                pass
+            _retire_layer(out_base, out2)           # 재시도본도 탈락 → _prev (중복 방지)
+            res = {"status": "completed_lowq", "path": str(out)}
+    r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc,
+         "pos_score": pos}                                          # 풀프레임 레이어(크롭 안 함)
+    if on_event:
+        on_event(r)
+    return r
+
+
+def generate_background_layer(proj_dir: Path, scene_image: str, sid: str, names: list, *,
+                              out_base: Path, scene_size=None, style: str | None = None,
+                              on_event=None) -> dict:
+    """배경 레이어 생성 — names의 요소들을 지운 배경. 실패 시 1회 재시도(배경은 필수).
+    요소를 삭제하면 그 요소는 배경에 남아야 하므로 남은 이름들로 다시 부른다."""
+    style = load_style() if style is None else style
+    scene_size = scene_size if scene_size is not None else _scene_size(scene_image)
+    joined = ", ".join(n for n in names if n)
+    res, out, rel = None, None, None
+    for bg_try in range(2):                          # 배경은 필수 — 실패 시 1회 재시도
+        out = versioned_path(out_base, f"{sid}__bg.png")
+        rel = out.relative_to(proj_dir).as_posix()
+        prompt = (f"{style}\n\n## 레이어 분리 — 배경\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
+                  f"다음 요소들과 '그 위에 얹혀 있거나 붙어 있는 것'까지 함께 제거한다: {joined}.\n"
+                  f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
+                  f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
+                  f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
+        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
+        if res.get("status") == "completed":
+            if scene_size:
+                normalize_layer_size(out, scene_size)   # 배경도 동일 크기 보장
+            break
+        if on_event:
+            on_event({"name": "배경", "status": "재시도", "try": bg_try + 1})
+    r = {"name": "배경", "rel": rel, "status": res.get("status")}
+    if on_event:
+        on_event(r)
+    return r
+
+
+def write_element_specs(out_base: Path, sid: str, specs: list) -> None:
+    """요소 명세 사이드카 저장(실패해도 분리 자체는 유효 — 낱개 재생성만 품질이 떨어진다)."""
+    try:
+        (Path(out_base) / ELEMENTS_SIDECAR.format(sid=sid)).write_text(
+            json.dumps(specs, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _specs_from_filenames(out_base: Path, sid: str) -> list:
+    """사이드카가 없는 옛 프로젝트 복원 — 파일명 {sid}__{i}_{슬러그}[_char] + kinds.json.
+    location은 복원할 수 없어 빈 문자열(프롬프트 품질만 조금 떨어진다)."""
+    kinds = {}
+    kp = Path(out_base) / KINDS_SIDECAR.format(sid=sid)
+    if kp.is_file():
+        try:
+            kinds = json.loads(kp.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            kinds = {}
+    specs = []
+    for path in sorted(Path(out_base).glob(f"{sid}__*.png")):
+        stem = path.stem
+        tail = stem[len(sid) + 2:]                  # "{i}_{슬러그}[_char]" 또는 "bg"
+        if tail == "bg" or not tail:
+            continue
+        num, _, rest = tail.partition("_")
+        if not num.isdigit():
+            continue
+        rest = re.sub(r"_v\d+$", "", rest)          # versioned_path 접미사 제거
+        kind = kinds.get(stem) or ("character" if rest.endswith("_char") else "object")
+        name = rest[:-5] if rest.endswith("_char") else rest
+        specs.append({"layer": stem, "index": int(num), "name": name.replace("_", " ").strip(),
+                      "location": "", "kind": kind})
+    return specs
+
+
+def load_element_specs(out_base: Path, sid: str) -> list:
+    """요소 명세 목록. 사이드카 우선, 없으면 파일명에서 복원."""
+    fp = Path(out_base) / ELEMENTS_SIDECAR.format(sid=sid)
+    if fp.is_file():
+        try:
+            specs = json.loads(fp.read_text(encoding="utf-8"))
+            if isinstance(specs, list) and specs:
+                return specs
+        except (json.JSONDecodeError, OSError):
+            pass
+    return _specs_from_filenames(out_base, sid)
+
+
+def _stem_of(layer: str) -> str:
+    """'layers/ab__0_x.png' | 'ab__0_x.png' | 'ab__0_x' → 'ab__0_x'."""
+    return Path(str(layer)).stem
+
+
+def is_background_layer(layer: str) -> bool:
+    return _stem_of(layer).endswith("__bg") or "__bg_v" in _stem_of(layer)
+
+
+def delete_layer(proj_dir: Path, sid: str, layer: str, *, subdir: str = "layers") -> dict:
+    """요소 레이어 1개를 _prev로 치우고 사이드카에서 제거. 배경은 삭제 대상이 아니다.
+    반환 {ok, removed, remaining_names} 또는 {error}. 배경 재생성은 호출자(잡)가 한다."""
+    out_base = Path(proj_dir) / subdir
+    stem = _stem_of(layer)
+    if is_background_layer(stem):
+        return {"error": "배경 레이어는 삭제할 수 없습니다 — 재생성만 가능합니다"}
+    target = None
+    for p in out_base.glob(f"{stem}.png"):
+        target = p
+        break
+    if target is None or not target.is_file():
+        return {"error": f"레이어 없음: {stem}"}
+    specs = [s for s in load_element_specs(out_base, sid) if s.get("layer") != stem]
+    _retire_layer(out_base, target)
+    write_element_specs(out_base, sid, specs)
+    kp = out_base / KINDS_SIDECAR.format(sid=sid)
+    if kp.is_file():
+        try:
+            kinds = json.loads(kp.read_text(encoding="utf-8"))
+            kinds.pop(stem, None)
+            kp.write_text(json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {"ok": True, "removed": stem,
+            "remaining_names": [s.get("name", "") for s in specs]}
+
+
+def regenerate_layer(proj_dir: Path, scene_image: str, sid: str, layer: str, *,
+                     subdir: str = "layers", on_event=None) -> dict:
+    """레이어 1개만 다시 생성. 배경이면 남은 요소 기준으로 배경을, 아니면 그 요소만.
+    이전 파일은 _prev로 치운다(무삭제)."""
+    out_base = Path(proj_dir) / subdir
+    out_base.mkdir(parents=True, exist_ok=True)
+    specs = load_element_specs(out_base, sid)
+    style = load_style()
+    scene_size = _scene_size(scene_image)
+    stem = _stem_of(layer)
+    if is_background_layer(stem):
+        for p in out_base.glob(f"{sid}__bg*.png"):
+            _retire_layer(out_base, p)
+        r = generate_background_layer(proj_dir, scene_image, sid,
+                                      [s.get("name", "") for s in specs],
+                                      out_base=out_base, scene_size=scene_size,
+                                      style=style, on_event=on_event)
+        return {"layer": r}
+    spec = next((s for s in specs if s.get("layer") == stem), None)
+    if spec is None:
+        return {"error": f"요소 명세 없음: {stem}"}
+    old = out_base / f"{stem}.png"
+    others = [s.get("name", "") for s in specs if s.get("layer") != stem]
+    r = generate_element_layer(proj_dir, scene_image, sid, int(spec.get("index") or 0), spec,
+                               others, out_base=out_base, scene_size=scene_size,
+                               style=style, on_event=on_event)
+    if r.get("status", "").startswith("completed") and old.is_file() \
+            and Path(r["rel"]).stem != stem:
+        _retire_layer(out_base, old)                # 새 버전이 생겼으면 이전 판은 치운다
+        specs = [dict(s, layer=Path(r["rel"]).stem) if s.get("layer") == stem else s for s in specs]
+        write_element_specs(out_base, sid, specs)
+    return {"layer": r}
+
+
 def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
                             *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
     """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
@@ -390,127 +640,36 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
     out_base.mkdir(parents=True, exist_ok=True)
     _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제: _prev로 이동)
     style = load_style()
-    try:                                    # 씬 크기 — 모든 레이어를 이 크기로 정규화(겹침 보장)
-        scene_size = Image.open(scene_image).size
-    except Exception:
-        scene_size = None
-
+    scene_size = _scene_size(scene_image)
     all_names = [e.get("name", "") for e in elements]
-    QC_MIN, QC_MAX = 0.05, 0.98     # transparent_ratio 정상 범위(요소 레이어만)
-    QC_POS_MIN = 0.5                # position_score 하한 — 미만이면 확대/이동돼 그려진 것
-
-    def _gen_element_once(out, prompt):
-        ratio_box = {}
-
-        def _post(o):
-            # raw(chroma 전) 보존 — 텍스처/화질 검수용. layers/_raw/{name}(무삭제·덮어쓰기)
-            raw_dir = o.parent / "_raw"
-            raw_dir.mkdir(exist_ok=True)
-            shutil.copy(o, raw_dir / o.name)
-            flatten_colors(o)                       # 구름 얼룩 제거(색 양자화) → 그 후 마젠타 키잉
-            ratio_box.update(chroma_key_magenta(o, o))
-
-        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
-        pos = None
-        if res.get("status") == "completed":
-            if scene_size and _aspect_mismatch(out, scene_size):
-                # 비율 자체가 다르면 늘리면 찌그러짐 → 리사이즈하지 않고 QC 불합격(pos=0)으로 재시도 유도
-                return res, ratio_box.get("transparent_ratio"), 0.0
-            if scene_size:
-                normalize_layer_size(out, scene_size)   # 같은 비율의 크기 변칙만 보정
-            pos = position_score(out, scene_image)      # 원위치 충실도
-        return res, ratio_box.get("transparent_ratio"), pos
-
-    def _qc_feedback(ratio, pos):
-        """QC 불합격 사유 → 재시도 피드백 한 줄. 합격이면 None."""
-        if ratio is not None and ratio < QC_MIN:
-            return "이전 시도에서 마젠타 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 마젠타로."
-        if ratio is not None and ratio > QC_MAX:
-            return "이전 시도에서 요소가 거의 그려지지 않았다(전부 마젠타). 요소를 분명히 그려라."
-        if pos is not None and pos < QC_POS_MIN:
-            return ("이전 시도에서 요소가 원본과 다른 위치/크기로 그려졌다. "
-                    "원본 씬에서 이 요소가 차지하는 정확히 같은 좌표·같은 크기로 그려라 — "
-                    "확대하거나 중앙으로 옮기지 말 것.")
-        return None
 
     def _element(i_el):
         i, el = i_el
-        name, loc = el.get("name", f"el{i}"), el.get("location", "")
-        # 캐릭터 레이어는 _char 접미사 — AE 레이어명에 노출 + 결정적 모션 규칙의 앵커
-        tag = "_char" if el.get("kind") == "character" else ""
-        base_name = f"{sid}__{i}_{_layer_slug(name)}{tag}.png"
-        out = versioned_path(out_base, base_name)
-        rel = out.relative_to(proj_dir).as_posix()
         others = [nm for j, nm in enumerate(all_names) if j != i]   # 다른 선택 요소는 제외
-        prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
-        res, ratio, pos = _gen_element_once(out, prompt)
-        qc = None
-        fb = _qc_feedback(ratio, pos) if res.get("status") == "completed" else None
-        if fb:
-            out2 = versioned_path(out_base, base_name)              # 새 파일(무삭제)
-            rel2 = out2.relative_to(proj_dir).as_posix()
-            # 재시도 프롬프트는 반드시 새 파일 경로로 다시 빌드 — 1차 경로가 들어가면
-            # codex가 1차본을 raw로 덮어쓰고 out2는 미생성(E2E에서 발견된 버그)
-            prompt2 = build_element_layer_prompt(name, loc, style, rel2, others=others)
-            res2, ratio2, pos2 = _gen_element_once(out2, prompt2 + "\n[재시도 피드백] " + fb)
-            if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2) is None:
-                _retire_layer(out_base, out)            # 탈락한 1차본 → _prev (중복 방지·무삭제)
-                out, rel, res, qc, pos = out2, rel2, res2, "retried_ok", pos2
-            else:
-                # 1차본 유지 + 저품질 표시. 최종 파일이 키잉 안 된 raw일 가능성 가드:
-                # 마젠타가 그대로면(투명비 ~0) chroma 재적용(멱등 — 이미 키잉된 파일엔 무해)
-                try:
-                    if out.exists():
-                        rr = chroma_key_magenta(out, out)
-                        if scene_size:
-                            normalize_layer_size(out, scene_size)
-                        ratio = rr.get("transparent_ratio", ratio)
-                except Exception:
-                    pass
-                _retire_layer(out_base, out2)           # 재시도본도 탈락 → _prev (중복 방지)
-                res = {"status": "completed_lowq", "path": str(out)}
-        r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc,
-             "pos_score": pos}                                          # 풀프레임 레이어(크롭 안 함)
-        if on_event:
-            on_event(r)
-        return r
+        return generate_element_layer(proj_dir, scene_image, sid, i, el, others,
+                                      out_base=out_base, scene_size=scene_size,
+                                      style=style, on_event=on_event)
 
-    def _bg():
-        names = ", ".join(e.get("name", "") for e in elements)
-        res, out, rel = None, None, None
-        for bg_try in range(2):                          # 배경은 필수 — 실패 시 1회 재시도
-            out = versioned_path(out_base, f"{sid}__bg.png")
-            rel = out.relative_to(proj_dir).as_posix()
-            prompt = (f"{style}\n\n## 레이어 분리 — 배경\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
-                      f"다음 요소들과 '그 위에 얹혀 있거나 붙어 있는 것'까지 함께 제거한다: {names}.\n"
-                      f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
-                      f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
-                      f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
-            res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
-            if res.get("status") == "completed":
-                if scene_size:
-                    normalize_layer_size(out, scene_size)   # 배경도 동일 크기 보장
-                break
-            if on_event:
-                on_event({"name": "배경", "status": "재시도", "try": bg_try + 1})
-        r = {"name": "배경", "rel": rel, "status": res.get("status")}
-        if on_event:
-            on_event(r)
-        return r
-
-    layers = []
     tasks = list(enumerate(elements))
     with ThreadPoolExecutor(max_workers=max(1, int(concurrency))) as ex:
         layers = list(ex.map(_element, tasks))
-    layers.append(_bg())
+    layers.append(generate_background_layer(proj_dir, scene_image, sid, all_names,
+                                            out_base=out_base, scene_size=scene_size,
+                                            style=style, on_event=on_event))
     # 레이어별 kind(인물/사물) 사이드카 — 모션 규칙(캐릭터만 bob)에 사용
-    kinds = {}
+    # + 요소 명세 사이드카 — 낱개 재생성·배경 재생성이 프롬프트 재료로 쓴다
+    kinds, specs = {}, []
     for i, el in enumerate(elements):
         match = [r for r in layers if r.get("rel", "").split("/")[-1].startswith(f"{sid}__{i}_")]
-        if match:
-            kinds[Path(match[0]["rel"]).stem] = el.get("kind", "object")
-    (out_base / f"{sid}__kinds.json").write_text(
+        if not match:
+            continue
+        stem = Path(match[0]["rel"]).stem
+        kinds[stem] = el.get("kind", "object")
+        specs.append({"layer": stem, "index": i, "name": el.get("name", ""),
+                      "location": el.get("location", ""), "kind": el.get("kind", "object")})
+    (out_base / KINDS_SIDECAR.format(sid=sid)).write_text(
         json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_element_specs(out_base, sid, specs)
     return {"layers": layers}
 
 

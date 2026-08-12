@@ -221,8 +221,15 @@ function renderRow(s, dir) {
   var n = s.sceneNumber;
   var media = _previewHTML(s, dir);   // 컴프 결과 미리보기(배경+레이아웃+자막)
   var layers = (s._layers || []).map(function (lp) {
-    return '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp)
-      + ' — 클릭하면 씬 위에 위치 확인(빨간 윤곽선)">';
+    var stem = lp.split("/").pop().replace(/\.png$/i, "");
+    var isBg = /__bg(_v\d+)?$/.test(stem);
+    return '<span class="lyr-item" data-scene="' + n + '" data-layer="' + _esc(stem) + '">'
+      + '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp)
+      + ' — 클릭하면 씬 위에 위치 확인(빨간 윤곽선)">'
+      + '<span class="lyr-acts">'
+      +   (isBg ? '' : '<button class="lyr-del" title="이 레이어를 빼고 배경을 다시 만듭니다">✕</button>')
+      +   '<button class="lyr-regen" title="' + (isBg ? '배경 다시 생성' : '이 레이어만 다시 생성') + '">↻</button>'
+      + '</span></span>';
   }).join("");
   var chars = (s.characters || []).join(", ");
   var st = s._status || {};
@@ -366,6 +373,22 @@ function bindRows(scope) {
   for (var rs = 0; rs < resets.length; rs++) {
     resets[rs].addEventListener("click", function () {
       resetSceneText(this.getAttribute("data-scene"), this.getAttribute("data-kind"));
+    });
+  }
+  var dels = scope.querySelectorAll("button.lyr-del");
+  for (var dl = 0; dl < dels.length; dl++) {
+    dels[dl].addEventListener("click", function (ev) {
+      ev.stopPropagation();                       // 썸네일 오버레이 토글과 겹치지 않게
+      var it = this.closest(".lyr-item");
+      deleteLayer(it.getAttribute("data-scene"), it.getAttribute("data-layer"));
+    });
+  }
+  var regs = scope.querySelectorAll("button.lyr-regen");
+  for (var rgn = 0; rgn < regs.length; rgn++) {
+    regs[rgn].addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      var it = this.closest(".lyr-item");
+      regenLayer(it.getAttribute("data-scene"), it.getAttribute("data-layer"));
     });
   }
   var thumbs = scope.querySelectorAll("img.lyr");
@@ -770,6 +793,66 @@ function sceneOp(op, extra) {
       loadSheet();      // 갱신
     })
     .catch(function (e) { alert("오류: " + e); });
+}
+
+/* 레이어 낱개 편집 — 썸네일 위 ✕(삭제) / ↻(재생성) */
+function _layerBusy(n, stem, on) {
+  var it = $("sheet").querySelector('.lyr-item[data-scene="' + n + '"][data-layer="' + stem + '"]');
+  if (it) it.classList.toggle("busy", !!on);
+}
+
+/* 삭제 — 파일은 layers/_prev 로 보존되고, 남은 요소 기준으로 배경을 다시 만든다. */
+function deleteLayer(n, stem) {
+  if (!confirm("레이어 '" + stem + "' 를 뺍니다.\n\n"
+             + "지운 요소는 다시 배경에 포함되어야 하므로 배경을 새로 생성합니다(1~2분).\n"
+             + "파일은 지워지지 않고 layers/_prev 로 이동합니다.")) return;
+  _layerBusy(n, stem, true);
+  _rowStatus(n, "레이어 제거 중...");
+  return fetch(BACKEND + "/api/layers/delete", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), layer: stem }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.ok) { _layerBusy(n, stem, false); _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
+      refreshRow(n);                                   // 썸네일에서 즉시 사라짐
+      _rowStatus(n, "레이어 제거됨 — 배경 다시 만드는 중...");
+      _awaitJob(j.job_id, function (job) {
+        if (job.status === "cancelled" || (job.result && job.result.skipped)) {
+          _rowStatus(n, "레이어 제거됨 (배경은 이후 삭제분과 함께 생성)");
+          return;
+        }
+        _rowStatus(n, job.status === "completed" ? "레이어 제거 + 배경 재생성 완료 ✓"
+                                                 : ("배경 재생성 실패: " + (job.error || "")));
+        if (job.status === "completed") refreshRow(n);
+      }, function (logs) {
+        if (logs.length) _rowStatus(n, "배경 재생성 중... " + logs[logs.length - 1]);
+      }, 1200);
+    })
+    .catch(function (e) { _layerBusy(n, stem, false); _rowStatus(n, "오류: " + e); });
+}
+
+/* 재생성 — 그 요소(또는 배경)만 다시. 나머지 레이어는 건드리지 않는다. */
+function regenLayer(n, stem) {
+  _layerBusy(n, stem, true);
+  _rowStatus(n, "레이어 재생성 중... (codex)");
+  return fetch(BACKEND + "/api/layers/regenerate", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), layer: stem }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "running" || !j.job_id) {
+        _layerBusy(n, stem, false); _rowStatus(n, "실패: " + JSON.stringify(j)); return;
+      }
+      _awaitJob(j.job_id, function (job) {
+        _layerBusy(n, stem, false);
+        _rowStatus(n, job.status === "completed" ? "레이어 재생성 완료 ✓"
+                                                 : ("실패: " + (job.error || JSON.stringify(job))));
+        if (job.status === "completed") refreshRow(n);
+      }, function (logs) {
+        if (logs.length) _rowStatus(n, "레이어 재생성 중... " + logs[logs.length - 1]);
+      }, 1200);
+    })
+    .catch(function (e) { _layerBusy(n, stem, false); _rowStatus(n, "오류: " + e); });
 }
 
 function genTts(n) {

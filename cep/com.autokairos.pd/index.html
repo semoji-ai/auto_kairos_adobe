@@ -96,6 +96,15 @@
               drop-shadow(0 1.5px 0 #e74c3c) drop-shadow(0 -1.5px 0 #e74c3c); }
     .col-img .lyr.sel { outline:2px solid #e74c3c; outline-offset:1px; }
     .col-img .lyr { cursor:pointer; }
+    /* 레이어 낱개 편집 — 썸네일에 올리면 ✕(삭제)·↻(재생성) */
+    .lyr-item { position:relative; display:inline-block; }
+    .lyr-item .lyr-acts { display:none; position:absolute; top:1px; right:4px; gap:2px; }
+    .lyr-item:hover .lyr-acts { display:flex; }
+    .lyr-item .lyr-acts button { width:auto; margin:0; padding:0 3px; font-size:10px; line-height:1.3;
+      background:rgba(0,0,0,0.72); border:1px solid #555; border-radius:3px; }
+    .lyr-item .lyr-del:hover { background:#a33; }
+    .lyr-item .lyr-regen:hover { background:#3a6df0; }
+    .lyr-item.busy { opacity:0.4; pointer-events:none; }
     /* 씬 선택 체크박스 */
     .scene-sel-wrap { display:flex; align-items:center; gap:4px; cursor:pointer; }
     .scene-sel-wrap input { width:14px; height:14px; margin:0; }

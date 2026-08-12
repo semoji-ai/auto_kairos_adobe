@@ -704,3 +704,15 @@ def test_assistant_has_stop_and_scope():
     assert "function stopChatJob" in js and "/cancel" in js
     assert "a.targets" in js                       # 계획에 대상 씬 표시
     assert "이전 작업이 아직 실행 중" in js          # 중복 실행 차단
+
+
+def test_layer_thumbnail_has_edit_buttons():
+    """레이어 썸네일에서 낱개 삭제·재생성 — 배경은 재생성만."""
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "function deleteLayer" in js and "function regenLayer" in js
+    assert "/api/layers/delete" in js and "/api/layers/regenerate" in js
+    assert "lyr-item" in js and "lyr-del" in js and "lyr-regen" in js
+    assert "isBg ? '' :" in js                  # 배경 썸네일엔 삭제 버튼 없음
+    assert "stopPropagation" in js              # 썸네일 오버레이 토글과 충돌 방지
+    html = HTML.read_text(encoding="utf-8")
+    assert ".lyr-item" in html and ".lyr-item.busy" in html

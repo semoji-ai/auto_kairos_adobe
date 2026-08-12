@@ -545,6 +545,65 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         run_async(jobs, jid, _do)
         return 200, {"job_id": jid, "status": "running"}
 
+    if method == "POST" and p in ("/api/layers/delete", "/api/layers/regenerate"):
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        data = scenes.load_scenes(proj_dir)
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        if not sc.get("_image"):
+            return 422, {"error": "씬 이미지 없음"}
+        layer = (b.get("layer") or "").strip()
+        if not layer:
+            return 400, {"error": "layer 필요"}
+        sid = sc.get("sceneId")
+        scene_img = str(proj_dir / sc["_image"])
+        jobs = ctx["jobs"]
+
+        if p == "/api/layers/regenerate":
+            jid = jobs.create("layer-regen", pid)
+            def _do_regen(proj_dir=proj_dir, scene_img=scene_img, sid=sid, layer=layer, jid=jid):
+                res = imagegen.regenerate_layer(
+                    proj_dir, scene_img, sid, layer,
+                    on_event=lambda r: jobs.append_log(jid, f"{r.get('name')}: {r.get('status')}"))
+                if res.get("error"):
+                    raise RuntimeError(res["error"])
+                if not str((res.get("layer") or {}).get("status", "")).startswith("completed"):
+                    raise RuntimeError("레이어 재생성 실패")
+                jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers")])
+                vault.log_work(proj_dir, "layer_regen", f"씬{sc.get('sceneNumber')} 레이어 재생성: {layer}")
+                return res
+            run_async(jobs, jid, _do_regen)
+            return 200, {"job_id": jid, "status": "running"}
+
+        # 삭제 — 파일 이동은 즉시, 배경 재생성만 잡으로.
+        # 연속 삭제 시 진행 중인 배경 재생성은 취소하고 마지막 것 하나만 남긴다.
+        res = imagegen.delete_layer(proj_dir, sid, layer)
+        if res.get("error"):
+            return 422, res
+        for j in jobs.running_jobs(pid):
+            if j.get("skill_name") == "layer-bg" and j.get("project_id") == pid:
+                jobs.request_cancel(j["job_id"])
+        jid = jobs.create("layer-bg", pid)
+        names = res.get("remaining_names") or []
+        def _do_bg(proj_dir=proj_dir, scene_img=scene_img, sid=sid, names=names, jid=jid):
+            if jobs.is_cancelled(jid):      # 더 최근 삭제가 이미 배경을 다시 만들고 있다
+                return {"skipped": True}
+            r = imagegen.regenerate_layer(
+                proj_dir, scene_img, sid, f"{sid}__bg",
+                on_event=lambda x: jobs.append_log(jid, f"{x.get('name')}: {x.get('status')}"))
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers")])
+            vault.log_work(proj_dir, "layer_delete",
+                           f"씬{sc.get('sceneNumber')} 레이어 삭제({layer}) + 배경 재생성")
+            return r
+        run_async(jobs, jid, _do_bg)
+        return 200, {"ok": True, "removed": res.get("removed"),
+                     "job_id": jid, "status": "running"}
+
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")
         return 200, {"items": media.list_media(root / pid)}
