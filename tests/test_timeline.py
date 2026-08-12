@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from backend import timeline
 
@@ -47,3 +48,34 @@ def test_build_plan_only_scene_keeps_global_start(tmp_path, monkeypatch):
 def test_comp_name_prefers_existing():
     assert timeline.comp_name({"sceneNumber": 7, "sceneId": "zz"}) == "S07_zz"
     assert timeline.comp_name({"sceneNumber": 7, "sceneId": "zz", "ae_comp_name": "Custom"}) == "Custom"
+
+
+def test_comp_num_handles_inserted_scene():
+    assert timeline.comp_num(3) == "03"
+    assert timeline.comp_num(25.0) == "25"
+    assert timeline.comp_num(25.25) == "25_25"      # 점은 컴프 이름에 부적합
+    assert timeline.comp_num(None) == "00"
+
+
+def test_scene_duration_uses_estimate_before_default(tmp_path):
+    assert timeline.scene_duration(tmp_path, {"duration_estimate_sec": 7}) == 7.0
+    assert timeline.scene_duration(tmp_path, {}) == timeline.DEFAULT_DUR
+
+
+def test_manifest_and_timeline_agree_on_name_and_length(tmp_path, monkeypatch):
+    """컴프·자막·타임라인이 같은 이름·같은 길이를 봐야 한다(어긋나면 배치가 씬을 못 찾음)."""
+    import json as _j
+    from backend import manifest, subtitles
+    proj = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "narration": "가"},
+                            {"sceneNumber": 1.5, "sceneId": "b", "narration": "나"}])
+    (proj / "audio" / "tts_a.mp3").write_bytes(b"x")
+    monkeypatch.setattr(timeline._tts, "audio_duration", lambda p: 7.802)
+
+    plan = timeline.build_plan(proj)
+    mf = _j.loads(Path(manifest.build_manifest(proj)["path"]).read_text(encoding="utf-8"))
+    assert [i["comp"] for i in plan["items"]] == [s["ae_comp_name"] for s in mf["scenes"]]
+    assert [i["duration"] for i in plan["items"]] == [s["duration"] for s in mf["scenes"]]
+    # 자막 오프셋도 같은 누적을 쓴다
+    subtitles.build_subtitles(proj)
+    cues = _j.loads((proj / "subtitles.json").read_text(encoding="utf-8"))["cues"]
+    assert cues[-1]["start"] >= 7.802           # 둘째 씬은 첫 씬 음성 길이 뒤에서 시작

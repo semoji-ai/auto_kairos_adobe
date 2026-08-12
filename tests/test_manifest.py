@@ -40,7 +40,7 @@ def test_build_manifest_layers_bg_first(tmp_path):
 def test_build_manifest_audio_duration(tmp_path, monkeypatch):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "c", "narration": "n"}])
     (d / "audio").mkdir(); (d / "audio" / "tts_c.wav").write_bytes(b"x")
-    monkeypatch.setattr(manifest.tts, "audio_duration", lambda p: 5.5)
+    monkeypatch.setattr(manifest.timeline._tts, "audio_duration", lambda p: 5.5)
     mf = json.loads((d / "manifest.json").read_text(encoding="utf-8")) if manifest.build_manifest(d) else {}
     sc = mf["scenes"][0]
     assert sc["audio"].endswith("audio/tts_c.wav") and sc["duration"] == 5.5
@@ -50,7 +50,7 @@ def test_build_manifest_duration_fallback(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "e"}])     # 오디오·duration 없음
     manifest.build_manifest(d)
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
-    assert sc["duration"] == 3.0                    # 기본값
+    assert sc["duration"] == manifest.DEFAULT_DUR   # timeline과 같은 기본값
 
 
 def test_build_manifest_only_scene(tmp_path):
@@ -291,3 +291,15 @@ def test_build_manifest_subtitle_uses_subtitle_text(tmp_path):
          "narration_tts": "천구백칠십 년대"}]}, ensure_ascii=False), encoding="utf-8")
     mf = _j.loads(Path(_m.build_manifest(tmp_path)["path"]).read_text(encoding="utf-8"))
     assert mf["scenes"][0]["subtitle"] == "1970년대"
+
+
+def test_build_manifest_fractional_scene_number(tmp_path):
+    """삽입 씬(25.25)에서 컴프 이름 포맷이 터지지 않고, 부분 빌드 선택도 정확해야 한다."""
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 25, "sceneId": "a"},
+                         {"sceneNumber": 25.25, "sceneId": "b"},
+                         {"sceneNumber": 26, "sceneId": "c"}])
+    mf = json.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
+    assert [s["ae_comp_name"] for s in mf["scenes"]] == ["S25_a", "S25_25_b", "S26_c"]
+    sub = json.loads(Path(_m.build_manifest(d, only_scenes=[25.25])["path"]).read_text(encoding="utf-8"))
+    assert [s["ae_comp_name"] for s in sub["scenes"]] == ["S25_25_b"]   # 25번이 섞이지 않음

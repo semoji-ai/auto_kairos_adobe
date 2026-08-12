@@ -1,15 +1,15 @@
 """말자막 — TTS 타임스탬프 기반 줄 분할·타이밍 → subtitles.srt + subtitles.json(전역).
-씬 오프셋은 manifest와 동일한 duration 로직(오디오 길이→estimate→3.0)으로 누적."""
+씬 오프셋은 timeline.scene_timings — 컴프·타임라인과 같은 길이 계산을 쓴다."""
 from __future__ import annotations
 
 import json
 import re
 from pathlib import Path
 
-from backend import scenes, tts
+from backend import scenes, timeline, tts
 
 MAX_LINE = 20      # 자막 한 줄 최대 글자(어절 경계 분할)
-DEFAULT_DUR = 3.0
+DEFAULT_DUR = timeline.DEFAULT_DUR   # 길이 규칙은 timeline이 단일 기준
 
 
 def split_lines(text: str, max_len: int = MAX_LINE) -> list:
@@ -138,15 +138,16 @@ def line_cues(ts: dict, max_len: int = MAX_LINE) -> list:
 
 
 def _scene_durations(proj_dir: Path, data: dict) -> list:
-    """manifest와 동일 로직의 씬 길이 목록(Final 배치 오프셋용)."""
-    out = []
-    for s in data.get("scenes", []):
-        if s.get("_audio"):
-            d = tts.audio_duration(Path(proj_dir) / s["_audio"]) or DEFAULT_DUR
-        else:
-            d = float(s.get("duration_estimate_sec") or DEFAULT_DUR)
-        out.append(d)
-    return out
+    """씬 길이 목록(Final 배치 오프셋용) — 컴프·타임라인과 같은 계산을 쓴다."""
+    return [d for _s, _start, d in timeline.scene_timings(Path(proj_dir), data)]
+
+
+def _num(n):
+    """씬 번호 비교용 — 삽입 씬의 소수 번호(25.25)를 int로 자르면 다른 씬이 섞인다."""
+    try:
+        return float(n)
+    except (TypeError, ValueError):
+        return None
 
 
 def _fmt_srt_time(sec: float) -> str:
@@ -166,11 +167,11 @@ def build_subtitles(proj_dir: Path, only_scenes: list | None = None) -> dict:
     proj_dir = Path(proj_dir)
     data = scenes.load_scenes(proj_dir)
     durs = _scene_durations(proj_dir, data)
-    picked = {int(x) for x in only_scenes} if only_scenes else None
+    picked = {_num(x) for x in only_scenes} if only_scenes else None
     cues_all, no_ts = [], []
     offset = 0.0
     for s, dur in zip(data.get("scenes", []), durs):
-        if picked is not None and s.get("sceneNumber") not in picked:
+        if picked is not None and _num(s.get("sceneNumber")) not in picked:
             offset += dur                       # 건너뛰어도 시각은 전체 기준 유지
             continue
         sid = s.get("sceneId")

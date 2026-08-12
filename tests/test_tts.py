@@ -129,3 +129,36 @@ def test_effective_voice_unknown_style_falls_back(tmp_path):
     tts.set_tts_config(d, style="nonexistent")
     cfg = tts.effective_voice(d)
     assert cfg["voice_id"] == "W7FnAxJNpD5WGjrF5GLp"    # semoji 프리셋으로 폴백
+
+
+def test_audio_duration_prefers_timestamps_sidecar(tmp_path, monkeypatch):
+    """afinfo는 macOS 전용 — 사이드카가 있으면 OS와 무관하게 그 값을 쓴다."""
+    import json as _j
+    from backend import tts as _t
+    _t._DUR_CACHE.clear()
+    mp3 = tmp_path / "tts_a.mp3"; mp3.write_bytes(b"x" * 1000)
+    (tmp_path / "tts_a.timestamps.json").write_text(
+        _j.dumps({"ends": [1.0, 4.5, 7.802]}), encoding="utf-8")
+    monkeypatch.setattr(_t.shutil, "which", lambda name: None)   # ffprobe·afinfo 없음
+    assert _t.audio_duration(mp3) == 7.802
+
+
+def test_audio_duration_falls_back_to_ffprobe(tmp_path, monkeypatch):
+    from backend import tts as _t
+    _t._DUR_CACHE.clear()
+    mp3 = tmp_path / "b.mp3"; mp3.write_bytes(b"x" * 1000)
+    monkeypatch.setattr(_t.shutil, "which", lambda name: "/usr/bin/ffprobe" if name == "ffprobe" else None)
+
+    class _R:
+        stdout = "3.250000\n"
+    monkeypatch.setattr(_t.subprocess, "run", lambda *a, **k: _R())
+    assert _t.audio_duration(mp3) == 3.25
+
+
+def test_audio_duration_mp3_bitrate_last_resort(tmp_path, monkeypatch):
+    """측정 도구가 하나도 없어도 0.0으로 무너지지 않는다(3초 고정 버그의 원인)."""
+    from backend import tts as _t
+    _t._DUR_CACHE.clear()
+    mp3 = tmp_path / "c.mp3"; mp3.write_bytes(b"x" * 128000)
+    monkeypatch.setattr(_t.shutil, "which", lambda name: None)
+    assert _t.audio_duration(mp3) == 8.0        # 128000바이트 × 8 / 128kbps

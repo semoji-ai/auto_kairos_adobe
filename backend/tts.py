@@ -111,24 +111,65 @@ def _parse_afinfo_duration(text: str) -> float:
 _DUR_CACHE: dict = {}      # (경로, mtime_ns, size) -> 길이. 파일이 바뀌면 키가 달라져 자동 무효화
 
 
-def audio_duration(path: Path) -> float:
-    """afinfo로 길이(초). wav·mp3 모두 가능. 실패 시 0.0.
-
-    씬이 100개 넘는 프로젝트는 시트를 열 때마다 afinfo를 그만큼 띄우게 되므로
-    (경로, mtime, 크기) 기준으로 캐시한다."""
+def _timestamps_duration(path: Path) -> float:
+    """ElevenLabs 사이드카(<stem>.timestamps.json)의 마지막 end. 가장 정확하고 OS 무관."""
+    side = Path(path).parent / (Path(path).stem + ".timestamps.json")
+    if not side.is_file():
+        return 0.0
     try:
-        st = Path(path).stat()
+        ends = json.loads(side.read_text(encoding="utf-8")).get("ends") or []
+        return round(float(ends[-1]), 3) if ends else 0.0
+    except (json.JSONDecodeError, OSError, ValueError, TypeError, IndexError):
+        return 0.0
+
+
+def _ffprobe_duration(path: Path) -> float:
+    """ffprobe(있으면). 윈도우·리눅스에서 afinfo 대신 쓰는 경로."""
+    if shutil.which("ffprobe") is None:
+        return 0.0
+    try:
+        r = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+            capture_output=True, text=True, timeout=20)
+        return round(float((r.stdout or "").strip()), 3)
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return 0.0
+
+
+def _afinfo_duration(path: Path) -> float:
+    """afinfo — macOS 전용. 다른 OS에서는 파일이 없어 그냥 실패한다."""
+    if shutil.which("afinfo") is None:
+        return 0.0
+    try:
+        r = subprocess.run(["afinfo", str(path)], capture_output=True, text=True, timeout=20)
+        return _parse_afinfo_duration(r.stdout)
+    except (OSError, subprocess.SubprocessError):
+        return 0.0
+
+
+def audio_duration(path: Path) -> float:
+    """오디오 길이(초). 실패 시 0.0.
+
+    순서: 타임스탬프 사이드카 → ffprobe → afinfo → mp3 비트레이트 추정.
+    afinfo는 macOS 전용이라 이것만 쓰면 윈도우에서 항상 0.0이 되고,
+    그러면 씬 길이가 통째로 기본값으로 떨어진다(컴프·자막·타임라인 전부 어긋남).
+
+    씬이 100개 넘는 프로젝트는 시트를 열 때마다 외부 프로세스를 그만큼 띄우게 되므로
+    (경로, mtime, 크기) 기준으로 캐시한다."""
+    path = Path(path)
+    try:
+        st = path.stat()
         key = (str(path), st.st_mtime_ns, st.st_size)
     except OSError:
         return 0.0
     if key in _DUR_CACHE:
         return _DUR_CACHE[key]
-    try:
-        r = subprocess.run(["afinfo", str(path)], capture_output=True, text=True, timeout=20)
-        dur = _parse_afinfo_duration(r.stdout)
-    except Exception:
-        return 0.0
-    _DUR_CACHE[key] = dur
+    dur = _timestamps_duration(path) or _ffprobe_duration(path) or _afinfo_duration(path)
+    if not dur and path.suffix.lower() == ".mp3":
+        dur = round(st.st_size * 8 / 128000, 3)      # 128kbps 가정 — 마지막 수단
+    if dur:
+        _DUR_CACHE[key] = dur
     return dur
 
 

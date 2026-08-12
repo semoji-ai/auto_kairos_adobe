@@ -4,10 +4,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend import scenes, themes, tts
+from backend import scenes, themes, timeline
 
 W, H, FPS = 1920, 1080, 30
-DEFAULT_DUR = 3.0
+DEFAULT_DUR = timeline.DEFAULT_DUR      # 길이 규칙은 timeline이 단일 기준
+
+
+def _key(n):
+    """씬 번호 비교용 — 삽입 씬의 소수 번호(25.25)를 int로 자르면 서로 다른 씬이 섞인다."""
+    try:
+        return float(n)
+    except (TypeError, ValueError):
+        return None
 
 
 def _abs(proj_dir: Path, rel: str) -> str:
@@ -66,19 +74,16 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
     data = scenes.load_scenes(proj_dir)
     picked = None
     if only_scenes:
-        picked = {int(x) for x in only_scenes}
+        picked = {_key(x) for x in only_scenes}
     elif only_scene is not None:
-        picked = {int(only_scene)}
+        picked = {_key(only_scene)}
     out_scenes = []
     for s in data.get("scenes", []):
-        if picked is not None and s.get("sceneNumber") not in picked:
+        if picked is not None and _key(s.get("sceneNumber")) not in picked:
             continue
         sid = s.get("sceneId")
         audio = _abs(proj_dir, s["_audio"]) if s.get("_audio") else None
-        if audio:
-            dur = tts.audio_duration(proj_dir / s["_audio"]) or DEFAULT_DUR
-        else:
-            dur = float(s.get("duration_estimate_sec") or DEFAULT_DUR)
+        dur = timeline.scene_duration(proj_dir, s)   # 컴프·자막·타임라인 공통 계산
         layout = s.get("layout") or "cinematic"
         # 지도 씬 — 패널(MapLibre)이 렌더한 지도 이미지가 링크되면 일반 이미지 씬으로 취급
         is_map = layout == "map"
@@ -150,7 +155,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
                        ("headline", "sub", "items", "value", "label", "chart", "quote_text", "quote_who")
                        if s.get(k) is not None}
         out_scenes.append({
-            "ae_comp_name": f"S{s.get('sceneNumber'):02d}_{sid}",
+            "ae_comp_name": timeline.comp_name(s),
             "width": sw, "height": sh,
             "image": None if is_layout_scene else (_abs(proj_dir, s["_image"]) if s.get("_image") else None),
             "layers": layers,
