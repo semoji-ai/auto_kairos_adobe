@@ -118,7 +118,8 @@ def test_tts_all_handler(tmp_path, monkeypatch):
 def test_assemble_handler(tmp_path, monkeypatch):
     from backend import manifest
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a"}])
-    monkeypatch.setattr(manifest, "build_manifest", lambda proj_dir: {"path": "m.json", "scenes": 1})
+    monkeypatch.setattr(manifest, "build_manifest",
+                        lambda proj_dir, only_scenes=None: {"path": "m.json", "scenes": 1})
     assert assistant.ACTION_HANDLERS["assemble"](d)["scenes"] == 1
 
 
@@ -252,3 +253,44 @@ def test_stale_session_retries_fresh(tmp_path, monkeypatch):
     out = assistant.plan_actions(d, "q")
     assert calls == ["dead-sess", None] and out["reply"] == "복구됨"
     assert assistant._load_session(d)["session_id"] == "fresh"
+
+
+def test_targets_narrow_scope(tmp_path):
+    """'1씬만' 지시가 전 씬 생성으로 번지지 않아야 한다."""
+    import json as _j
+    from backend import assistant
+    (tmp_path / "scenes.json").write_text(_j.dumps({"scenes": [
+        {"sceneNumber": i, "sceneId": f"s{i}", "image_prompt": "p"} for i in range(1, 6)
+    ]}), encoding="utf-8")
+    data = {"scenes": _j.loads((tmp_path / "scenes.json").read_text())["scenes"]}
+    assert [s["sceneNumber"] for s in assistant._target_scenes(data, [1])] == [1]
+    assert [s["sceneNumber"] for s in assistant._target_scenes(data, [2, 4])] == [2, 4]
+    assert len(assistant._target_scenes(data, [])) == 5        # 빈 배열 = 전체(명시적 전체 지시)
+    assert len(assistant._target_scenes(data, None)) == 5
+
+
+def test_run_assistant_passes_targets_and_cancel(tmp_path):
+    from backend import assistant
+    seen = {}
+
+    def _h(proj_dir, on_event=None, targets=None, should_cancel=None):
+        seen["targets"] = targets
+        seen["cancellable"] = should_cancel is not None
+        return {"ok": True}
+
+    res = assistant.run_assistant(
+        tmp_path, "1씬 이미지 만들어줘",
+        planner=lambda d, i: {"actions": [{"action": "gen", "reason": "r", "targets": [1]}], "reply": None},
+        handlers={"gen": _h}, should_cancel=lambda: False)
+    assert seen["targets"] == [1] and seen["cancellable"] is True
+    assert res["results"][0]["targets"] == [1]
+
+
+def test_cancel_stops_between_items():
+    from backend import assistant
+    from backend.jobs import JobCancelled
+    import pytest as _p
+    with _p.raises(JobCancelled):
+        assistant._check(lambda: True, 3)
+    assistant._check(lambda: False, 3)          # 취소 아니면 통과
+    assistant._check(None, 0)

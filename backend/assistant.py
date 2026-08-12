@@ -6,17 +6,49 @@ import json
 from pathlib import Path
 
 from backend import scenes, imagegen, tts, manifest, llm, motion
+from backend import jobs as jobs_mod
 from backend.codex_runner import run_skill
 
 _PLAN_SCHEMA = Path(__file__).resolve().parent / "schemas" / "assistant_plan.schema.json"
 
 
-# ---- 액션 핸들러(각 (proj_dir, on_event=None) -> result dict) ----
+# ---- 액션 핸들러(각 (proj_dir, on_event=None, targets=None, should_cancel=None) -> result dict) ----
 
-def _h_generate_missing_images(proj_dir: Path, on_event=None) -> dict:
+def _target_scenes(data: dict, targets) -> list:
+    """targets(씬 번호 목록)로 대상 씬을 좁힌다. 비었으면 전체.
+
+    '1씬만 만들어줘'가 전 씬 생성으로 번지지 않게 하는 지점 — 여기서 좁히지 않으면
+    핸들러는 언제나 프로젝트 전체를 순회한다."""
+    ss = data.get("scenes", [])
+    if not targets:
+        return ss
+    want = set()
+    for t in targets:
+        try:
+            want.add(float(t))
+        except (TypeError, ValueError):
+            continue
+    picked = []
+    for s in ss:
+        try:
+            if float(s.get("sceneNumber")) in want:
+                picked.append(s)
+        except (TypeError, ValueError):
+            continue
+    return picked
+
+
+def _check(should_cancel, done: int):
+    """취소 요청이 있으면 루프를 끊는다(각 항목 사이에서만 — 진행 중 항목은 마무리)."""
+    if should_cancel and should_cancel():
+        raise jobs_mod.JobCancelled(f"{done}개 처리 후 취소")
+
+
+def _h_generate_missing_images(proj_dir: Path, on_event=None, targets=None, should_cancel=None) -> dict:
     data = scenes.load_scenes(proj_dir)
     n = 0
-    for s in data["scenes"]:
+    for s in _target_scenes(data, targets):
+        _check(should_cancel, n)
         if s.get("_image"):
             continue
         prompt = (s.get("image_prompt") or s.get("visual_summary") or "").strip()
@@ -33,10 +65,11 @@ def _h_generate_missing_images(proj_dir: Path, on_event=None) -> dict:
     return {"generated": n}
 
 
-def _h_split_layers(proj_dir: Path, on_event=None) -> dict:
+def _h_split_layers(proj_dir: Path, on_event=None, targets=None, should_cancel=None) -> dict:
     data = scenes.load_scenes(proj_dir)
     n = 0
-    for s in data["scenes"]:
+    for s in _target_scenes(data, targets):
+        _check(should_cancel, n)
         if not s.get("_image") or s.get("_layers"):
             continue
         img = str(proj_dir / s["_image"])
@@ -52,25 +85,28 @@ def _h_split_layers(proj_dir: Path, on_event=None) -> dict:
     return {"split_scenes": n}
 
 
-def _h_tts_all(proj_dir: Path, on_event=None) -> dict:
+def _h_tts_all(proj_dir: Path, on_event=None, targets=None, should_cancel=None) -> dict:
     data = scenes.load_scenes(proj_dir)
     n = 0
-    for s in data["scenes"]:
-        text = (s.get("narration_tts") or s.get("narration") or "")
+    for s in _target_scenes(data, targets):
+        _check(should_cancel, n)
+        text = scenes.tts_text(s)
         if not text.strip():
             continue
         res = tts.generate_scene_tts(proj_dir, s.get("sceneId"), text)
         if res.get("status") == "completed":
+            scenes.update_texts(proj_dir, s.get("sceneNumber"), narration_tts=text)
             n += 1
         if on_event:
             on_event(f"S{s.get('sceneNumber')} TTS: {res.get('status')}")
     return {"generated": n}
 
 
-def _h_plan_motion(proj_dir: Path, on_event=None) -> dict:
+def _h_plan_motion(proj_dir: Path, on_event=None, targets=None, should_cancel=None) -> dict:
     data = scenes.load_scenes(proj_dir)
     n = 0
-    for s in data["scenes"]:
+    for s in _target_scenes(data, targets):
+        _check(should_cancel, n)
         if not s.get("_layers"):
             continue
         if motion.motion_path(proj_dir, s.get("sceneId")).is_file():
@@ -83,8 +119,8 @@ def _h_plan_motion(proj_dir: Path, on_event=None) -> dict:
     return {"planned": n}
 
 
-def _h_assemble(proj_dir: Path, on_event=None) -> dict:
-    return manifest.build_manifest(proj_dir)
+def _h_assemble(proj_dir: Path, on_event=None, targets=None, should_cancel=None) -> dict:
+    return manifest.build_manifest(proj_dir, only_scenes=list(targets) if targets else None)
 
 
 ACTION_HANDLERS = {
@@ -220,6 +256,10 @@ def _full_prompt(proj_dir: Path, instruction: str) -> str:
         "프로젝트 상태와 제작 기준을 근거로 구체적으로, 필요하면 다음 단계를 제안한다.\n"
         "2) actions는 사용자가 '명확하게 실행을 지시'했을 때만 채운다(예: ~해줘, ~실행해, 진행해, 돌려줘). "
         "모호하면 실행하지 말고 reply로 '~를 실행할까요?'라고 제안만 한다.\n"
+        "2-1) **모든 액션에 targets(대상 씬 번호 배열)를 반드시 넣는다.** 사용자가 특정 씬을 말했으면 "
+        "그 번호만 넣어라('1씬 이미지 하나' → targets:[1]). targets를 빈 배열로 두면 프로젝트 전체에 "
+        "실행되므로, '전부/모든 씬/일괄'처럼 전체를 분명히 지시했을 때만 비운다. "
+        "대상이 불분명하면 실행하지 말고 reply로 어느 씬인지 되물어라.\n"
         "3) 실행할 때도 reply에 무엇을 왜 하는지 한 줄 설명을 함께 담아라.\n"
         "4) 목록 외 동작은 만들지 말고, 보통 assemble은 마지막.\n\n"
         "## 제작 기준(상담 근거)\n"
@@ -281,7 +321,7 @@ def plan_actions(proj_dir: Path, instruction: str, *, on_line=None) -> dict:
 
 
 def run_assistant(proj_dir: Path, instruction: str, *,
-                  planner=None, handlers=None, on_event=None) -> dict:
+                  planner=None, handlers=None, on_event=None, should_cancel=None) -> dict:
     """plan_actions로 계획 → 핸들러 순차 실행 → 결과 수집. planner/handlers 주입 가능(테스트)."""
     proj_dir = Path(proj_dir)
     planner = planner or plan_actions
@@ -299,17 +339,22 @@ def run_assistant(proj_dir: Path, instruction: str, *,
     results = []
     for a in actions:
         name = a.get("action")
+        targets = a.get("targets") or []
         if on_event:
-            on_event(f"▶ {name}: {a.get('reason', '')}")
+            scope = f"씬 {','.join(str(t) for t in targets)}" if targets else "조건에 맞는 전체 씬"
+            on_event(f"▶ {name} ({scope}): {a.get('reason', '')}")
         h = handlers.get(name)
         if h is None:
             results.append({"action": name, "reason": a.get("reason"), "result": {"status": "skipped"}})
             continue
         try:
-            r = h(proj_dir, on_event=on_event)
-        except TypeError:
-            r = h(proj_dir)
-        results.append({"action": name, "reason": a.get("reason"), "result": r})
+            r = h(proj_dir, on_event=on_event, targets=targets, should_cancel=should_cancel)
+        except TypeError:                       # 구형/테스트 핸들러 호환
+            try:
+                r = h(proj_dir, on_event=on_event)
+            except TypeError:
+                r = h(proj_dir)
+        results.append({"action": name, "reason": a.get("reason"), "targets": targets, "result": r})
         from backend import vault
         vault.log_work(proj_dir, name, json.dumps(r, ensure_ascii=False)[:200])   # 볼트 작업 이력
     return {"plan": actions, "results": results, "reply": reply}

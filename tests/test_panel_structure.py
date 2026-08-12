@@ -694,3 +694,13 @@ def test_sheet_toolbar_batches_checked_scenes():
     assert "_runSeq(ns, function (n) {\n      return Promise.resolve(buildSceneComp(n));" not in sb
     main = (PANEL / "js" / "main.js").read_text(encoding="utf-8")
     assert "sceneNumbers" in main               # 배열 파라미터 전송
+
+
+def test_assistant_has_stop_and_scope():
+    """긴 비서 작업을 패널에서 중단할 수 있고, 계획에 대상 범위가 보여야 한다."""
+    html = HTML.read_text(encoding="utf-8")
+    assert 'id="btnChatStop"' in html
+    js = (PANEL / "js" / "assistant.js").read_text(encoding="utf-8")
+    assert "function stopChatJob" in js and "/cancel" in js
+    assert "a.targets" in js                       # 계획에 대상 씬 표시
+    assert "이전 작업이 아직 실행 중" in js          # 중복 실행 차단

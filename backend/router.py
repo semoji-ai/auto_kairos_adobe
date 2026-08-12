@@ -370,7 +370,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         jid = jobs.create("assistant", b.get("project_id", ""))
         def _do(proj_dir=proj_dir, instruction=instruction, jid=jid):
             return assistant.run_assistant(proj_dir, instruction,
-                                           on_event=lambda ln: jobs.append_log(jid, ln))
+                                           on_event=lambda ln: jobs.append_log(jid, ln),
+                                           should_cancel=lambda: jobs.is_cancelled(jid))
         run_async(jobs, jid, _do)
         return 200, {"job_id": jid, "status": "running"}
 
@@ -739,6 +740,15 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 400, {"error": "content 필요"}
         res = edits.save_file(proj_dir, name, b.get("content"))
         return (200, res) if res.get("ok") else (400, res)
+
+    if method == "POST" and p.startswith("/api/jobs/") and p.endswith("/cancel"):
+        jid = p.split("/")[3]
+        ok = ctx["jobs"].request_cancel(jid)
+        return (200, {"ok": True, "job_id": jid, "status": "cancelling"}) if ok \
+            else (404, {"error": f"실행 중인 잡이 아님: {jid}"})
+
+    if method == "GET" and p == "/api/jobs":
+        return 200, {"running": ctx["jobs"].running_jobs(query.get("project_id") or None)}
 
     if method == "GET" and p.startswith("/api/jobs/"):
         jid = p.rsplit("/", 1)[-1]

@@ -36,7 +36,9 @@
     #chat-dock .row { display:flex; gap:6px; }
     #chatInput { flex:1; box-sizing:border-box; padding:8px; background:#23262b;
                  color:#e6e6e6; border:1px solid #33363c; border-radius:5px; }
-    #btnChatSend { width:auto; padding:8px 14px; margin:0; }
+    #btnChatSend, #btnChatStop { width:auto; padding:8px 14px; margin:0; }
+    #btnChatStop { background:#5a2b2b; border-color:#7a3a3a; }
+    #btnChatStop[hidden] { display:none; }
     .chat-msg { margin:2px 0; font-size:12px; line-height:1.4; }
 
     /* 스토리보드 프로덕션 시트 — 가로 행 테이블(씬#|이미지|스크립트|에셋|TTS) */
@@ -410,6 +412,7 @@
       <div class="row">
         <input id="chatInput" type="text" placeholder='지시 또는 상의… (예: "씬 5 어떻게 연출할까?" / "음성 입혀서 합쳐줘")'>
         <button id="btnChatSend">전송</button>
+        <button id="btnChatStop" hidden title="실행 중인 비서 작업 중단">⏹ 중단</button>
       </div>
     </div>
   </div>

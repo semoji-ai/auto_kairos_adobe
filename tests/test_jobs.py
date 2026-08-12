@@ -60,3 +60,35 @@ def test_run_async_failure_sets_failed():
         time.sleep(0.02)
     g = j.get(jid)
     assert g["status"] == "failed" and "터짐" in (g["error"] or "")
+
+
+def test_request_cancel_and_flag():
+    from backend.jobs import JobRegistry
+    r = JobRegistry()
+    jid = r.create("assistant", "p1")
+    assert r.is_cancelled(jid) is False
+    assert r.request_cancel(jid) is True
+    assert r.is_cancelled(jid) is True
+    assert [j["job_id"] for j in r.running_jobs("p1")] == [jid]
+    r.set_status(jid, "cancelled")
+    assert r.request_cancel(jid) is False       # 이미 끝난 잡은 취소 대상 아님
+    assert r.running_jobs("p1") == []
+    assert r.request_cancel("job_없음") is False
+
+
+def test_run_async_marks_cancelled():
+    import time
+    from backend.jobs import JobRegistry, JobCancelled, run_async
+    r = JobRegistry()
+    jid = r.create("assistant", "p1")
+
+    def _fn():
+        raise JobCancelled("3개 처리 후 취소")
+
+    run_async(r, jid, _fn)
+    for _ in range(100):
+        if r.get(jid)["status"] != "running":
+            break
+        time.sleep(0.01)
+    j = r.get(jid)
+    assert j["status"] == "cancelled" and j["error"] is None

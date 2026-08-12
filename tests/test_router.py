@@ -705,7 +705,7 @@ def test_assistant_endpoint(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
     monkeypatch.setattr(r.assistant, "run_assistant",
-                        lambda proj_dir, instr, on_event=None: {
+                        lambda proj_dir, instr, on_event=None, should_cancel=None: {
                             "plan": [{"action": "assemble", "reason": "x"}],
                             "results": [{"action": "assemble", "reason": "x", "result": {"scenes": 0}}]})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
@@ -807,7 +807,7 @@ def test_assistant_async(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "scenes.json").write_text('{"scenes":[]}', encoding="utf-8")
     monkeypatch.setattr(r.assistant, "run_assistant",
-                        lambda proj_dir, instr, on_event=None: {"plan": [], "results": []})
+                        lambda proj_dir, instr, on_event=None, should_cancel=None: {"plan": [], "results": []})
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
     code, body = handle_request("POST", "/api/assistant", {},
                                 {"project_id": "p", "instruction": "x"}, ctx)
@@ -1100,3 +1100,24 @@ def test_assembly_manifest_scene_list(tmp_path, monkeypatch):
     code, body = handle_request("POST", "/api/assembly/manifest", {},
                                 {"project_id": "p", "sceneNumbers": [1, 4, 9]}, ctx)
     assert code == 200 and body["only_scenes"] == [1, 4, 9] and body["scenes"] == 3
+
+
+def test_job_cancel_endpoint(tmp_path):
+    """긴 작업을 패널에서 멈출 수 있어야 한다(예전엔 백엔드 프로세스를 죽이는 수밖에 없었음)."""
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    jid = ctx["jobs"].create("assistant", "p")
+    code, body = handle_request("POST", f"/api/jobs/{jid}/cancel", {}, None, ctx)
+    assert code == 200 and body["status"] == "cancelling"
+    assert ctx["jobs"].is_cancelled(jid) is True
+    code, _ = handle_request("POST", "/api/jobs/job_9999/cancel", {}, None, ctx)
+    assert code == 404
+
+
+def test_running_jobs_endpoint(tmp_path):
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    jid = ctx["jobs"].create("assistant", "p")
+    code, body = handle_request("GET", "/api/jobs", {"project_id": "p"}, None, ctx)
+    assert code == 200 and [j["job_id"] for j in body["running"]] == [jid]
+    ctx["jobs"].set_status(jid, "completed")
+    _, body2 = handle_request("GET", "/api/jobs", {"project_id": "p"}, None, ctx)
+    assert body2["running"] == []
