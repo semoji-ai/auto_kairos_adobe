@@ -1,10 +1,15 @@
-"""codex imagegen(빌트인 image_gen, 단일 인증) 호출 — workspace-write 저장 + 재시도 + 버전."""
+"""이미지 생성 — codex CLI image_gen.py(실 gpt-image) 호출 + 재시도 + 복사가드 + 버전.
+⚠️ 헤드리스 codex exec의 built-in image_gen은 실제 생성을 안 함(stale 복사/코드드로잉) → CLI만 사용.
+참조 메모리 [[feedback_codex_image_generation_cli_rule]]."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import shutil
+import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -13,8 +18,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from backend import env
 from backend import llm
-from backend.codex_runner import run_skill
+from backend.codex_runner import run_skill  # noqa: F401 — 하위 호환 재export
 
 STYLE_FILE = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "semoji.md"
 BASE_IMG = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "semoji_base.jpg"
@@ -42,7 +48,9 @@ def versioned_path(images_dir: Path, name: str) -> Path:
 
 
 def is_rate_limited(text: str) -> bool:
-    return "rate limit" in (text or "").lower()
+    t = (text or "").lower()
+    return ("rate limit" in t or "rate_limit" in t or "too many requests" in t
+            or "429" in t)
 
 
 def build_image_prompt(image_prompt: str, style_desc: str, rel_out: str,
@@ -82,35 +90,83 @@ def build_character_prompt(name: str, looks: str, rel_out: str) -> str:
     )
 
 
-# 전역 동시 이미지 생성 상한 — 병렬 씬 분리 등으로 codex가 폭주(rate limit·타임아웃)하지 않게 큐잉
+# 전역 동시 이미지 생성 상한 — codex CLI 동시 폭주(rate limit) 방지 큐잉
 _GEN_SEMA = threading.BoundedSemaphore(max(1, int(os.environ.get("AK_GEN_CONCURRENCY", "3"))))
+
+# codex CLI image_gen.py 경로(환경변수로 재정의 가능)
+_CLI_SCRIPT = Path(os.environ.get("AK_IMAGEGEN_CLI")
+                   or (Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
+                       / "skills" / ".system" / "imagegen" / "scripts" / "image_gen.py"))
+# 코덱스 exec용 잔존 지시문(저장/‘OK’ 응답 등)을 CLI 프롬프트에서 제거하는 패턴
+_BOILERPLATE_RE = re.compile(
+    r"(##\s*생성 지시.*$)|(image_gen[^\n]*저장[^\n]*\.?)|(현재 폴더의[^\n]*저장[^\n]*\.?)"
+    r"|(저장되면\s*['\"]?OK['\"]?만[^\n]*\.?)",
+    re.MULTILINE | re.DOTALL)
+
+
+def _image_python() -> str:
+    """image_gen.py를 돌릴 파이썬(openai 설치 필요). AK_IMAGE_PYTHON > 현재 인터프리터."""
+    return os.environ.get("AK_IMAGE_PYTHON") or sys.executable
+
+
+def _clean_image_prompt(prompt: str) -> str:
+    """codex exec 시절 프롬프트의 도구·저장 지시문 제거(CLI는 출력 경로를 인자로 받음)."""
+    cleaned = _BOILERPLATE_RE.sub("", prompt or "").strip()
+    return cleaned or (prompt or "").strip()
+
+
+def _md5(p: Path) -> str:
+    return hashlib.md5(p.read_bytes()).hexdigest()
 
 
 def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
-                     images=None, retries: int = 2, on_line=None, post=None) -> dict:
-    """codex image_gen 실행 + rate limit 백오프. out 생성 확인 후 post(out) 후처리(선택).
-    전역 세마포어로 동시 실행 수 제한(초과분은 대기)."""
+                     images=None, retries: int = 2, on_line=None, post=None,
+                     size: str = "auto") -> dict:
+    """codex CLI image_gen.py로 실제 gpt-image 생성. images 있으면 edit, 없으면 generate.
+    출력이 첨부 이미지와 동일(복사)이면 실패 처리(헤드리스 built-in image_gen의 가짜 생성 방지).
+    전역 세마포어로 동시 실행 제한."""
+    key = env.get_key("OPENAI_API_KEY")
+    if not key:
+        return {"status": "failed", "error": "OPENAI_API_KEY 없음(auto_kairos .env)"}
+    if not _CLI_SCRIPT.is_file():
+        return {"status": "failed", "error": f"image_gen CLI 없음: {_CLI_SCRIPT}"}
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img_list = [str(i) for i in (images or []) if Path(i).is_file()]
+    in_md5 = {_md5(Path(i)) for i in img_list}
+    clean = _clean_image_prompt(prompt)
+    cmd = [_image_python(), str(_CLI_SCRIPT)]
+    if img_list:
+        cmd += ["edit", "--prompt", clean, "--out", str(out), "--size", size, "--force"]
+        for img in img_list:
+            cmd += ["--image", img]
+    else:
+        cmd += ["generate", "--prompt", clean, "--out", str(out), "--size", size, "--force"]
+    cenv = dict(os.environ)
+    cenv["OPENAI_API_KEY"] = key
     last = ""
     for attempt in range(retries + 1):
-        captured = []
         with _GEN_SEMA:
-            res = run_skill(
-                prompt, proj_dir, sandbox="workspace-write",
-                images=images or None,
-                output_last=str(proj_dir / ".imagegen_last.txt"),
-                on_line=lambda ln: (captured.append(ln), on_line and on_line(ln)),
-            )
-        last = "\n".join(captured)
-        if res["returncode"] == 0 and out.exists():
-            if post:
-                post(out)
-            return {"status": "completed", "path": str(out)}
+            proc = subprocess.run(cmd, env=cenv, capture_output=True, text=True)
+        last = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        if on_line:
+            for ln in last.splitlines():
+                if ln.strip():
+                    on_line(ln)
+        if proc.returncode == 0 and out.exists():
+            if in_md5 and _md5(out) in in_md5:
+                last += "\n[copy-guard] 출력이 첨부 이미지와 동일(복사) — 실패 처리"
+            else:
+                if post:
+                    post(out)
+                return {"status": "completed", "path": str(out)}
         if is_rate_limited(last) and attempt < retries:
             time.sleep(20 * (attempt + 1))
             continue
+        if attempt < retries:
+            continue
         break
     reason = "rate_limit" if is_rate_limited(last) else "no_file"
-    return {"status": "failed", "error": reason, "log_tail": last[-200:]}
+    return {"status": "failed", "error": reason, "log_tail": last[-300:]}
 
 
 def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
