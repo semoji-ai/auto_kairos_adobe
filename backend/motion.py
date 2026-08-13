@@ -9,7 +9,7 @@ from backend import scenes, llm, tts
 
 _SCHEMA = Path(__file__).resolve().parent / "schemas" / "motion_plan.schema.json"
 
-_PRESET_GUIDE = (
+PRESET_GUIDE = (
     "- slide_in: 화면 밖에서 등장(direction 필수). 등장 연출.\n"
     "- fade_in: 서서히 나타남.\n"
     "- pop: 통통 튀며 등장(스케일 바운스). 강조 등장.\n"
@@ -19,6 +19,14 @@ _PRESET_GUIDE = (
     "- zoom_emphasis: 살짝 커졌다 복귀. 내레이션 강조 시점.\n"
     "- exit_fade: 서서히 사라짐(씬 끝 무렵).\n"
 )
+
+CAMERA_GUIDE = (
+    "- slow_zoom_in / slow_zoom_out: 씬 전체를 천천히 밀거나 당김.\n"
+    "- pan_left / pan_right: 씬 전체를 옆으로 흘림.\n"
+    "- none: 카메라 무브 없음.\n"
+)
+
+_PRESET_GUIDE = PRESET_GUIDE        # 기존 사용처(plan_scene_motion) 보존
 
 
 def motion_path(proj_dir: Path, sid: str) -> Path:
