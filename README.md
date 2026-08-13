@@ -5,4 +5,4 @@ After Effects(1차)/Premiere(2차) 내 영상 제작 보조 패널.
 
 스펙: docs/spec/SPEC_v0.2.md
 
-환경 키: `OPENAI_API_KEY`(codex 이미지), `ELEVENLABS_API_KEY`(TTS), `FAL_KEY`(레이어 분리).
+환경 키: `OPENAI_API_KEY`(codex 이미지), `ELEVENLABS_API_KEY`(TTS), `FAL_KEY`(레이어 분리 — `FAL_API_KEY` 이름도 인식).

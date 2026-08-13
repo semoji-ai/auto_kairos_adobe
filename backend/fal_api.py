@@ -16,10 +16,22 @@ from backend import env
 
 ENDPOINT = "https://fal.run/xai/grok-imagine-image/v2.0/edit"
 MAX_INPUT_IMAGES = 3          # 모델 상한 — 초과분은 앞에서부터 자른다
+# auto_kairos_v3의 .env는 같은 키를 FAL_API_KEY로 갖고 있다. 비밀값을 두 벌로 복사해 두면
+# 한쪽만 교체됐을 때 조용히 어긋나므로, 이름 두 개를 다 받아들인다.
+KEY_NAMES = ("FAL_KEY", "FAL_API_KEY")
 
 
 class FalError(Exception):
     """fal 호출 실패 — 키 없음·비200·응답 이상. 상위 잡이 실패로 표면화한다."""
+
+
+def api_key() -> str:
+    """FAL_KEY 우선, 없으면 FAL_API_KEY. 둘 다 없으면 ''."""
+    for name in KEY_NAMES:
+        val = env.get_key(name)
+        if val:
+            return val
+    return ""
 
 
 def data_uri(path: Path) -> str:
@@ -32,9 +44,9 @@ def data_uri(path: Path) -> str:
 def edit_image(prompt: str, image_paths: list, *, output_format: str = "png",
                resolution: str = "2k", timeout: int = 180) -> bytes:
     """참조 이미지들을 두고 prompt대로 편집한 이미지 1장을 바이트로 반환."""
-    key = env.get_key("FAL_KEY")
+    key = api_key()
     if not key:
-        raise FalError("FAL_KEY 없음(auto_kairos .env 또는 환경변수)")
+        raise FalError("FAL_KEY(또는 FAL_API_KEY) 없음 — auto_kairos .env 또는 환경변수")
     paths = [Path(p) for p in (image_paths or []) if Path(p).is_file()]
     if not paths:
         raise FalError("입력 이미지 없음")

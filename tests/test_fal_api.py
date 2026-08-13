@@ -117,3 +117,40 @@ def test_edit_image_raises_on_http_error(tmp_path, monkeypatch):
     monkeypatch.setattr(fal_api.urllib.request, "urlopen", _fake_urlopen)
     with pytest.raises(fal_api.FalError):
         fal_api.edit_image("p", [_png(tmp_path)])
+
+
+def test_api_key_accepts_either_name(monkeypatch):
+    """v3의 .env는 같은 키를 FAL_API_KEY로 갖고 있다 — 비밀값을 복사하지 않고 둘 다 받는다."""
+    monkeypatch.setattr(fal_api.env, "get_key",
+                        lambda n: "K1" if n == "FAL_KEY" else "K2")
+    assert fal_api.api_key() == "K1"                 # FAL_KEY 우선
+    monkeypatch.setattr(fal_api.env, "get_key",
+                        lambda n: "" if n == "FAL_KEY" else "K2")
+    assert fal_api.api_key() == "K2"                 # 없으면 FAL_API_KEY
+    monkeypatch.setattr(fal_api.env, "get_key", lambda n: "")
+    assert fal_api.api_key() == ""
+
+
+def test_edit_image_uses_fal_api_key_fallback(tmp_path, monkeypatch):
+    seen = {}
+
+    class _Resp:
+        def __init__(self, p):
+            self._p = p
+        def read(self):
+            return self._p
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    def _fake(req, timeout=None):
+        if req.full_url.endswith("/edit"):
+            seen["auth"] = {k.lower(): v for k, v in req.headers.items()}["authorization"]
+            return _Resp(json.dumps({"images": [{"url": "https://cdn.test/o.png"}]}).encode())
+        return _Resp(b"X")
+
+    monkeypatch.setattr(fal_api.env, "get_key", lambda n: "FROMV3" if n == "FAL_API_KEY" else "")
+    monkeypatch.setattr(fal_api.urllib.request, "urlopen", _fake)
+    assert fal_api.edit_image("p", [_png(tmp_path)]) == b"X"
+    assert seen["auth"] == "Key FROMV3"
