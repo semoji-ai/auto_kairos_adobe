@@ -537,6 +537,9 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
                 proj_dir, str(proj_dir / sc["_image"]), sc.get("sceneId"), elements,
                 concurrency=conc, on_event=lambda r: jobs.append_log(jid, f"{r['name']}: {r['status']}"))
             if not any(l.get("status") == "completed" for l in res.get("layers", [])):
+                first_error = next((l.get("error") for l in res.get("layers", []) if l.get("error")), None)
+                if first_error:
+                    raise RuntimeError("레이어 분리 전체 실패: " + str(first_error))
                 raise RuntimeError("레이어 분리 전체 실패")
             jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers")])
             okn = sum(1 for l in res.get("layers", []) if str(l.get("status", "")).startswith("completed"))

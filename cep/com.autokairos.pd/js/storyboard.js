@@ -774,7 +774,7 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function splitLayers(n, els) {
-  _rowStatus(n, "레이어 분리 중... (" + els.length + "개 요소 + 배경, codex)");
+  _rowStatus(n, "레이어 분리 중... (" + els.length + "개 요소 + 배경, fal)");
   fetch(BACKEND + "/api/scenes/split-layers", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), elements: els }),

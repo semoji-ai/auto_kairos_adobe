@@ -177,11 +177,11 @@ def _run_fal_image(proj_dir: Path, out: Path, prompt: str, *, images=None, post=
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
         data = fal_api.edit_image(prompt, list(images or []))
-    except fal_api.FalError as e:
+        out.write_bytes(data)
+        if post:
+            post(out)
+    except (fal_api.FalError, OSError) as e:
         return {"status": "failed", "error": str(e)[:200], "path": str(out)}
-    out.write_bytes(data)
-    if post:
-        post(out)
     return {"status": "completed", "path": str(out)}
 
 
@@ -426,12 +426,13 @@ def _scene_size(scene_image: str):
         return None
 
 
-def _qc_feedback(ratio, pos):
+def _qc_feedback(ratio, pos, key: str = "magenta"):
     """QC 불합격 사유 → 재시도 피드백 한 줄. 합격이면 None."""
+    kl = KEY_LABEL[key]
     if ratio is not None and ratio < QC_MIN:
-        return "이전 시도에서 마젠타 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 마젠타로."
+        return f"이전 시도에서 {kl} 채움이 거의 없었다(전체를 그렸다). 요소 외 전 영역을 반드시 {kl}로."
     if ratio is not None and ratio > QC_MAX:
-        return "이전 시도에서 요소가 거의 그려지지 않았다(전부 마젠타). 요소를 분명히 그려라."
+        return f"이전 시도에서 요소가 거의 그려지지 않았다(전부 {kl}). 요소를 분명히 그려라."
     if pos is not None and pos < QC_POS_MIN:
         return ("이전 시도에서 요소가 원본과 다른 위치/크기로 그려졌다. "
                 "원본 씬에서 이 요소가 차지하는 정확히 같은 좌표·같은 크기로 그려라 — "
@@ -481,7 +482,7 @@ def generate_element_layer(proj_dir: Path, scene_image: str, sid: str, index: in
     prompt = build_element_layer_prompt(name, loc, style, rel, others=others, key=key)
     res, ratio, pos = _gen_element_once(proj_dir, scene_image, out, prompt, scene_size, key=key)
     qc = None
-    fb = _qc_feedback(ratio, pos) if res.get("status") == "completed" else None
+    fb = _qc_feedback(ratio, pos, key=key) if res.get("status") == "completed" else None
     if fb:
         out2 = versioned_path(out_base, base_name)              # 새 파일(무삭제)
         rel2 = out2.relative_to(proj_dir).as_posix()
@@ -491,7 +492,7 @@ def generate_element_layer(proj_dir: Path, scene_image: str, sid: str, index: in
         res2, ratio2, pos2 = _gen_element_once(proj_dir, scene_image, out2,
                                                prompt2 + "\n[재시도 피드백] " + fb, scene_size,
                                                key=key)
-        if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2) is None:
+        if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2, key=key) is None:
             _retire_layer(out_base, out)            # 탈락한 1차본 → _prev (중복 방지·무삭제)
             out, rel, res, qc, pos = out2, rel2, res2, "retried_ok", pos2
         else:
@@ -509,6 +510,8 @@ def generate_element_layer(proj_dir: Path, scene_image: str, sid: str, index: in
             res = {"status": "completed_lowq", "path": str(out)}
     r = {"name": name, "rel": rel, "status": res.get("status"), "qc": qc,
          "pos_score": pos}                                          # 풀프레임 레이어(크롭 안 함)
+    if res.get("error"):
+        r["error"] = res.get("error")
     if on_event:
         on_event(r)
     return r
@@ -530,7 +533,7 @@ def generate_background_layer(proj_dir: Path, scene_image: str, sid: str, names:
                   f"다음 요소들과 '그 위에 얹혀 있거나 붙어 있는 것'까지 함께 제거한다: {joined}.\n"
                   f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
                   f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
-                  f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
+                  f"텍스트 없음.")
         res = _run_fal_image(proj_dir, out, prompt, images=[scene_image])
         if res.get("status") == "completed":
             if scene_size:
@@ -539,6 +542,8 @@ def generate_background_layer(proj_dir: Path, scene_image: str, sid: str, names:
         if on_event:
             on_event({"name": "배경", "status": "재시도", "try": bg_try + 1})
     r = {"name": "배경", "rel": rel, "status": res.get("status")}
+    if res.get("error"):
+        r["error"] = res.get("error")
     if on_event:
         on_event(r)
     return r
@@ -667,7 +672,7 @@ def regenerate_layer(proj_dir: Path, scene_image: str, sid: str, layer: str, *,
 def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
                             *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
     """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
-    요소는 마젠타→투명 후처리. 무삭제(versioned).
+    요소는 씬마다 선택된 키 색(마젠타 또는 그린)으로 채운 뒤 투명 후처리. 무삭제(versioned).
     요소 개수가 MAX_ELEMENTS를 초과하면 우선순위 순으로 자른다(초과분은 배경에 남김)."""
     out_base = proj_dir / subdir
     out_base.mkdir(parents=True, exist_ok=True)
@@ -763,7 +768,10 @@ def scene_key_color(out_base: Path, sid: str, scene_image) -> dict:
                 return saved
         except (json.JSONDecodeError, OSError):
             pass
-    res = pick_key_color(scene_image)
+    try:
+        res = pick_key_color(scene_image)
+    except Exception:
+        return {"key": "magenta", "rgb": list(KEY_COLORS["magenta"]), "coverage": {}}
     try:
         fp.parent.mkdir(parents=True, exist_ok=True)
         fp.write_text(json.dumps(res, ensure_ascii=False, indent=2), encoding="utf-8")
