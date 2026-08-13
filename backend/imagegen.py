@@ -689,30 +689,85 @@ def flatten_colors(png_path: Path, colors: int | None = None) -> bool:
         return False
 
 
-def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
-    """마젠타(#FF00FF) 거리 기반 소프트 알파 + 가장자리 수축·페더.
+KEY_COLORS = {"magenta": (255, 0, 255), "green": (0, 255, 0)}
+KEY_HEX = {"magenta": "#FF00FF", "green": "#00FF00"}
+KEY_LABEL = {"magenta": "마젠타", "green": "그린"}
+_COVER_DIST = 0.25          # 이 거리 안이면 '그 색과 겹친다'고 본다
+
+
+def _key_distance(a: "np.ndarray", key: str) -> "np.ndarray":
+    """픽셀별 키 색 거리(0=순수 키 색, 1=정반대). a는 RGB float 배열."""
+    kr, kg, kb = KEY_COLORS[key]
+    r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
+    return np.sqrt((kr - r) ** 2 + (kg - g) ** 2 + (kb - b) ** 2) / 441.673
+
+
+def color_coverage(scene_image, key: str) -> float:
+    """씬 이미지에서 그 키 색과 겹치는 픽셀 비율(0~1). 작을수록 키 컬러로 쓰기 좋다."""
+    with Image.open(scene_image) as im:
+        small = im.convert("RGB").resize((64, 64), Image.BILINEAR)
+    a = np.array(small).astype(float)
+    return float((_key_distance(a, key) < _COVER_DIST).mean())
+
+
+def pick_key_color(scene_image) -> dict:
+    """이미지에 덜 걸치는 키 색을 고른다. 동률이면 마젠타(기존 기본값)."""
+    cov = {k: color_coverage(scene_image, k) for k in KEY_COLORS}
+    key = "magenta" if cov["magenta"] <= cov["green"] else "green"
+    return {"key": key, "rgb": list(KEY_COLORS[key]), "coverage": cov}
+
+
+def scene_key_color(out_base: Path, sid: str, scene_image) -> dict:
+    """씬의 키 색을 사이드카에 고정해 재사용. 요소·배경·재생성이 반드시 같은 색을 써야 한다."""
+    fp = Path(out_base) / f"{sid}__keycolor.json"
+    if fp.is_file():
+        try:
+            saved = json.loads(fp.read_text(encoding="utf-8"))
+            if saved.get("key") in KEY_COLORS:
+                return saved
+        except (json.JSONDecodeError, OSError):
+            pass
+    res = pick_key_color(scene_image)
+    try:
+        fp.parent.mkdir(parents=True, exist_ok=True)
+        fp.write_text(json.dumps(res, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+    return res
+
+
+def chroma_key(src_png: Path, out_png: Path, key: str = "magenta") -> dict:
+    """키 색 거리 기반 소프트 알파 + 가장자리 수축·페더 + 디스필.
     반환 {"transparent_ratio": float} — QC 게이트 신호로 사용."""
     im = Image.open(src_png).convert("RGBA")
     a = np.array(im).astype(float)
-    r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
-    # 마젠타 유사도: r·b 높고 g 낮을수록 마젠타. dist 0=순수 마젠타.
-    dist = np.sqrt((255 - r) ** 2 + g ** 2 + (255 - b) ** 2) / 441.673
+    dist = _key_distance(a, key)
     alpha = np.clip((dist - 0.18) / 0.22, 0.0, 1.0)           # 0.18 이하=투명, 0.40 이상=불투명
-    # 가장자리 수축(erode 1px) — 마젠타 프린지 제거
+    # 가장자리 수축(erode 1px) — 키 색 프린지 제거
     core = alpha >= 0.999
     er = core.copy()
     er[1:, :] &= core[:-1, :]; er[:-1, :] &= core[1:, :]
     er[:, 1:] &= core[:, :-1]; er[:, :-1] &= core[:, 1:]
     edge = core & ~er
     alpha[edge] *= 0.8                                        # 경계 페더
-    # 디스필: 남은 픽셀의 마젠타 성분 감쇠(기존 로직 유지)
+    # 디스필: 남은 픽셀의 키 색 성분 감쇠
+    r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
     keep = alpha > 0
-    over = keep & (g < np.minimum(r, b) - 40)
-    a[over, 0] = np.minimum(a[over, 0], a[over, 1] + 40)
-    a[over, 2] = np.minimum(a[over, 2], a[over, 1] + 40)
+    if key == "magenta":
+        over = keep & (g < np.minimum(r, b) - 40)
+        a[over, 0] = np.minimum(a[over, 0], a[over, 1] + 40)
+        a[over, 2] = np.minimum(a[over, 2], a[over, 1] + 40)
+    else:                                                     # green
+        over = keep & (g > np.maximum(r, b) + 40)
+        a[over, 1] = np.minimum(a[over, 1], np.maximum(a[over, 0], a[over, 2]) + 40)
     a[:, :, 3] = alpha * 255
     Image.fromarray(a.astype("uint8"), "RGBA").save(out_png)
     return {"transparent_ratio": float((alpha < 0.5).sum()) / alpha.size}
+
+
+def chroma_key_magenta(src_png: Path, out_png: Path) -> dict:
+    """기존 호출부·테스트 보존용 별칭."""
+    return chroma_key(src_png, out_png, key="magenta")
 
 
 def build_layer_prompt(layer_kind: str, style_desc: str, rel_out: str) -> str:
