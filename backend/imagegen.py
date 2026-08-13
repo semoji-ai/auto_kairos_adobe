@@ -712,50 +712,62 @@ def regenerate_layer(proj_dir: Path, scene_image: str, sid: str, layer: str, *,
 
 
 def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
-                            *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
-    """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
-    요소는 씬마다 선택된 키 색(마젠타 또는 그린)으로 채운 뒤 투명 후처리. 무삭제(versioned).
-    요소 개수가 MAX_ELEMENTS를 초과하면 우선순위 순으로 자른다(초과분은 배경에 남김)."""
-    out_base = proj_dir / subdir
+                            *, subdir: str = "layers", concurrency: int = 1, on_event=None) -> dict:
+    """씬 이미지를 layerize로 분리해 투명 PNG 여러 장을 저장한다.
+
+    모델이 프롬프트에 적은 이름대로 오려내므로 다시 그리지 않는다 — 원위치가 어긋날 수 없다.
+    z_index 0은 요소가 지워지고 메워진 배경판이라 그대로 배경 레이어로 쓴다.
+    concurrency는 호출 1회 구조라 쓰지 않으며, 기존 호출부 호환을 위해 남긴다."""
+    out_base = Path(proj_dir) / subdir
     out_base.mkdir(parents=True, exist_ok=True)
-    _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제: _prev로 이동)
-    style = load_style()
-    scene_size = _scene_size(scene_image)
-    # 요소 예산 적용 — 배경에는 채택된 요소만 제거 대상으로 전달된다
-    budgeted = apply_element_budget(elements)
-    elements = budgeted["elements"]
-    all_names = [e.get("name", "") for e in elements]
+    _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제)
+    picked = apply_element_budget(elements)["elements"]
+    names = [(e.get("name_en") or "").strip() for e in picked]
+    names = [n for n in names if n]
+    layers = fal_api.layerize(scene_image, names)
 
-    def _element(i_el):
-        i, el = i_el
-        others = [nm for j, nm in enumerate(all_names) if j != i]   # 다른 선택 요소는 제외
-        return generate_element_layer(proj_dir, scene_image, sid, i, el, others,
-                                      out_base=out_base, scene_size=scene_size,
-                                      style=style, on_event=on_event)
+    by_name = {}
+    for i, el in enumerate(picked):
+        key = (el.get("name_en") or "").strip()
+        if key:
+            by_name[key] = (i, el)
 
-    tasks = list(enumerate(elements))
-    with ThreadPoolExecutor(max_workers=max(1, int(concurrency))) as ex:
-        layers = list(ex.map(_element, tasks))
-    layers.append(generate_background_layer(proj_dir, scene_image, sid, all_names,
-                                            out_base=out_base, scene_size=scene_size,
-                                            style=style, on_event=on_event))
-    # 레이어별 kind(인물/사물) 사이드카 — 모션 규칙(캐릭터만 bob)에 사용
-    # + 요소 명세 사이드카 — 낱개 재생성·배경 재생성이 프롬프트 재료로 쓴다
-    kinds, specs = {}, []
-    for i, el in enumerate(elements):
-        match = [r for r in layers if r.get("rel", "").split("/")[-1].startswith(f"{sid}__{i}_")]
-        if not match:
+    results, specs, kinds, unexpected = [], [], {}, []
+    for L in layers:
+        nm = L.get("name")
+        if nm is None:                       # z0 — 인페인팅된 배경판
+            out = versioned_path(out_base, f"{sid}__bg.png")
+            out.write_bytes(L["data"])
+            results.append({"name": "배경", "rel": out.relative_to(proj_dir).as_posix(),
+                            "status": "completed", "z": L["z"], "bbox": None})
+            if on_event:
+                on_event(results[-1])
             continue
-        stem = Path(match[0]["rel"]).stem
+        hit = by_name.get(nm.strip())
+        if hit is None:
+            unexpected.append(nm)
+            if on_event:
+                on_event({"name": nm, "status": "unexpected"})
+            continue
+        i, el = hit
+        tag = "_char" if el.get("kind") == "character" else ""
+        out = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(nm)}{tag}.png")
+        out.write_bytes(L["data"])
+        stem = out.stem
         kinds[stem] = el.get("kind", "object")
         specs.append({"layer": stem, "index": i, "name": el.get("name", ""),
-                      "name_en": el.get("name_en", ""),
-                      "location": el.get("location", ""), "kind": el.get("kind", "object"),
-                      "intent": el.get("intent", "")})
+                      "name_en": nm, "location": el.get("location", ""),
+                      "kind": el.get("kind", "object"), "intent": el.get("intent", ""),
+                      "bbox": L.get("bbox"), "z": L.get("z")})
+        results.append({"name": el.get("name", nm), "rel": out.relative_to(proj_dir).as_posix(),
+                        "status": "completed", "z": L.get("z"), "bbox": L.get("bbox")})
+        if on_event:
+            on_event(results[-1])
+
     (out_base / KINDS_SIDECAR.format(sid=sid)).write_text(
         json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
     write_element_specs(out_base, sid, specs)
-    return {"layers": layers}
+    return {"layers": results, "unexpected": unexpected}
 
 
 def flatten_colors(png_path: Path, colors: int | None = None) -> bool:
