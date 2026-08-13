@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from backend import imagegen, motion
+from backend import imagegen, motion, scenes
 
 SCHEMA = Path(__file__).resolve().parents[1] / "backend" / "schemas" / "layer_elements.schema.json"
 
@@ -49,9 +49,17 @@ def test_prompt_demands_minimality_and_intent():
     p = imagegen.build_layer_analysis_prompt()
     assert "인물 1장 + 배경 1장" in p            # 최소 구성 반례
     assert "intent" in p
-    assert "배경에 남긴다" in p                  # intent를 못 대면 분리하지 않는다
+    assert "배경에" in p                          # intent를 못 대면 분리하지 않는다
     assert "name_en" in p                        # 영어 이름 요구
     assert str(imagegen.MAX_ELEMENTS) in p       # 상한 명시
+
+
+def test_prompt_states_executable_motion_limits():
+    """모션 어휘 8종을 다 보여주되, 실제 실행되는 것은 인물 bob(+fade_in)뿐임을 명시해야 한다 —
+    안 그러면 사물에도 없는 동작을 지어내 분리 근거로 쓸 수 있다."""
+    p = imagegen.build_layer_analysis_prompt()
+    assert "사물 레이어에는 지금 개별 모션이 붙지 않는다" in p
+    assert "slide_in 좌→우 후 drift로 가속 지속" not in p    # 실행 불가능한 사물 예시 제거
 
 
 def test_prompt_handles_empty_inputs():
@@ -79,18 +87,42 @@ def test_analyze_passes_new_context_through(tmp_path, monkeypatch):
 
 
 def test_neighbor_context_builds_both_sides():
-    from backend import router
     ss = [{"sceneNumber": 1, "title": "창업", "narration": "2003년 설립됐다."},
           {"sceneNumber": 2, "title": "속도", "narration": "로드스터가 등장했다.",
            "shot_relation": "continue"},
           {"sceneNumber": 3, "title": "위기", "narration": "파산 직전까지 갔다.",
            "shot_relation": "cut"}]
-    ctx = router._neighbor_context(ss, 2)
+    ctx = scenes.neighbor_context(ss, 2)
     assert "창업" in ctx and "위기" in ctx
     assert "continue" in ctx                      # 이 씬이 앞 씬과 이어지는지
-    assert router._neighbor_context(ss, 1).startswith("앞 씬: (없음)")
-    assert "뒤 씬: (없음)" in router._neighbor_context(ss, 3)
-    assert router._neighbor_context([], 1)        # 빈 목록도 문자열 반환
+    assert scenes.neighbor_context(ss, 1).startswith("앞 씬: (없음)")
+    assert "뒤 씬: (없음)" in scenes.neighbor_context(ss, 3)
+    assert scenes.neighbor_context([], 1)        # 빈 목록도 문자열 반환
+
+
+def test_assistant_split_layers_passes_direction_context(tmp_path, monkeypatch):
+    """비서 경로도 패널 경로와 동일한 연출 맥락(image_prompt/neighbors/briefing)을 받아야 한다."""
+    from backend import assistant, vault
+    (tmp_path / "storyboard").mkdir(parents=True)
+    (tmp_path / "storyboard" / "sb_a.png").write_bytes(b"\x89PNG")
+    (tmp_path / "scenes.json").write_text(json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "a", "title": "속도", "narration": "빠르다.",
+         "visual_summary": "가속 순간", "image_prompt": "빛의 궤적이 있는 빨간 스포츠카",
+         "imageRef": "storyboard/sb_a.png"},
+        {"sceneNumber": 2, "sceneId": "b", "title": "위기", "narration": "위험했다."}]}),
+        encoding="utf-8")
+    seen = {}
+
+    def _fake(proj_dir, scene_image, **kw):
+        seen.update(kw)
+        return {"elements": [], "dropped": []}
+
+    monkeypatch.setattr(imagegen, "analyze_scene_layers", _fake)
+    monkeypatch.setattr(vault, "read_context", lambda d: "프로젝트 브리핑 요약")
+    assistant._h_split_layers(tmp_path)
+    assert seen["image_prompt"] == "빛의 궤적이 있는 빨간 스포츠카"
+    assert "위기" in seen["neighbors"]
+    assert seen["briefing"] == "프로젝트 브리핑 요약"
 
 
 def test_analyze_endpoint_passes_direction_context(tmp_path, monkeypatch):

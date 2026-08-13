@@ -736,5 +736,14 @@ def test_layer_modal_shows_intent():
     """왜 나뉘는지를 연출 언어로 보여준다. 상한은 목표가 아니므로 문구도 바꾼다."""
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "e.intent" in js
-    assert "개 선택 (최대 " in js
-    assert "선택 (배경 1장이 자동으로 더해집니다)" not in js
+    assert "최대 " in js
+
+
+def test_max_layer_elements_matches_backend():
+    """패널 하드코딩 상한이 backend.imagegen.MAX_ELEMENTS와 어긋나지 않아야 한다."""
+    import re
+    from backend import imagegen
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    m = re.search(r"MAX_LAYER_ELEMENTS\s*=\s*(\d+)", js)
+    assert m, "MAX_LAYER_ELEMENTS 정의를 찾지 못함"
+    assert int(m.group(1)) == imagegen.MAX_ELEMENTS

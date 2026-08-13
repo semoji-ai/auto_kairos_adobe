@@ -341,3 +341,25 @@ def merge_scenes(proj_dir: Path, scene_number: int) -> dict:
                 break
         _save(proj_dir, _renumber(data))
         return load_scenes(proj_dir)
+
+
+def neighbor_context(scenes_list: list, scene_number) -> str:
+    """앞뒤 씬 한 줄 요약 + 이 씬의 shot_relation.
+    이어지는 샷(continue)이면 레이어 구성을 앞 씬과 맞춰야 연결이 끊기지 않는다."""
+    def _line(s):
+        if not s:
+            return "(없음)"
+        nar = (s.get("narration") or "").strip().replace("\n", " ")[:60]
+        return f"{s.get('title', '') or '(제목 없음)'} — {nar}"
+
+    idx = next((i for i, s in enumerate(scenes_list)
+                if s.get("sceneNumber") == scene_number), None)
+    if idx is None:
+        return "앞 씬: (없음)\n뒤 씬: (없음)"
+    prev = scenes_list[idx - 1] if idx > 0 else None
+    nxt = scenes_list[idx + 1] if idx + 1 < len(scenes_list) else None
+    rel = (scenes_list[idx].get("shot_relation") or "").strip()
+    head = f"앞 씬: {_line(prev)}"
+    if rel:
+        head += f"  (이 씬은 앞 씬과 {rel})"
+    return head + f"\n뒤 씬: {_line(nxt)}"

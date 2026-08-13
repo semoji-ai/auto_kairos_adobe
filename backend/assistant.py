@@ -66,6 +66,7 @@ def _h_generate_missing_images(proj_dir: Path, on_event=None, targets=None, shou
 
 
 def _h_split_layers(proj_dir: Path, on_event=None, targets=None, should_cancel=None) -> dict:
+    from backend import vault
     data = scenes.load_scenes(proj_dir)
     n = 0
     for s in _target_scenes(data, targets):
@@ -74,8 +75,13 @@ def _h_split_layers(proj_dir: Path, on_event=None, targets=None, should_cancel=N
             continue
         img = str(proj_dir / s["_image"])
         ctx = f"제목: {s.get('title', '')} / 요약: {s.get('visual_summary', '')}"
-        els = imagegen.analyze_scene_layers(proj_dir, img,
-                                            narration=s.get("narration", "") or "", context=ctx).get("elements", [])
+        els = imagegen.analyze_scene_layers(
+            proj_dir, img,
+            narration=s.get("narration", "") or "", context=ctx,
+            image_prompt=s.get("image_prompt", "") or "",
+            neighbors=scenes.neighbor_context(data.get("scenes", []), s.get("sceneNumber")),
+            briefing=vault.read_context(proj_dir),
+        ).get("elements", [])
         if not els:
             continue
         imagegen.split_scene_to_elements(proj_dir, img, s.get("sceneId"), els)
