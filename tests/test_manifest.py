@@ -168,10 +168,10 @@ def test_manifest_layout_passthrough(tmp_path):
     manifest.build_manifest(d)
     mf = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
     s1, s2 = mf["scenes"]
-    assert s1["layout"] == "headline_only" and s1["headline"] == "큰 제목" and s1["sub"] == "부제"
+    assert s1["layout"] == "headline_only" and s1["title"] == "큰 제목" and s1["descriptions"] == ["부제"]
     assert s1["image"] is None and s1["layers"] == []
     assert s1["width"] == 1920 and s1["height"] == 1080
-    assert s2["layout"] == "bar" and s2["chart"]["values"] == [10, 40]
+    assert s2["layout"] == "bar" and s2["values"] == [10, 40]
     assert "value" not in s2 and "quote_text" not in s2     # None 필드는 미포함
     assert Path(mf["ae_tokens"]).name == "ae_tokens.json" and Path(mf["ae_tokens"]).is_absolute()
 
@@ -291,6 +291,39 @@ def test_build_manifest_subtitle_uses_subtitle_text(tmp_path):
          "narration_tts": "천구백칠십 년대"}]}, ensure_ascii=False), encoding="utf-8")
     mf = _j.loads(Path(_m.build_manifest(tmp_path)["path"]).read_text(encoding="utf-8"))
     assert mf["scenes"][0]["subtitle"] == "1970년대"
+
+
+def test_manifest_normalizes_layout_data(tmp_path):
+    """jsx는 정규 이름만 알면 되게 — 별칭은 백엔드에서 정리해 넘긴다."""
+    import json as _j
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "layout": "headline_only",
+                          "headline": "제목", "sub": "부제"}])
+    mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
+    sc = mf["scenes"][0]
+    assert sc["title"] == "제목"
+    assert sc["descriptions"] == ["부제"]
+    assert sc["layout"] == "headline_only"
+
+
+def test_manifest_resolves_unknown_layout_to_generic(tmp_path):
+    """모르는 v3 이름이 와도 cinematic으로 떨어뜨리지 않는다."""
+    import json as _j
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "layout": "slide_qna",
+                          "headline": "질문", "items": ["가", "나"]}])
+    sc = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["layout"] == "generic"
+    assert sc["title"] == "질문" and sc["items"] == ["가", "나"]
+
+
+def test_manifest_aliases_v3_layout(tmp_path):
+    import json as _j
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "layout": "slide_list",
+                          "headline": "제목", "items": ["가"]}])
+    sc = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["layout"] == "items_list"
 
 
 def test_build_manifest_fractional_scene_number(tmp_path):
