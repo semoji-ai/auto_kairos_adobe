@@ -258,6 +258,17 @@ def generate_asset(proj_dir: Path, rel_out: str, image_prompt: str,
 _LAYER_SCHEMA = Path(__file__).resolve().parent / "schemas" / "layer_elements.schema.json"
 
 
+MAX_ELEMENTS = 4        # 씬당 요소 레이어 상한. 배경 1장을 더해 최대 5레이어.
+
+
+def apply_element_budget(elements: list) -> dict:
+    """요소를 MAX_ELEMENTS개로 자른다. 분석 프롬프트가 이미 우선순위 순으로 주므로 앞에서 취한다.
+    잘린 것은 dropped로 함께 돌려준다 — 패널이 '예산 초과로 제외'를 보여주고,
+    배경 프롬프트는 채택된 것만 제거 대상으로 삼는다(잘린 요소는 배경에 남아야 한다)."""
+    els = list(elements or [])
+    return {"elements": els[:MAX_ELEMENTS], "dropped": els[MAX_ELEMENTS:]}
+
+
 def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
                          narration: str = "", context: str = "", on_line=None) -> dict:
     """codex 멀티모달로 씬 이미지+내레이션을 분석해 '움직임이 필요한' 레이어만 선별.
@@ -283,12 +294,12 @@ def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
     res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_LAYER_SCHEMA),
                                output_last=str(out_json), images=[scene_image], on_line=on_line)
     if res.get("returncode") != 0 or not out_json.is_file():
-        return {"error": "분석 실패", "elements": []}
+        return {"error": "분석 실패", "elements": [], "dropped": []}
     try:
         data = json.loads(out_json.read_text(encoding="utf-8"))
     except Exception:
-        return {"error": "분석 결과 파싱 실패", "elements": []}
-    return {"elements": data.get("elements", [])}
+        return {"error": "분석 결과 파싱 실패", "elements": [], "dropped": []}
+    return {**apply_element_budget(data.get("elements", []))}
 
 
 def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_out: str,

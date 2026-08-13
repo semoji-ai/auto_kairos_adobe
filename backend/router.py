@@ -510,7 +510,8 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             narration=sc.get("narration", "") or "", context=ctx_str,
             on_line=lambda ln: jobs.append_log(jid, ln))
         jobs.set_status(jid, "completed" if res.get("elements") else "failed")
-        return 200, {"job_id": jid, "elements": res.get("elements", []), "error": res.get("error")}
+        return 200, {"job_id": jid, "elements": res.get("elements", []),
+                     "dropped": res.get("dropped", []), "error": res.get("error")}
 
     if method == "POST" and p == "/api/scenes/split-layers":
         b = body or {}
