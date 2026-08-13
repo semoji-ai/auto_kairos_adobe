@@ -7,13 +7,14 @@ import re
 from pathlib import Path
 
 from backend import llm
+from backend import scene_layouts as _scene_layouts
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SKILLS = _ROOT / "skills"
 _SCHEMAS = Path(__file__).resolve().parent / "schemas"
 _SCENE_SCHEMA = _SCHEMAS / "scene_specs.schema.json"
 _REVIEW_SCHEMA = _SCHEMAS / "scene_review.schema.json"
-_LAYOUTS = {"headline_only", "items_list", "metric_spotlight", "quote", "map", "cinematic"}
+_LAYOUTS = _scene_layouts.KNOWN     # 목록은 scene_layouts가 단일 출처
 _REL = {"cut", "continue"}
 
 _SCENE_RE = re.compile(r"(?m)^[ \t]*<!--\s*SCENE\s*-->[ \t]*$")

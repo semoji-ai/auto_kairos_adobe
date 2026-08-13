@@ -87,3 +87,29 @@ def test_normalize_keeps_zero_values():
     assert out["items"] == ["년"]
     # 빈 문자열은 여전히 값 없음으로 취급
     assert "values" not in SL.normalize_fields({"value": ""})
+
+
+def test_layout_list_has_single_source():
+    """목록이 세 곳에 흩어져 어긋나 있었다 — bar가 검증 목록에서 빠져 정상 씬이 지적됐다."""
+    import json
+    from pathlib import Path
+    from backend import scene_analysis
+    assert scene_analysis._LAYOUTS is SL.KNOWN
+
+    schema = json.loads((Path(__file__).resolve().parents[1] / "skills" / "scene-decompose"
+                         / "scenes.schema.json").read_text(encoding="utf-8"))
+    enum = schema["properties"]["scenes"]["items"]["properties"]["layout"]["enum"]
+    named = {e for e in enum if e is not None}
+    assert named == set(SL.KNOWN), sorted(named ^ set(SL.KNOWN))
+    assert "bar" in named                      # 예전에 빠져 있던 값
+    assert None in enum                        # 레이아웃 미지정 허용은 유지
+
+
+def test_bar_scene_is_not_flagged_nonstandard(tmp_path):
+    """bar가 검증 목록에서 빠져 정상 씬이 '비표준값'으로 지적되던 문제."""
+    from backend import scene_analysis
+    res = scene_analysis._scene_det_checks(tmp_path, [
+        {"sceneNumber": 1, "visual_summary": "요약", "layout": "bar"},
+        {"sceneNumber": 2, "visual_summary": "요약", "layout": "slide_ranking"},
+    ])
+    assert not [i for i in res["issues"] if "layout" in i], res["issues"]
