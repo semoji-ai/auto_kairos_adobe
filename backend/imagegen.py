@@ -667,12 +667,16 @@ def regenerate_layer(proj_dir: Path, scene_image: str, sid: str, layer: str, *,
 def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements: list,
                             *, subdir: str = "layers", concurrency: int = 4, on_event=None) -> dict:
     """요소별 투명 레이어({sid}__{i}_{slug}.png) + 배경 레이어({sid}__bg.png) 생성.
-    요소는 마젠타→투명 후처리. 무삭제(versioned)."""
+    요소는 마젠타→투명 후처리. 무삭제(versioned).
+    요소 개수가 MAX_ELEMENTS를 초과하면 우선순위 순으로 자른다(초과분은 배경에 남김)."""
     out_base = proj_dir / subdir
     out_base.mkdir(parents=True, exist_ok=True)
     _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제: _prev로 이동)
     style = load_style()
     scene_size = _scene_size(scene_image)
+    # 요소 예산 적용 — 배경에는 채택된 요소만 제거 대상으로 전달된다
+    budgeted = apply_element_budget(elements)
+    elements = budgeted["elements"]
     all_names = [e.get("name", "") for e in elements]
 
     def _element(i_el):
