@@ -76,3 +76,68 @@ def edit_image(prompt: str, image_paths: list, *, output_format: str = "png",
             return resp.read()
     except Exception as e:
         raise FalError(f"fal 결과 내려받기 실패: {str(e)[:200]}") from e
+
+
+LAYERIZE_ENDPOINT = "https://fal.run/bytedance/seedream/v5/pro/layerize"
+
+
+def build_layerize_prompt(names: list) -> str:
+    """분리할 요소 이름을 영어로 나열한다.
+
+    이 모델은 프롬프트에 적은 이름대로 쪼갠다 — 적지 않은 것은 배경에 남는다.
+    'background'는 절대 넣지 않는다: 넣으면 하늘·도로가 뚫린 배경 요소 레이어가
+    한 장 더 오는데, 우리가 쓰는 배경은 z_index 0의 인페인팅된 판이다."""
+    joined = ", ".join(n for n in names if n)
+    return ("Separate this illustration into transparent layers. "
+            f"Extract each of these as its own layer: {joined}. "
+            "Keep each element whole and in its original position.")
+
+
+def layerize(image_path, names: list, *, timeout: int = 600) -> list:
+    """씬 이미지를 레이어로 분리. z_index 오름차순 목록을 돌려준다.
+
+    각 항목 {name(z0은 None), z, bbox(z0은 None), data(PNG 바이트)}.
+    응답의 image.width/height는 null로 오므로 크기는 호출자가 PNG에서 읽는다."""
+    key = api_key()
+    if not key:
+        raise FalError("FAL_KEY(또는 FAL_API_KEY) 없음 — auto_kairos .env 또는 환경변수")
+    picked = [n for n in (names or []) if n]
+    if not picked:
+        raise FalError("분리할 요소 이름 없음")
+    src = Path(image_path)
+    if not src.is_file():
+        raise FalError(f"씬 이미지 없음: {src}")
+    body = json.dumps({
+        "image_url": data_uri(src),
+        "prompt": build_layerize_prompt(picked),
+        "image_size": "auto",
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        LAYERIZE_ENDPOINT, data=body, method="POST",
+        headers={"Authorization": f"Key {key}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read())
+    except FalError:
+        raise
+    except Exception as e:
+        raise FalError(f"layerize 호출 실패: {str(e)[:200]}") from e
+    raw = data.get("layers") or []
+    if not raw:
+        raise FalError(f"layerize 응답에 레이어 없음: {str(data)[:200]}")
+    out = []
+    for L in sorted(raw, key=lambda x: x.get("z_index") or 0):
+        url = ((L.get("image") or {}).get("url") or "").strip()
+        if not url:
+            continue
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url), timeout=timeout) as resp:
+                blob = resp.read()
+        except Exception as e:
+            raise FalError(f"레이어 내려받기 실패: {str(e)[:200]}") from e
+        bb = (L.get("bounding_box") or {}).get("absolute")
+        out.append({"name": L.get("name"), "z": L.get("z_index") or 0,
+                    "bbox": list(bb) if bb else None, "data": blob})
+    if not out:
+        raise FalError("layerize 응답에 내려받을 이미지가 없음")
+    return out
