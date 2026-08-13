@@ -667,10 +667,12 @@ function analyzeLayers(ns) {
       body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10) }),
     }).then(function (r) { return r.json(); })
       .then(function (j) {
-        var els = j.elements || [];
-        _layerMulti[n] = { els: els, done: true };
-        _renderLayerPane(n, els, j.error);
-        _rowStatus(n, els.length ? (els.length + "개 요소 분석됨") : ("분석 실패: " + (j.error || "")));
+        var els = j.elements || [], dropped = j.dropped || [];
+        _layerMulti[n] = { els: els.concat(dropped), done: true };
+        _renderLayerPane(n, els, j.error, dropped);
+        _rowStatus(n, els.length
+          ? (els.length + "개 요소 분석됨" + (dropped.length ? " (+" + dropped.length + "개 예산 초과)" : ""))
+          : ("분석 실패: " + (j.error || "")));
         _updateLayerModalStatus();
       })
       .catch(function (e) {
@@ -681,21 +683,45 @@ function analyzeLayers(ns) {
   });
 }
 
-function _renderLayerPane(n, els, err) {
+function _renderLayerPane(n, els, err, dropped) {
   var pane = $("layerList").querySelector('.layer-pane[data-scene="' + n + '"]');
   if (!pane) return;
   if (!els.length) {
     pane.innerHTML = '<div style="color:#e74c3c;padding:8px">씬 ' + n + ' 분석 실패: ' + _esc(err || "") + '</div>';
     return;
   }
-  pane.innerHTML = els.map(function (e, i) {
+  function row(e, i, off) {
     var tag = e.kind === "character" ? "👤 인물" : "📦 사물";
-    return '<label class="layer-chk"><input type="checkbox" data-idx="' + i + '" checked>'
+    return '<label class="layer-chk' + (off ? " layer-dropped" : "") + '">'
+      + '<input type="checkbox" data-idx="' + i + '"' + (off ? "" : " checked") + (off ? " disabled" : "") + '>'
       + '<span><b>' + tag + '</b> ' + _esc(e.name)
       + ' <span style="color:#9aa0a6">(' + _esc(e.location) + ')</span>'
+      + (off ? ' <span style="color:#e8b339">예산 초과로 제외</span>' : '')
       + (e.reason ? '<br><span style="font-size:10px;color:#9aa0a6">' + _esc(e.reason) + '</span>' : '')
       + '</span></label>';
-  }).join("");
+  }
+  var html = '<div class="layer-cap-note" style="font-size:11px;color:#9aa0a6;padding:4px 2px"></div>';
+  html += els.map(function (e, i) { return row(e, i, false); }).join("");
+  html += (dropped || []).map(function (e, i) { return row(e, els.length + i, true); }).join("");
+  pane.innerHTML = html;
+  var chks = pane.querySelectorAll('input[type="checkbox"]');
+  for (var c = 0; c < chks.length; c++) {
+    chks[c].addEventListener("change", function () { _enforceLayerCap(pane); });
+  }
+  _enforceLayerCap(pane);
+}
+
+/* 씬당 요소 레이어 상한 — 배경 1장을 더해 최대 5레이어(백엔드 MAX_ELEMENTS와 같은 값). */
+var MAX_LAYER_ELEMENTS = 4;
+
+/* 체크 개수를 상한으로 묶는다 — 상한에 닿으면 꺼진 체크박스를 잠근다. */
+function _enforceLayerCap(pane) {
+  var chks = pane.querySelectorAll('input[type="checkbox"]');
+  var on = 0, i;
+  for (i = 0; i < chks.length; i++) if (chks[i].checked) on++;
+  for (i = 0; i < chks.length; i++) chks[i].disabled = (!chks[i].checked && on >= MAX_LAYER_ELEMENTS);
+  var note = pane.querySelector(".layer-cap-note");
+  if (note) note.textContent = on + "/" + MAX_LAYER_ELEMENTS + " 선택 (배경 1장이 자동으로 더해집니다)";
 }
 
 function _switchLayerTab(n) {
