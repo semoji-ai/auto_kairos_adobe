@@ -730,3 +730,11 @@ def test_layer_modal_shows_budget():
     assert "_enforceLayerCap" in js
     html = HTML.read_text(encoding="utf-8")
     assert ".layer-dropped" in html
+
+
+def test_layer_modal_shows_intent():
+    """왜 나뉘는지를 연출 언어로 보여준다. 상한은 목표가 아니므로 문구도 바꾼다."""
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "e.intent" in js
+    assert "개 선택 (최대 " in js
+    assert "선택 (배경 1장이 자동으로 더해집니다)" not in js

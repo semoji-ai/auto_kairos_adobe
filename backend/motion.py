@@ -89,10 +89,18 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
     if not chars:
         return {"error": "캐릭터 레이어 없음 — 현재 모션 규칙은 캐릭터(bob)만"}
     dur = _scene_duration(proj_dir, s)
+    # 분리 시점의 연출 의도 — 있으면 모션이 그것과 어긋나지 않게 한다
+    from backend import imagegen
+    intents = []
+    for spec in imagegen.load_element_specs(proj_dir / "layers", sid):
+        if spec.get("layer") in chars and (spec.get("intent") or "").strip():
+            intents.append(f"- {spec['layer']}: {spec['intent']}")
+    intent_block = ("\n## 분리 시점의 연출 의도(참고)\n" + "\n".join(intents) + "\n") if intents else ""
     prompt = (
         "너는 모션그래픽 연출가다. 아래 씬의 '캐릭터(인물)' 레이어에만 idle 모션을 설계해라.\n\n"
         f"## 내레이션(씬 길이 {dur:.1f}초)\n{s.get('narration', '') or '(없음)'}\n\n"
-        f"## 레이어(이 이름을 정확히 그대로 사용)\n" + "\n".join(f"- {e}" for e in chars) + "\n\n"
+        f"## 레이어(이 이름을 정확히 그대로 사용)\n" + "\n".join(f"- {e}" for e in chars) + "\n"
+        + intent_block + "\n"
         f"## 사용 가능한 모션 프리셋\n{_PRESET_GUIDE}\n"
         "## 연출 원칙(현행 규칙 — 엄수)\n"
         "1) 인물(사람·캐릭터) 레이어에만 모션을 준다. 사물·가구·차량 등 오브젝트로 보이는 레이어는 "

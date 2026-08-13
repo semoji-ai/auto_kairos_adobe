@@ -121,3 +121,47 @@ def test_analyze_endpoint_passes_direction_context(tmp_path, monkeypatch):
     assert "위기" in seen["neighbors"]
     assert seen["briefing"] == "프로젝트 브리핑 요약"
     assert "속도" in seen["context"]
+
+
+def test_specs_sidecar_keeps_intent(tmp_path, monkeypatch):
+    """분리 시점의 연출 의도가 남아야 모션 플랜이 이어받을 수 있다."""
+    monkeypatch.setattr(imagegen, "_run_fal_image",
+                        lambda proj_dir, out, prompt, images=None, post=None:
+                            (Path(out).write_bytes(b"\x89PNG"),
+                             {"status": "completed", "path": str(out)})[1])
+    monkeypatch.setattr(imagegen, "load_style", lambda: "STYLE")
+    monkeypatch.setattr(imagegen, "_scene_size", lambda p: None)
+    monkeypatch.setattr(imagegen, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(imagegen, "position_score", lambda a, b: 0.9)
+    monkeypatch.setattr(imagegen, "flatten_colors", lambda p: True)
+    from PIL import Image
+    Image.new("RGB", (8, 8)).save(tmp_path / "s.png")
+
+    imagegen.split_scene_to_elements(tmp_path, str(tmp_path / "s.png"), "ab", [
+        {"name": "차량", "name_en": "red car", "location": "중앙", "kind": "object",
+         "reason": "가속 표현", "intent": "slide_in 좌→우"}])
+    specs = imagegen.load_element_specs(tmp_path / "layers", "ab")
+    assert specs[0]["intent"] == "slide_in 좌→우"
+    assert specs[0]["name_en"] == "red car"
+
+
+def test_motion_prompt_includes_intent(tmp_path, monkeypatch):
+    from backend import motion as m
+    seen = {}
+
+    def _fake(prompt, proj_dir, **kw):
+        seen["prompt"] = prompt
+        return {"returncode": 1}
+
+    (tmp_path / "layers").mkdir()
+    (tmp_path / "layers" / "ab__0_인물_char.png").write_bytes(b"\x89PNG")
+    (tmp_path / "scenes.json").write_text(json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "ab", "narration": "말한다."}]}), encoding="utf-8")
+    (tmp_path / "layers" / "ab__kinds.json").write_text(
+        json.dumps({"ab__0_인물_char": "character"}), encoding="utf-8")
+    imagegen.write_element_specs(tmp_path / "layers", "ab", [
+        {"layer": "ab__0_인물_char", "index": 0, "name": "인물", "name_en": "person",
+         "location": "좌측", "kind": "character", "intent": "bob으로 생동감"}])
+    monkeypatch.setattr(m.llm, "run_orchestrator", _fake)
+    m.plan_scene_motion(tmp_path, 1)
+    assert "bob으로 생동감" in seen["prompt"]

@@ -742,7 +742,9 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         stem = Path(match[0]["rel"]).stem
         kinds[stem] = el.get("kind", "object")
         specs.append({"layer": stem, "index": i, "name": el.get("name", ""),
-                      "location": el.get("location", ""), "kind": el.get("kind", "object")})
+                      "name_en": el.get("name_en", ""),
+                      "location": el.get("location", ""), "kind": el.get("kind", "object"),
+                      "intent": el.get("intent", "")})
     (out_base / KINDS_SIDECAR.format(sid=sid)).write_text(
         json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
     write_element_specs(out_base, sid, specs)

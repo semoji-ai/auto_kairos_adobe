@@ -698,6 +698,7 @@ function _renderLayerPane(n, els, err, dropped) {
       + ' <span style="color:#9aa0a6">(' + _esc(e.location) + ')</span>'
       + (off ? ' <span style="color:#e8b339">예산 초과로 제외</span>' : '')
       + (e.reason ? '<br><span style="font-size:10px;color:#9aa0a6">' + _esc(e.reason) + '</span>' : '')
+      + (e.intent ? '<br><span style="font-size:10px;color:#7ab0ff">▸ ' + _esc(e.intent) + '</span>' : '')
       + '</span></label>';
   }
   var html = '<div class="layer-cap-note" style="font-size:11px;color:#9aa0a6;padding:4px 2px"></div>';
@@ -724,7 +725,7 @@ function _enforceLayerCap(pane) {
     chks[i].disabled = isDropped || (!chks[i].checked && on >= MAX_LAYER_ELEMENTS);
   }
   var note = pane.querySelector(".layer-cap-note");
-  if (note) note.textContent = on + "/" + MAX_LAYER_ELEMENTS + " 선택 (배경 1장이 자동으로 더해집니다)";
+  if (note) note.textContent = on + "개 선택 (최대 " + MAX_LAYER_ELEMENTS + " — 배경 1장이 자동으로 더해집니다)";
 }
 
 function _switchLayerTab(n) {
