@@ -93,3 +93,27 @@ def test_layerize_requires_names(tmp_path, monkeypatch):
     monkeypatch.setattr(fal_api, "api_key", lambda: "K")
     with pytest.raises(fal_api.FalError):
         fal_api.layerize(_png(tmp_path), [])
+
+
+def test_layer_without_url_raises(tmp_path, monkeypatch):
+    """요청한 요소가 조용히 빠지면 호출자는 성공한 줄 안다 — 반드시 알린다."""
+    payload = {"images": [], "layers": [
+        {"image": {"url": ""}, "z_index": 2, "name": "car", "bounding_box": None}]}
+    monkeypatch.setattr(fal_api, "api_key", lambda: "K")
+    monkeypatch.setattr(fal_api.urllib.request, "urlopen", _fake_transport({}, payload))
+    with pytest.raises(fal_api.FalError) as e:
+        fal_api.layerize(_png(tmp_path), ["car"])
+    assert "car" in str(e.value)
+
+
+def test_missing_z_index_sorts_last_not_as_plate(tmp_path, monkeypatch):
+    """z_index 결측을 0으로 뭉개면 배경판 자리를 빼앗는다."""
+    payload = {"images": [], "layers": [
+        {"image": {"url": "https://example.com/u1"}, "z_index": None, "name": "car",
+         "bounding_box": {"absolute": [1, 2, 3, 4]}},
+        {"image": {"url": "https://example.com/u2"}, "z_index": 0, "name": None, "bounding_box": None}]}
+    monkeypatch.setattr(fal_api, "api_key", lambda: "K")
+    monkeypatch.setattr(fal_api.urllib.request, "urlopen", _fake_transport({}, payload))
+    layers = fal_api.layerize(_png(tmp_path), ["car"])
+    assert layers[0]["name"] is None          # 배경판이 먼저
+    assert layers[1]["name"] == "car" and layers[1]["z"] is None

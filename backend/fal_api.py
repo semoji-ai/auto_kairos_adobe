@@ -97,6 +97,7 @@ def layerize(image_path, names: list, *, timeout: int = 600) -> list:
     """씬 이미지를 레이어로 분리. z_index 오름차순 목록을 돌려준다.
 
     각 항목 {name(z0은 None), z, bbox(z0은 None), data(PNG 바이트)}.
+    배경판(인페인팅된 정사각형)은 name이 None인 항목으로 식별된다.
     응답의 image.width/height는 null로 오므로 크기는 호출자가 PNG에서 읽는다."""
     key = api_key()
     if not key:
@@ -125,18 +126,23 @@ def layerize(image_path, names: list, *, timeout: int = 600) -> list:
     raw = data.get("layers") or []
     if not raw:
         raise FalError(f"layerize 응답에 레이어 없음: {str(data)[:200]}")
+
+    def _zkey(L):
+        z = L.get("z_index")
+        return (z is None, z if z is not None else 0)
+
     out = []
-    for L in sorted(raw, key=lambda x: x.get("z_index") or 0):
+    for L in sorted(raw, key=_zkey):
         url = ((L.get("image") or {}).get("url") or "").strip()
         if not url:
-            continue
+            raise FalError(f"레이어에 이미지 URL 없음: z={L.get('z_index')} name={L.get('name')}")
         try:
             with urllib.request.urlopen(urllib.request.Request(url), timeout=timeout) as resp:
                 blob = resp.read()
         except Exception as e:
             raise FalError(f"레이어 내려받기 실패: {str(e)[:200]}") from e
         bb = (L.get("bounding_box") or {}).get("absolute")
-        out.append({"name": L.get("name"), "z": L.get("z_index") or 0,
+        out.append({"name": L.get("name"), "z": L.get("z_index"),
                     "bbox": list(bb) if bb else None, "data": blob})
     if not out:
         raise FalError("layerize 응답에 내려받을 이미지가 없음")
