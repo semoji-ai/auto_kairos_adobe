@@ -88,7 +88,7 @@ def normalize_fields(scene: dict) -> dict:
                                   [s.get("value")] if (s.get("value") is not None and s.get("value") != "") else None),
         "descriptions": _first_nonempty(s.get("descriptions"),
                                         [s.get("sub")] if (s.get("sub") is not None and s.get("sub") != "") else None),
-        "unit": _first_nonempty(s.get("unit")),
+        "unit": _first_nonempty(s.get("unit"), chart.get("unit")),
         "source": _first_nonempty(s.get("source"), s.get("quote_who")),
         "left": _first_nonempty(s.get("left")),
         "right": _first_nonempty(s.get("right")),

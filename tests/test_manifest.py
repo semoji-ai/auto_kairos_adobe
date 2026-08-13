@@ -172,6 +172,7 @@ def test_manifest_layout_passthrough(tmp_path):
     assert s1["image"] is None and s1["layers"] == []
     assert s1["width"] == 1920 and s1["height"] == 1080
     assert s2["layout"] == "bar" and s2["values"] == [10, 40]
+    assert s2["unit"] == "%"          # chart.unit → 최상위 unit으로 정규화(막대 값 단위 유지)
     assert "value" not in s2 and "quote_text" not in s2     # None 필드는 미포함
     assert Path(mf["ae_tokens"]).name == "ae_tokens.json" and Path(mf["ae_tokens"]).is_absolute()
 

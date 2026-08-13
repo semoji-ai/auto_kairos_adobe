@@ -21,6 +21,15 @@ def test_resolve_v3_aliases():
     assert SL.resolve_layout("reveal_sequence") == "items_list"
 
 
+def test_normalize_takes_unit_from_chart():
+    """레거시 스키마는 unit을 chart 안에 둔다 — 놓치면 막대 값의 단위가 사라진다."""
+    out = SL.normalize_fields({"chart": {"labels": ["가"], "values": [40], "unit": "%"}})
+    assert out["unit"] == "%"
+    # 최상위 unit이 있으면 그것이 우선
+    out2 = SL.normalize_fields({"unit": "명", "chart": {"labels": ["가"], "values": [1], "unit": "%"}})
+    assert out2["unit"] == "명"
+
+
 def test_unknown_layout_falls_back_to_generic_never_cinematic():
     """모르는 이름이라고 내용을 버리면 안 된다 — 범용 렌더러가 받는다."""
     for name in ("tech_tree", "slide_qna", "timeline", "table",
