@@ -83,6 +83,43 @@ def test_budget_caps_names_sent(tmp_path, monkeypatch):
     assert len(seen["names"]) == imagegen.MAX_ELEMENTS == 4
 
 
+def test_missing_requested_elements_are_reported(tmp_path, monkeypatch):
+    """요청했는데 안 온 요소가 무신호로 사라지면 사용자는 이유를 알 수 없다."""
+    def _only_plate(image_path, names, **kw):
+        return [{"name": None, "z": 0, "bbox": None, "data": b"\x89PNG"}]
+    monkeypatch.setattr(imagegen.fal_api, "layerize", _only_plate)
+    scene = tmp_path / "scene.png"; scene.write_bytes(b"\x89PNG")
+    res = imagegen.split_scene_to_elements(tmp_path, str(scene), "ab", ELEMENTS)
+    assert sorted(res["missing"]) == ["man on the right", "white electric car"]
+
+
+def test_name_matching_is_case_insensitive(tmp_path, monkeypatch):
+    def _caps(image_path, names, **kw):
+        return [{"name": None, "z": 0, "bbox": None, "data": b"\x89PNG"},
+                {"name": "White Electric Car", "z": 3, "bbox": [1, 2, 3, 4], "data": b"\x89PNG"}]
+    monkeypatch.setattr(imagegen.fal_api, "layerize", _caps)
+    scene = tmp_path / "scene.png"; scene.write_bytes(b"\x89PNG")
+    res = imagegen.split_scene_to_elements(tmp_path, str(scene), "ab", ELEMENTS)
+    assert res["unexpected"] == []
+    assert "white electric car" not in res["missing"]
+    assert (tmp_path / "layers" / "ab__0_white_electric_car.png").is_file()
+
+
+def test_duplicate_returned_name_goes_to_unexpected(tmp_path, monkeypatch):
+    """같은 이름이 두 번 오면 두 번째는 별개 요소가 아니다 — 덮어쓰지 않는다."""
+    def _dup(image_path, names, **kw):
+        return [{"name": None, "z": 0, "bbox": None, "data": b"\x89PNG"},
+                {"name": "white electric car", "z": 3, "bbox": [1, 2, 3, 4], "data": b"\x89PNG1"},
+                {"name": "white electric car", "z": 4, "bbox": [5, 6, 7, 8], "data": b"\x89PNG2"}]
+    monkeypatch.setattr(imagegen.fal_api, "layerize", _dup)
+    scene = tmp_path / "scene.png"; scene.write_bytes(b"\x89PNG")
+    res = imagegen.split_scene_to_elements(tmp_path, str(scene), "ab", ELEMENTS)
+    assert res["unexpected"].count("white electric car") == 1
+    specs = imagegen.load_element_specs(tmp_path / "layers", "ab")
+    cars = [s for s in specs if s["name_en"] == "white electric car"]
+    assert len(cars) == 1 and cars[0]["bbox"] == [1, 2, 3, 4]   # 첫 번째가 남는다
+
+
 def test_previous_layers_archived(tmp_path, monkeypatch):
     d = tmp_path / "layers"
     d.mkdir()

@@ -728,10 +728,11 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
 
     by_name = {}
     for i, el in enumerate(picked):
-        key = (el.get("name_en") or "").strip()
+        key = (el.get("name_en") or "").strip().lower()
         if key:
             by_name[key] = (i, el)
 
+    matched_keys = set()
     results, specs, kinds, unexpected = [], [], {}, []
     for L in layers:
         nm = L.get("name")
@@ -743,12 +744,16 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
             if on_event:
                 on_event(results[-1])
             continue
-        hit = by_name.get(nm.strip())
-        if hit is None:
+        key = nm.strip().lower()
+        hit = by_name.get(key)
+        if hit is None or key in matched_keys:
+            # 요청 목록에 없거나(모델이 임의로 쪼갬), 이미 매칭된 이름이 중복 반환됨
+            # — 어느 쪽이든 두 번째 요소로 취급하지 않는다(사이드카 덮어쓰기 방지)
             unexpected.append(nm)
             if on_event:
                 on_event({"name": nm, "status": "unexpected"})
             continue
+        matched_keys.add(key)
         i, el = hit
         tag = "_char" if el.get("kind") == "character" else ""
         out = versioned_path(out_base, f"{sid}__{i}_{_layer_slug(nm)}{tag}.png")
@@ -764,10 +769,18 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
         if on_event:
             on_event(results[-1])
 
+    missing = []
+    for key, (i, el) in by_name.items():
+        if key not in matched_keys:
+            name_en = (el.get("name_en") or "").strip()
+            missing.append(name_en)
+            if on_event:
+                on_event({"name": name_en, "status": "missing"})
+
     (out_base / KINDS_SIDECAR.format(sid=sid)).write_text(
         json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
     write_element_specs(out_base, sid, specs)
-    return {"layers": results, "unexpected": unexpected}
+    return {"layers": results, "unexpected": unexpected, "missing": missing}
 
 
 def flatten_colors(png_path: Path, colors: int | None = None) -> bool:
