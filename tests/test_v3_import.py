@@ -69,3 +69,49 @@ def test_import_v3_reuses_images(tmp_path):
     sc = json.loads((d / "scenes.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["imageRef"].startswith("storyboard/sb_")
     assert (d / sc["imageRef"]).is_file()
+
+
+def test_map_scene_ports_layout_from_creative():
+    """v3 신형: creative.layout에 레이아웃 이름이 있다."""
+    out = v3_import._map_scene({
+        "sceneNumber": 1, "narration": "말",
+        "visualization": {"title": "제목", "items": ["가", "나"], "values": [1, 2],
+                          "creative": {"concept": "개념", "layout": "headline_only",
+                                       "headline": "헤드라인"}}})
+    assert out["layout"] == "headline_only"
+    assert out["headline"] == "제목"
+    assert out["items"] == ["가", "나"] and out["values"] == [1, 2]
+
+
+def test_map_scene_prefers_viztype_over_creative_layout():
+    """v3 구형 매니페스트는 vizType을 갖는다 — 있으면 그것이 우선."""
+    out = v3_import._map_scene({
+        "sceneNumber": 1,
+        "visualization": {"vizType": "slide_ranking", "title": "t",
+                          "creative": {"layout": "headline_only"}}})
+    assert out["layout"] == "slide_ranking"
+
+
+def test_map_scene_ports_all_v3_data_fields():
+    out = v3_import._map_scene({
+        "sceneNumber": 1,
+        "visualization": {"title": "t", "items": ["a"], "values": [1],
+                          "descriptions": ["d"], "unit": "%", "source": "출처",
+                          "left": {"title": "L"}, "right": {"title": "R"},
+                          "relations": ["a>b"], "profileName": "이름",
+                          "profileSubtitle": "직함", "vizType": "compare"}})
+    for k in ("descriptions", "unit", "source", "left", "right",
+              "relations", "profileName", "profileSubtitle"):
+        assert k in out, k
+
+
+def test_map_scene_map_scene_becomes_map_layout():
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"center": [1, 2]}})
+    assert out["layout"] == "map"
+
+
+def test_map_scene_without_visualization_is_unchanged():
+    """레이아웃 정보가 없으면 layout 키를 만들지 않는다(이미지 씬)."""
+    out = v3_import._map_scene({"sceneNumber": 1, "narration": "말", "title": "제목"})
+    assert "layout" not in out
+    assert out["narration"] == "말"

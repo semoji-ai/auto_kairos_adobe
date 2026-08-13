@@ -40,6 +40,27 @@ def _map_scene(s: dict) -> dict:
         out["duration_estimate_sec"] = round(float(s["durationFrames"]) / FPS, 2)
     elif s.get("duration_estimate_sec"):
         out["duration_estimate_sec"] = s["duration_estimate_sec"]
+
+    # 레이아웃 이관 — v3의 visualization이 곧 레이아웃 정보다.
+    # 어도비가 모르는 이름이어도 그대로 싣는다(별칭표·범용 렌더러가 받는다).
+    viz = s.get("visualization") or {}
+    cre = viz.get("creative") or {}
+    layout = (viz.get("vizType") or cre.get("layout") or "").strip()
+    if s.get("mapScene"):
+        out["layout"] = "map"
+        out["mapScene"] = s["mapScene"]
+    elif layout:
+        out["layout"] = layout
+    if viz:
+        if viz.get("title"):
+            out["headline"] = viz["title"]          # 씬의 title(씬 이름)과 충돌하지 않게 headline으로
+        elif cre.get("headline"):
+            out["headline"] = cre["headline"]
+        for key in ("items", "values", "descriptions", "unit", "source",
+                    "left", "right", "relations", "profileName", "profileSubtitle"):
+            val = viz.get(key)
+            if val:
+                out[key] = val
     return out
 
 
