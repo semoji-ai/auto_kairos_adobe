@@ -296,89 +296,11 @@ function akBuildScene(manifestPath) {
         var c = TK.colors, t = TK.type;
         var S = W / 1920;                                  // 해상도 배율(1080p=1)
         addBgSolid(comp, W, H, c.bgRgb);
-        if (s.layout === "headline_only") {
-            // 액센트 바(타이틀 위 포인트) + 줄바꿈 박스 헤드라인 + 서브
-            addRectL(comp, "accent", W / 2 - 60 * S, H * 0.30, 120 * S, 10 * S, c.accentRgb);
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.47, size: t.headline * S, rgb: c.textRgb,
-                                               font: TK.fonts.headline, box: [W * 0.84, H * 0.34], leading: 1.25,
-                                               anim: s.textAnim || { type: "reveal", t0: 0.2, dur: 0.8 } });
-            if (s.sub) addTextL(comp, s.sub, { x: W / 2, y: H * 0.67, size: t.sub * S, rgb: c.mutedRgb,
-                                               font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3,
-                                               anim: { type: "slide", dir: "up", t0: 0.5, dur: 0.6 } });
-        } else if (s.layout === "items_list") {
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.16, size: t.sub * 1.5 * S, rgb: c.textRgb, font: TK.fonts.headline,
-                                               anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
-            addRectL(comp, "rule", W * 0.16, H * 0.235, W * 0.68, 3 * S, c.accentRgb);   // 제목 밑줄
-            var items = s.items || [];
-            var y0 = H * 0.33, gap = Math.min(130 * S, (H * 0.58) / Math.max(1, items.length));
-            for (var ii = 0; ii < items.length; ii++) {
-                var by = y0 + ii * gap;
-                var bl = addRectL(comp, "bullet" + ii, W * 0.16, by - 21 * S, 12 * S, 42 * S, c.accentRgb);
-                var boxW = W * 0.62;
-                var il2 = addTextL(comp, items[ii], { x: W * 0.2 + boxW / 2, y: by, size: t.item * S, rgb: c.textRgb,
-                                                      font: TK.fonts.body, just: ParagraphJustification.LEFT_JUSTIFY,
-                                                      box: [boxW, gap * 0.9], leading: 1.2 });
-                var op = il2.property("Opacity");                     // 순차 등장
-                op.setValueAtTime(0.2 + ii * 0.35, 0); op.setValueAtTime(0.5 + ii * 0.35, 100);
-                var opb = bl.property("Opacity");
-                opb.setValueAtTime(0.2 + ii * 0.35, 0); opb.setValueAtTime(0.5 + ii * 0.35, 100);
-            }
-        } else if (s.layout === "metric_spotlight") {
-            addTextL(comp, s.value || "", { x: W / 2, y: H * 0.46, size: t.metric * S, rgb: c.accentRgb, font: TK.fonts.number,
-                                            anim: { type: "type", t0: 0.2, dur: 0.7 } });
-            addRectL(comp, "rule", W / 2 - 110 * S, H * 0.585, 220 * S, 5 * S, c.accentRgb);
-            addTextL(comp, s.label || "", { x: W / 2, y: H * 0.68, size: t.metricLabel * S, rgb: c.textRgb,
-                                            font: TK.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
-        } else if (s.layout === "bar") {
-            addTextL(comp, s.headline || "", { x: W / 2, y: H * 0.13, size: t.sub * 1.4 * S, rgb: c.textRgb, font: TK.fonts.headline,
-                                               anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
-            var ch2 = s.chart || {}, labels = ch2.labels || [], vals = ch2.values || [];
-            var n = Math.max(1, vals.length), maxV = 0;
-            for (var vi = 0; vi < vals.length; vi++) if (vals[vi] > maxV) maxV = vals[vi];
-            // chartagent 명세서(chartSpec) — 없으면 단순 단색 막대 기본값
-            var CS = s.chartSpec || {};
-            var areaW = W * 0.7, baseY = H * 0.76, maxH = H * 0.42;
-            var bw = Math.min(150 * S, areaW / n * 0.55), gap2 = areaW / n;
-            var accent = [c.accentRgb[0] / 255, c.accentRgb[1] / 255, c.accentRgb[2] / 255];
-            var muted = [c.mutedRgb[0] / 255, c.mutedRgb[1] / 255, c.mutedRgb[2] / 255];
-            // 가이드선(기준선 위 수평선) — chartSpec.guideLineCount 만큼 점선
-            var glc = CS.guideLineCount || 0;
-            for (var gi = 1; gi <= glc; gi++) {
-                var gy = baseY - (maxH * gi) / (glc + 1);
-                var gl = addRectL(comp, "guide" + gi, W * 0.13, gy, W * 0.74, (CS.guideStrokeWidth || 1) * S, c.mutedRgb);
-                gl.property("Opacity").setValue((CS.guideOpacity != null ? CS.guideOpacity : 0.3) * 100);
-                applyDash(gl, CS.guideDash, S);              // 점선 패턴(있으면)
-            }
-            addRectL(comp, "axis", W * 0.13, baseY, W * 0.74, (CS.axisStrokeWidth || 2) * S, c.mutedRgb);  // 기준선
-            for (var bi = 0; bi < n; bi++) {
-                var bh = maxV ? (vals[bi] / maxV) * maxH : 0;
-                var bx = W * 0.15 + gap2 * bi + (gap2 - bw) / 2;
-                // chartSpec 반영 막대(채움+외곽선+해칭이 한 레이어 → Scale 애니메이션 동반)
-                var bar = addBarShape(comp, "bar" + bi, bw, bh, accent, CS, S);
-                bar.property("Anchor Point").setValue([0, bh / 2]);   // 하단 고정 성장
-                bar.property("Position").setValue([bx + bw / 2, baseY]);
-                var sc2 = bar.property("Scale");
-                sc2.setValueAtTime(0.2 + bi * 0.15, [100, 0]); sc2.setValueAtTime(0.7 + bi * 0.15, [100, 100]);
-                addTextL(comp, labels[bi] || "", { x: bx + bw / 2, y: baseY + 56 * S, size: t.barLabel * S, rgb: c.mutedRgb, font: TK.fonts.body });
-                var vt = addTextL(comp, String(vals[bi]) + (ch2.unit || ""), { x: bx + bw / 2, y: baseY - bh - 28 * S, size: t.barValue * S, rgb: c.textRgb, font: TK.fonts.bold || TK.fonts.body });
-                var vop = vt.property("Opacity");                     // 수치는 막대 완성 후 표시
-                vop.setValueAtTime(0.55 + bi * 0.15, 0); vop.setValueAtTime(0.8 + bi * 0.15, 100);
-            }
-        } else if (s.layout === "quote") {
-            // 인용 — 명조(경기천년바탕). 여는따옴표=텍스트 박스 좌상단, 닫는따옴표=우하단, 출처=우측 정렬
-            var qf = TK.fonts.quote || TK.fonts.headline;
-            var qBoxW = W * 0.62, qBoxH = H * 0.36, qY = H * 0.47;
-            addTextL(comp, "“", { x: W / 2 - qBoxW / 2 - 70 * S, y: qY - qBoxH / 2 + 10 * S,
-                                  size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
-            addTextL(comp, s.quote_text || "", { x: W / 2, y: qY, size: t.quote * S, rgb: c.textRgb,
-                                                 font: qf, box: [qBoxW, qBoxH], leading: 1.5,
-                                                 anim: { type: "word_stagger", t0: 0.3, dur: 1.4 } });
-            addTextL(comp, "”", { x: W / 2 + qBoxW / 2 + 70 * S, y: qY + qBoxH / 2 - 10 * S,
-                                  size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
-            addTextL(comp, "— " + (s.quote_who || ""), { x: W / 2 + qBoxW / 2 - 200 * S, y: qY + qBoxH / 2 + 90 * S,
-                                  size: t.quoteWho * S, rgb: c.mutedRgb, font: qf,
-                                  just: ParagraphJustification.RIGHT_JUSTIFY, box: [400 * S, t.quoteWho * 1.6 * S] });
-        }
+        // 렌더러는 layouts.jsx에 있다. 헬퍼가 이 함수의 클로저라 ctx로 넘긴다.
+        akRenderLayout(comp, s, {
+            W: W, H: H, S: S, colors: c, type: t, fonts: TK.fonts,
+            addTextL: addTextL, addRectL: addRectL, addBarShape: addBarShape
+        });
     }
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
     // 자동 효과(페이드 등)는 넣지 않는다 — 모든 모션은 모션 플랜(applyMoves)에서만(규칙 기반).

@@ -1,0 +1,136 @@
+// auto_kairos — 씬 레이아웃 렌더러. build_scene.jsx가 ctx를 만들어 호출한다.
+// 헬퍼(addTextL/addRectL/addBarShape)는 akBuildScene 안의 클로저라 ctx로 받는다.
+// 모르는 레이아웃 이름은 akLayout_generic이 받는다 — 내용을 버리지 않기 위해서다.
+
+function akLayout_headline_only(comp, s, ctx) {
+    var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    ctx.addRectL(comp, "accent", W / 2 - 60 * S, H * 0.30, 120 * S, 10 * S, c.accentRgb);
+    ctx.addTextL(comp, s.title || "", { x: W / 2, y: H * 0.47, size: t.headline * S, rgb: c.textRgb,
+                                        font: ctx.fonts.headline, box: [W * 0.84, H * 0.34], leading: 1.25,
+                                        anim: s.textAnim || { type: "reveal", t0: 0.2, dur: 0.8 } });
+    var sub = (s.descriptions && s.descriptions.length) ? s.descriptions[0] : "";
+    if (sub) {
+        ctx.addTextL(comp, sub, { x: W / 2, y: H * 0.67, size: t.sub * S, rgb: c.mutedRgb,
+                                  font: ctx.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3,
+                                  anim: { type: "slide", dir: "up", t0: 0.5, dur: 0.6 } });
+    }
+}
+
+function akLayout_items_list(comp, s, ctx) {
+    var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    ctx.addTextL(comp, s.title || "", { x: W / 2, y: H * 0.16, size: t.sub * 1.5 * S, rgb: c.textRgb,
+                                        font: ctx.fonts.headline, anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
+    ctx.addRectL(comp, "rule", W * 0.16, H * 0.235, W * 0.68, 3 * S, c.accentRgb);
+    var items = s.items || [];
+    var y0 = H * 0.33, gap = Math.min(130 * S, (H * 0.58) / Math.max(1, items.length));
+    for (var ii = 0; ii < items.length; ii++) {
+        var by = y0 + ii * gap;
+        ctx.addRectL(comp, "bullet" + ii, W * 0.16, by - 21 * S, 12 * S, 42 * S, c.accentRgb);
+        var boxW = W * 0.62;
+        ctx.addTextL(comp, items[ii], { x: W * 0.2 + boxW / 2, y: by, size: t.item * S, rgb: c.textRgb,
+                                        font: ctx.fonts.body, just: ParagraphJustification.LEFT_JUSTIFY,
+                                        box: [boxW, gap * 0.9], leading: 1.2,
+                                        anim: { type: "slide", dir: "left", t0: 0.3 + ii * 0.12, dur: 0.5 } });
+    }
+}
+
+function akLayout_metric_spotlight(comp, s, ctx) {
+    var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    var val = (s.values && s.values.length) ? String(s.values[0]) : "";
+    var lab = (s.items && s.items.length) ? s.items[0] : "";
+    if (s.unit) { val = val + s.unit; }
+    ctx.addTextL(comp, val, { x: W / 2, y: H * 0.42, size: t.metric * S, rgb: c.accentRgb,
+                              font: ctx.fonts.number, leading: 1.0,
+                              anim: { type: "reveal", t0: 0.2, dur: 0.7 } });
+    ctx.addRectL(comp, "underline", W / 2 - 110 * S, H * 0.585, 220 * S, 5 * S, c.accentRgb);
+    ctx.addTextL(comp, lab, { x: W / 2, y: H * 0.66, size: t.metricLabel * S, rgb: c.textRgb,
+                              font: ctx.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
+}
+
+function akLayout_quote(comp, s, ctx) {
+    var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    var text = (s.items && s.items.length) ? s.items[0] : "";
+    ctx.addTextL(comp, text, { x: W / 2, y: H * 0.45, size: t.sub * 1.2 * S, rgb: c.textRgb,
+                               font: ctx.fonts.quote, box: [W * 0.74, H * 0.4], leading: 1.4,
+                               anim: { type: "reveal", t0: 0.2, dur: 0.8 } });
+    if (s.source) {
+        ctx.addTextL(comp, "— " + s.source, { x: W / 2, y: H * 0.72, size: t.sub * 0.8 * S,
+                                              rgb: c.mutedRgb, font: ctx.fonts.body });
+    }
+}
+
+function akLayout_bar(comp, s, ctx) {
+    var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    ctx.addTextL(comp, s.title || "", { x: W / 2, y: H * 0.13, size: t.sub * 1.4 * S, rgb: c.textRgb,
+                                        font: ctx.fonts.headline, anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
+    ctx.addRectL(comp, "axis", W * 0.13, H * 0.76, W * 0.74, 2 * S, c.mutedRgb);
+    var vals = s.values || [], labs = s.items || [];
+    var n = Math.max(1, vals.length), maxV = 0;
+    for (var vi = 0; vi < vals.length; vi++) { if (vals[vi] > maxV) { maxV = vals[vi]; } }
+    var gw = (W * 0.70) / n;
+    for (var bi = 0; bi < vals.length; bi++) {
+        var bh = maxV ? (vals[bi] / maxV) * (H * 0.42) : 0;
+        var bx = W * 0.15 + gw * bi + gw * 0.225;
+        var bw = gw * 0.55;
+        ctx.addBarShape(comp, "bar" + bi, bw, bh, c.accentRgb, s.chartSpec || {}, S)
+           .property("Position").setValue([bx + bw / 2, H * 0.76 - bh / 2]);
+        if (labs[bi]) {
+            ctx.addTextL(comp, labs[bi], { x: bx + bw / 2, y: H * 0.80, size: t.item * 0.8 * S,
+                                           rgb: c.mutedRgb, font: ctx.fonts.body });
+        }
+    }
+}
+
+// 모르는 레이아웃 — 공통 계약(title/items/values/descriptions/source)만으로 그린다.
+// 고유한 생김새는 아니지만 내용이 화면에서 사라지지 않는다.
+function akLayout_generic(comp, s, ctx) {
+    var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    if (s.title) {
+        ctx.addTextL(comp, s.title, { x: W / 2, y: H * 0.15, size: t.sub * 1.5 * S, rgb: c.textRgb,
+                                      font: ctx.fonts.headline, box: [W * 0.84, H * 0.14], leading: 1.2,
+                                      anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
+        ctx.addRectL(comp, "rule", W * 0.16, H * 0.225, W * 0.68, 3 * S, c.accentRgb);
+    }
+    var items = s.items || [], vals = s.values || [], descs = s.descriptions || [];
+    var y0 = H * 0.32, gap = Math.min(150 * S, (H * 0.50) / Math.max(1, items.length));
+    for (var i = 0; i < items.length; i++) {
+        var by = y0 + i * gap;
+        ctx.addRectL(comp, "gbullet" + i, W * 0.16, by - 18 * S, 10 * S, 36 * S, c.accentRgb);
+        ctx.addTextL(comp, items[i], { x: W * 0.20 + (W * 0.48) / 2, y: by, size: t.item * S, rgb: c.textRgb,
+                                       font: ctx.fonts.body, just: ParagraphJustification.LEFT_JUSTIFY,
+                                       box: [W * 0.48, gap * 0.55], leading: 1.2,
+                                       anim: { type: "slide", dir: "left", t0: 0.3 + i * 0.1, dur: 0.5 } });
+        if (i < vals.length && vals[i] !== null && vals[i] !== undefined) {
+            var vtext = String(vals[i]) + (s.unit ? s.unit : "");
+            ctx.addTextL(comp, vtext, { x: W * 0.80, y: by, size: t.item * 1.1 * S, rgb: c.accentRgb,
+                                        font: ctx.fonts.number, just: ParagraphJustification.RIGHT_JUSTIFY,
+                                        box: [W * 0.16, gap * 0.55] });
+        }
+        if (i < descs.length && descs[i]) {
+            ctx.addTextL(comp, descs[i], { x: W * 0.20 + (W * 0.48) / 2, y: by + gap * 0.34,
+                                           size: t.item * 0.62 * S, rgb: c.mutedRgb, font: ctx.fonts.body,
+                                           just: ParagraphJustification.LEFT_JUSTIFY,
+                                           box: [W * 0.48, gap * 0.3], leading: 1.15 });
+        }
+    }
+    if (s.source) {
+        ctx.addTextL(comp, s.source, { x: W / 2, y: H * 0.93, size: t.item * 0.6 * S,
+                                       rgb: c.mutedRgb, font: ctx.fonts.body });
+    }
+}
+
+var AK_LAYOUTS = {
+    "headline_only": akLayout_headline_only,
+    "items_list": akLayout_items_list,
+    "metric_spotlight": akLayout_metric_spotlight,
+    "quote": akLayout_quote,
+    "bar": akLayout_bar,
+    "generic": akLayout_generic
+};
+
+// 등록표 조회 + 폴백. 백엔드가 이미 별칭을 해석해 보내므로 여기서는 이름 그대로 찾는다.
+function akRenderLayout(comp, s, ctx) {
+    var fn = AK_LAYOUTS[s.layout];
+    if (!fn) { fn = akLayout_generic; }
+    fn(comp, s, ctx);
+}

@@ -427,11 +427,13 @@ def test_build_scene_jsx_layout_renderers():
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
     assert "function renderLayout" in jsx
     assert "function addBgSolid" in jsx and "function addTextL" in jsx and "function addRectL" in jsx
-    for l in ("headline_only", "items_list", "metric_spotlight", '"bar"', '"quote"'):
-        assert l in jsx, l
     assert "ae_tokens" in jsx                              # 토큰 로드
     assert 's.layout !== "cinematic"' in jsx               # 씬 루프 분기
-    assert "Anchor Point" in jsx                           # 막대 하단 고정 성장
+    # 레이아웃 5종 렌더러는 layouts.jsx로 이동(Task 5)
+    layouts = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
+    for l in ("headline_only", "items_list", "metric_spotlight", '"bar"', '"quote"'):
+        assert l in layouts, l
+    assert "Anchor Point" in jsx                            # 막대 하단 고정 성장(addBarShape는 build_scene.jsx에 남음)
 
 
 def test_storyboard_comp_preview():
@@ -525,8 +527,10 @@ def test_chart_spec_wiring():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     assert "sa-chart" in js and "/api/scenes/chart-spec" in js
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
-    assert "addBarShape" in jsx and "s.chartSpec" in jsx
-    assert "guideLineCount" in jsx and "applyDash" in jsx
+    assert "addBarShape" in jsx
+    layouts = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
+    assert "s.chartSpec" in layouts                        # bar 렌더러는 layouts.jsx로 이동(Task 5)
+    assert "applyDash" in jsx                               # 함수는 유지(가이드선은 Task 5 브리프에서 축소)
     # 패턴 종류 전부 처리(diagonal/crosshatch/vertical/dot)
     assert "crosshatch_light" in jsx and "vertical_stripe" in jsx and "dot_sparse" in jsx
 
@@ -747,3 +751,30 @@ def test_max_layer_elements_matches_backend():
     m = re.search(r"MAX_LAYER_ELEMENTS\s*=\s*(\d+)", js)
     assert m, "MAX_LAYER_ELEMENTS 정의를 찾지 못함"
     assert int(m.group(1)) == imagegen.MAX_ELEMENTS
+
+
+def test_layouts_jsx_registry_and_generic():
+    """모르는 레이아웃도 그려야 한다 — 등록표 + 범용 렌더러."""
+    jsx = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
+    assert "AK_LAYOUTS" in jsx
+    assert "function akLayout_generic" in jsx
+    assert "function akRenderLayout" in jsx
+    for name in ("headline_only", "items_list", "metric_spotlight", "quote"):
+        assert "akLayout_" + name in jsx, name
+    # ES3 수준 — 화살표 함수·템플릿 리터럴 금지
+    assert "=>" not in jsx and "`" not in jsx
+    assert "const " not in jsx and "let " not in jsx
+
+
+def test_build_scene_delegates_to_layouts():
+    jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "akRenderLayout(" in jsx
+    main = MAIN.read_text(encoding="utf-8")
+    assert "layouts.jsx" in main            # 이어붙이기에 포함
+
+
+def test_generic_renderer_uses_common_contract():
+    """범용 렌더러는 v3 공통 계약 필드로 그린다."""
+    jsx = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
+    for field in ("s.title", "s.items", "s.values", "s.descriptions", "s.source"):
+        assert field in jsx, field
