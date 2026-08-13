@@ -721,8 +721,11 @@ def test_layer_thumbnail_has_edit_buttons():
 def test_layer_modal_shows_budget():
     """씬당 요소 4개 상한 — 초과분은 '예산 초과로 제외'로 보이고 체크는 4개까지."""
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "MAX_LAYER_ELEMENTS" in js and "= 4" in js
+    # 정확한 상수 정의
+    assert "MAX_LAYER_ELEMENTS = 4" in js
+    # dropped 요소가 permanent disabled 되어야 함
     assert "layer-dropped" in js
+    assert 'data-dropped' in js and 'getAttribute("data-dropped")' in js
     assert "예산 초과" in js
     assert "_enforceLayerCap" in js
     html = HTML.read_text(encoding="utf-8")

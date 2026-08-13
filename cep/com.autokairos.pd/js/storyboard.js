@@ -693,7 +693,7 @@ function _renderLayerPane(n, els, err, dropped) {
   function row(e, i, off) {
     var tag = e.kind === "character" ? "👤 인물" : "📦 사물";
     return '<label class="layer-chk' + (off ? " layer-dropped" : "") + '">'
-      + '<input type="checkbox" data-idx="' + i + '"' + (off ? "" : " checked") + (off ? " disabled" : "") + '>'
+      + '<input type="checkbox" data-idx="' + i + '"' + (off ? ' data-dropped="1"' : "") + (off ? "" : " checked") + (off ? " disabled" : "") + '>'
       + '<span><b>' + tag + '</b> ' + _esc(e.name)
       + ' <span style="color:#9aa0a6">(' + _esc(e.location) + ')</span>'
       + (off ? ' <span style="color:#e8b339">예산 초과로 제외</span>' : '')
@@ -719,7 +719,10 @@ function _enforceLayerCap(pane) {
   var chks = pane.querySelectorAll('input[type="checkbox"]');
   var on = 0, i;
   for (i = 0; i < chks.length; i++) if (chks[i].checked) on++;
-  for (i = 0; i < chks.length; i++) chks[i].disabled = (!chks[i].checked && on >= MAX_LAYER_ELEMENTS);
+  for (i = 0; i < chks.length; i++) {
+    var isDropped = chks[i].getAttribute("data-dropped") === "1";
+    chks[i].disabled = isDropped || (!chks[i].checked && on >= MAX_LAYER_ELEMENTS);
+  }
   var note = pane.querySelector(".layer-cap-note");
   if (note) note.textContent = on + "/" + MAX_LAYER_ELEMENTS + " 선택 (배경 1장이 자동으로 더해집니다)";
 }
