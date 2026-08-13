@@ -781,3 +781,48 @@ def test_generic_renderer_uses_common_contract():
     jsx = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
     for field in ("s.title", "s.items", "s.values", "s.descriptions", "s.source"):
         assert field in jsx, field
+
+
+def test_generic_renderer_reads_v3_compare_and_profile_fields():
+    """left/right/profileName은 정규화되지만 아무도 안 읽으면 내용이 사라진다(회귀: 발견5)."""
+    jsx = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
+    for field in ("s.left", "s.right", "s.profileName"):
+        assert field in jsx, field
+
+
+# 이동 전 렌더러(bfe7703의 build_scene.jsx) 대비 draw-call 최소치.
+# 그립·훅으로 잡을 수 없는 "함수 몸통에서 애니메이션/도형이 조용히 빠지는" 회귀를
+# 카운트로 잡는다 — grep-for-identifier 테스트는 함수가 존재하기만 해도 통과해버린다.
+_MIN_DRAW_CALLS = {
+    # (addTextL 호출 수, addRectL 호출 수, anim: 등장 수)
+    "akLayout_headline_only": (2, 1, 2),
+    "akLayout_items_list": (2, 2, 1),
+    "akLayout_metric_spotlight": (2, 1, 1),
+    "akLayout_quote": (4, 0, 1),
+    "akLayout_bar": (3, 2, 1),
+}
+
+
+def test_layouts_jsx_conserves_draw_calls_from_pre_move_build_scene():
+    """추출 리팩터로 애니메이션/도형 호출이 줄어들면 실패한다."""
+    import re
+    jsx = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
+    names = list(_MIN_DRAW_CALLS) + ["akLayout_generic"]
+    for i, fn in enumerate(names):
+        m = re.search(r"function " + fn + r"\(", jsx)
+        assert m, fn
+        start = m.end()
+        nxt = names[i + 1] if i + 1 < len(names) else None
+        if nxt:
+            m2 = re.search(r"function " + nxt + r"\(", jsx)
+            end = m2.start()
+        else:
+            m3 = re.search(r"\nvar AK_LAYOUTS", jsx)
+            end = m3.start() if m3 else len(jsx)
+        body = jsx[start:end]
+        if fn not in _MIN_DRAW_CALLS:
+            continue
+        min_text, min_rect, min_anim = _MIN_DRAW_CALLS[fn]
+        assert body.count("addTextL(") >= min_text, fn
+        assert body.count("addRectL(") >= min_rect, fn
+        assert body.count("anim:") >= min_anim, fn

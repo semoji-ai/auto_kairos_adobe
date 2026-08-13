@@ -105,6 +105,23 @@ def test_map_scene_ports_all_v3_data_fields():
         assert k in out, k
 
 
+def test_map_scene_falls_back_to_chart_unit(tmp_path=None):
+    """v3 차트는 unit을 visualization.chart.unit에 둔다 — viz-level unit이 없으면 거기서 가져온다(회귀: 발견6)."""
+    out = v3_import._map_scene({
+        "sceneNumber": 1,
+        "visualization": {"title": "t", "vizType": "bar_chart",
+                          "chart": {"labels": ["a"], "values": [40], "unit": "%"}}})
+    assert out["unit"] == "%"
+
+
+def test_map_scene_prefers_viz_level_unit_over_chart(tmp_path=None):
+    out = v3_import._map_scene({
+        "sceneNumber": 1,
+        "visualization": {"title": "t", "unit": "명",
+                          "chart": {"labels": ["a"], "values": [1], "unit": "%"}}})
+    assert out["unit"] == "명"
+
+
 def test_map_scene_map_scene_becomes_map_layout():
     out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"center": [1, 2]}})
     assert out["layout"] == "map"

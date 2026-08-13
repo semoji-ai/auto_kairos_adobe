@@ -61,6 +61,10 @@ def _map_scene(s: dict) -> dict:
             val = viz.get(key)
             if val:
                 out[key] = val
+        if not out.get("unit"):
+            chart_unit = (viz.get("chart") or {}).get("unit")
+            if chart_unit:
+                out["unit"] = chart_unit
     return out
 
 

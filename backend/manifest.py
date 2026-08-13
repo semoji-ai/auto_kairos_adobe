@@ -156,7 +156,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
         out_scenes.append({
             "ae_comp_name": timeline.comp_name(s),
             "width": sw, "height": sh,
-            "image": None if is_layout_scene else (_abs(proj_dir, s["_image"]) if s.get("_image") else None),
+            "image": _abs(proj_dir, s["_image"]) if s.get("_image") else None,
             "layers": layers,
             "audio": audio,
             "subtitle": scenes.subtitle_text(s),   # 화면 표시용(TTS 발음 텍스트 아님)

@@ -292,10 +292,25 @@ function akBuildScene(manifestPath) {
 
     // 레이아웃 5종 결정적 렌더 — 1080p 기준 토큰을 S=W/1920 배율로 스케일(4K/720p 대응).
     // 긴 텍스트는 박스 텍스트(자동 줄바꿈 + 행간 1.25). 세로 폼은 별도 템플릿 필요(추후).
-    function renderLayout(comp, s, W, H) {
+    function renderLayout(proj, comp, s, W, H) {
         var c = TK.colors, t = TK.type;
         var S = W / 1920;                                  // 해상도 배율(1080p=1)
         addBgSolid(comp, W, H, c.bgRgb);
+        // v3 레이아웃은 원래 스토리보드 이미지 위에 겹쳐 그린다 — 있으면 풀프레임 배경으로 먼저 깐다.
+        if (s.image) {
+            try {
+                var imgF = new File(s.image);
+                if (imgF.exists) {
+                    var imgFoot = proj.importFile(new ImportOptions(imgF));
+                    var imgL = comp.layers.add(imgFoot);
+                    var isw = imgL.source.width, ish = imgL.source.height;
+                    imgL.property("Anchor Point").setValue([isw / 2, ish / 2]);
+                    imgL.property("Position").setValue([W / 2, H / 2]);
+                    var ifs = Math.max(W / isw, H / ish) * 100;
+                    imgL.property("Scale").setValue([ifs, ifs]);
+                }
+            } catch (eImg) { }
+        }
         // 렌더러는 layouts.jsx에 있다. 헬퍼가 이 함수의 클로저라 ctx로 넘긴다.
         akRenderLayout(comp, s, {
             W: W, H: H, S: S, colors: c, type: t, fonts: TK.fonts,
@@ -485,7 +500,7 @@ function akBuildScene(manifestPath) {
             // 레이아웃 씬(비이미지) — 셰이프/텍스트 결정적 렌더. 실패해도 빌드 지속.
             var isLayoutScene = s.layout && s.layout !== "cinematic";
             if (isLayoutScene) {
-                try { renderLayout(comp, s, cw, ch); }
+                try { renderLayout(proj, comp, s, cw, ch); }
                 catch (eL) { log.push(name + ": 레이아웃 렌더 실패 " + eL.toString()); }
             }
             // 레이어 스택(있으면) — 배열 앞이 먼저 추가되어 최하단(배경). 없으면 단일 이미지.

@@ -21,6 +21,13 @@ def test_resolve_v3_aliases():
     assert SL.resolve_layout("reveal_sequence") == "items_list"
 
 
+def test_resolve_compare_aliases_to_generic():
+    """spec이 요구하는 비교형 별칭 — compare 고유 렌더러가 없으니 generic으로(내용을 안 버린다)."""
+    for name in ("split_contrast", "diagram", "slide_compare"):
+        assert SL.resolve_layout(name) == SL.GENERIC
+        assert name in SL.KNOWN
+
+
 def test_normalize_takes_unit_from_chart():
     """레거시 스키마는 unit을 chart 안에 둔다 — 놓치면 막대 값의 단위가 사라진다."""
     out = SL.normalize_fields({"chart": {"labels": ["가"], "values": [40], "unit": "%"}})

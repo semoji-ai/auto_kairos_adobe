@@ -25,12 +25,15 @@ function akLayout_items_list(comp, s, ctx) {
     var y0 = H * 0.33, gap = Math.min(130 * S, (H * 0.58) / Math.max(1, items.length));
     for (var ii = 0; ii < items.length; ii++) {
         var by = y0 + ii * gap;
-        ctx.addRectL(comp, "bullet" + ii, W * 0.16, by - 21 * S, 12 * S, 42 * S, c.accentRgb);
+        var bl = ctx.addRectL(comp, "bullet" + ii, W * 0.16, by - 21 * S, 12 * S, 42 * S, c.accentRgb);
         var boxW = W * 0.62;
-        ctx.addTextL(comp, items[ii], { x: W * 0.2 + boxW / 2, y: by, size: t.item * S, rgb: c.textRgb,
+        var il2 = ctx.addTextL(comp, items[ii], { x: W * 0.2 + boxW / 2, y: by, size: t.item * S, rgb: c.textRgb,
                                         font: ctx.fonts.body, just: ParagraphJustification.LEFT_JUSTIFY,
-                                        box: [boxW, gap * 0.9], leading: 1.2,
-                                        anim: { type: "slide", dir: "left", t0: 0.3 + ii * 0.12, dur: 0.5 } });
+                                        box: [boxW, gap * 0.9], leading: 1.2 });
+        var op = il2.property("Opacity");                     // 순차 등장
+        op.setValueAtTime(0.2 + ii * 0.35, 0); op.setValueAtTime(0.5 + ii * 0.35, 100);
+        var opb = bl.property("Opacity");
+        opb.setValueAtTime(0.2 + ii * 0.35, 0); opb.setValueAtTime(0.5 + ii * 0.35, 100);
     }
 }
 
@@ -39,24 +42,30 @@ function akLayout_metric_spotlight(comp, s, ctx) {
     var val = (s.values && s.values.length) ? String(s.values[0]) : "";
     var lab = (s.items && s.items.length) ? s.items[0] : "";
     if (s.unit) { val = val + s.unit; }
-    ctx.addTextL(comp, val, { x: W / 2, y: H * 0.42, size: t.metric * S, rgb: c.accentRgb,
+    ctx.addTextL(comp, val, { x: W / 2, y: H * 0.46, size: t.metric * S, rgb: c.accentRgb,
                               font: ctx.fonts.number, leading: 1.0,
-                              anim: { type: "reveal", t0: 0.2, dur: 0.7 } });
+                              anim: { type: "type", t0: 0.2, dur: 0.7 } });
     ctx.addRectL(comp, "underline", W / 2 - 110 * S, H * 0.585, 220 * S, 5 * S, c.accentRgb);
-    ctx.addTextL(comp, lab, { x: W / 2, y: H * 0.66, size: t.metricLabel * S, rgb: c.textRgb,
+    ctx.addTextL(comp, lab, { x: W / 2, y: H * 0.68, size: t.metricLabel * S, rgb: c.textRgb,
                               font: ctx.fonts.body, box: [W * 0.7, H * 0.12], leading: 1.3 });
 }
 
 function akLayout_quote(comp, s, ctx) {
     var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    // 인용 — 명조(경기천년바탕). 여는따옴표=텍스트 박스 좌상단, 닫는따옴표=우하단, 출처=우측 정렬
+    var qf = ctx.fonts.quote || ctx.fonts.headline;
     var text = (s.items && s.items.length) ? s.items[0] : "";
-    ctx.addTextL(comp, text, { x: W / 2, y: H * 0.45, size: t.sub * 1.2 * S, rgb: c.textRgb,
-                               font: ctx.fonts.quote, box: [W * 0.74, H * 0.4], leading: 1.4,
-                               anim: { type: "reveal", t0: 0.2, dur: 0.8 } });
-    if (s.source) {
-        ctx.addTextL(comp, "— " + s.source, { x: W / 2, y: H * 0.72, size: t.sub * 0.8 * S,
-                                              rgb: c.mutedRgb, font: ctx.fonts.body });
-    }
+    var qBoxW = W * 0.62, qBoxH = H * 0.36, qY = H * 0.47;
+    ctx.addTextL(comp, "“", { x: W / 2 - qBoxW / 2 - 70 * S, y: qY - qBoxH / 2 + 10 * S,
+                          size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
+    ctx.addTextL(comp, text, { x: W / 2, y: qY, size: t.quote * S, rgb: c.textRgb,
+                               font: qf, box: [qBoxW, qBoxH], leading: 1.5,
+                               anim: { type: "word_stagger", t0: 0.3, dur: 1.4 } });
+    ctx.addTextL(comp, "”", { x: W / 2 + qBoxW / 2 + 70 * S, y: qY + qBoxH / 2 - 10 * S,
+                          size: t.quote * 2.2 * S, rgb: c.accentRgb, font: qf });
+    ctx.addTextL(comp, "— " + (s.source || ""), { x: W / 2 + qBoxW / 2 - 200 * S, y: qY + qBoxH / 2 + 90 * S,
+                          size: t.quoteWho * S, rgb: c.mutedRgb, font: qf,
+                          just: ParagraphJustification.RIGHT_JUSTIFY, box: [400 * S, t.quoteWho * 1.6 * S] });
 }
 
 function akLayout_bar(comp, s, ctx) {
@@ -103,13 +112,33 @@ function akLayout_bar(comp, s, ctx) {
 // 고유한 생김새는 아니지만 내용이 화면에서 사라지지 않는다.
 function akLayout_generic(comp, s, ctx) {
     var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
+    var titleY = H * 0.15;
     if (s.title) {
-        ctx.addTextL(comp, s.title, { x: W / 2, y: H * 0.15, size: t.sub * 1.5 * S, rgb: c.textRgb,
+        ctx.addTextL(comp, s.title, { x: W / 2, y: titleY, size: t.sub * 1.5 * S, rgb: c.textRgb,
                                       font: ctx.fonts.headline, box: [W * 0.84, H * 0.14], leading: 1.2,
                                       anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
         ctx.addRectL(comp, "rule", W * 0.16, H * 0.225, W * 0.68, 3 * S, c.accentRgb);
     }
-    var items = s.items || [], vals = s.values || [], descs = s.descriptions || [];
+    if (s.profileName) {
+        ctx.addTextL(comp, s.profileName, { x: W / 2, y: H * 0.255, size: t.sub * S, rgb: c.textRgb,
+                                      font: ctx.fonts.body, box: [W * 0.7, H * 0.08], leading: 1.2 });
+        if (s.profileSubtitle) {
+            ctx.addTextL(comp, s.profileSubtitle, { x: W / 2, y: H * 0.30, size: t.sub * 0.6 * S,
+                                      rgb: c.mutedRgb, font: ctx.fonts.body, box: [W * 0.7, H * 0.06], leading: 1.2 });
+        }
+    }
+    var items = [];
+    if (s.items) { for (var ic = 0; ic < s.items.length; ic++) { items.push(s.items[ic]); } }
+    var sides = [s.left, s.right];
+    for (var sd = 0; sd < sides.length; sd++) {
+        var side = sides[sd];
+        if (!side) continue;
+        if (side.title) { items.push(side.title); }
+        if (side.items) {
+            for (var si = 0; si < side.items.length; si++) { items.push(side.items[si]); }
+        }
+    }
+    var vals = s.values || [], descs = s.descriptions || [];
     var y0 = H * 0.32, gap = Math.min(150 * S, (H * 0.50) / Math.max(1, items.length));
     for (var i = 0; i < items.length; i++) {
         var by = y0 + i * gap;

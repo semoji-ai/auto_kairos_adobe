@@ -186,6 +186,18 @@ def test_manifest_layout_defaults_cinematic(tmp_path):
     assert sc["image"].endswith("sb_a.png")
 
 
+def test_layout_scene_keeps_image_but_not_layers(tmp_path):
+    """v3 임포트 씬처럼 layout과 _image가 함께 있으면 image는 유지, layers만 억제한다(회귀: 발견1)."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "lv", "narration": "n",
+                          "layout": "headline_only", "headline": "제목", "imageRef": "storyboard/sb_lv.png"}])
+    (d / "storyboard").mkdir(); (d / "storyboard" / "sb_lv.png").write_bytes(b"\x89PNG")
+    manifest.build_manifest(d)
+    sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
+    assert sc["layout"] == "headline_only"
+    assert sc["image"] is not None and sc["image"].endswith("sb_lv.png")
+    assert sc["layers"] == []
+
+
 def test_map_scene_becomes_image_scene_with_default_camera(tmp_path):
     """지도 씬 — 이미지 링크되면 cinematic 취급 + 기본 slow_zoom_in 카메라."""
     from PIL import Image

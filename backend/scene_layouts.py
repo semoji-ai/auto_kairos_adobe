@@ -37,6 +37,10 @@ ALIASES = {
     # 차트
     "bar_chart": "bar",
     "graph": "bar",
+    # 비교형 — 고유 compare 렌더러가 없으므로 범용으로(내용을 버리지 않는다)
+    "split_contrast": GENERIC,
+    "diagram": GENERIC,
+    "slide_compare": GENERIC,
 }
 
 # 스키마 enum·검증이 허용하는 이름 전체
