@@ -63,21 +63,39 @@ function akLayout_bar(comp, s, ctx) {
     var W = ctx.W, H = ctx.H, S = ctx.S, c = ctx.colors, t = ctx.type;
     ctx.addTextL(comp, s.title || "", { x: W / 2, y: H * 0.13, size: t.sub * 1.4 * S, rgb: c.textRgb,
                                         font: ctx.fonts.headline, anim: { type: "reveal", t0: 0.15, dur: 0.6 } });
-    ctx.addRectL(comp, "axis", W * 0.13, H * 0.76, W * 0.74, 2 * S, c.mutedRgb);
-    var vals = s.values || [], labs = s.items || [];
+    var labels = s.items || [], vals = s.values || [];
     var n = Math.max(1, vals.length), maxV = 0;
     for (var vi = 0; vi < vals.length; vi++) { if (vals[vi] > maxV) { maxV = vals[vi]; } }
-    var gw = (W * 0.70) / n;
-    for (var bi = 0; bi < vals.length; bi++) {
-        var bh = maxV ? (vals[bi] / maxV) * (H * 0.42) : 0;
-        var bx = W * 0.15 + gw * bi + gw * 0.225;
-        var bw = gw * 0.55;
-        ctx.addBarShape(comp, "bar" + bi, bw, bh, c.accentRgb, s.chartSpec || {}, S)
-           .property("Position").setValue([bx + bw / 2, H * 0.76 - bh / 2]);
-        if (labs[bi]) {
-            ctx.addTextL(comp, labs[bi], { x: bx + bw / 2, y: H * 0.80, size: t.item * 0.8 * S,
-                                           rgb: c.mutedRgb, font: ctx.fonts.body });
-        }
+    // chartagent 명세서(chartSpec) — 없으면 단순 단색 막대 기본값
+    var CS = s.chartSpec || {};
+    var areaW = W * 0.7, baseY = H * 0.76, maxH = H * 0.42;
+    var bw = Math.min(150 * S, areaW / n * 0.55), gap2 = areaW / n;
+    var accent = [c.accentRgb[0] / 255, c.accentRgb[1] / 255, c.accentRgb[2] / 255];
+    // 가이드선(기준선 위 수평선) — chartSpec.guideLineCount 만큼 점선
+    var glc = CS.guideLineCount || 0;
+    for (var gi = 1; gi <= glc; gi++) {
+        var gy = baseY - (maxH * gi) / (glc + 1);
+        var gl = ctx.addRectL(comp, "guide" + gi, W * 0.13, gy, W * 0.74, (CS.guideStrokeWidth || 1) * S, c.mutedRgb);
+        gl.property("Opacity").setValue((CS.guideOpacity != null ? CS.guideOpacity : 0.3) * 100);
+        ctx.applyDash(gl, CS.guideDash, S);           // 점선 패턴(있으면)
+    }
+    ctx.addRectL(comp, "axis", W * 0.13, baseY, W * 0.74, (CS.axisStrokeWidth || 2) * S, c.mutedRgb);  // 기준선
+    for (var bi = 0; bi < n; bi++) {
+        var bh = maxV ? (vals[bi] / maxV) * maxH : 0;
+        var bx = W * 0.15 + gap2 * bi + (gap2 - bw) / 2;
+        // chartSpec 반영 막대(채움+외곽선+해칭이 한 레이어 → Scale 애니메이션 동반)
+        var bar = ctx.addBarShape(comp, "bar" + bi, bw, bh, accent, CS, S);
+        bar.property("Anchor Point").setValue([0, bh / 2]);   // 하단 고정 성장
+        bar.property("Position").setValue([bx + bw / 2, baseY]);
+        var sc2 = bar.property("Scale");
+        sc2.setValueAtTime(0.2 + bi * 0.15, [100, 0]); sc2.setValueAtTime(0.7 + bi * 0.15, [100, 100]);
+        ctx.addTextL(comp, labels[bi] || "", { x: bx + bw / 2, y: baseY + 56 * S, size: t.barLabel * S,
+                                               rgb: c.mutedRgb, font: ctx.fonts.body });
+        var vt = ctx.addTextL(comp, String(vals[bi]) + (s.unit || ""), { x: bx + bw / 2, y: baseY - bh - 28 * S,
+                                               size: t.barValue * S, rgb: c.textRgb,
+                                               font: ctx.fonts.bold || ctx.fonts.body });
+        var vop = vt.property("Opacity");                     // 수치는 막대 완성 후 표시
+        vop.setValueAtTime(0.55 + bi * 0.15, 0); vop.setValueAtTime(0.8 + bi * 0.15, 100);
     }
 }
 

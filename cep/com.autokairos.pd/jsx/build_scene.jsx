@@ -299,7 +299,7 @@ function akBuildScene(manifestPath) {
         // 렌더러는 layouts.jsx에 있다. 헬퍼가 이 함수의 클로저라 ctx로 넘긴다.
         akRenderLayout(comp, s, {
             W: W, H: H, S: S, colors: c, type: t, fonts: TK.fonts,
-            addTextL: addTextL, addRectL: addRectL, addBarShape: addBarShape
+            addTextL: addTextL, addRectL: addRectL, addBarShape: addBarShape, applyDash: applyDash
         });
     }
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).

@@ -530,7 +530,10 @@ def test_chart_spec_wiring():
     assert "addBarShape" in jsx
     layouts = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
     assert "s.chartSpec" in layouts                        # bar 렌더러는 layouts.jsx로 이동(Task 5)
-    assert "applyDash" in jsx                               # 함수는 유지(가이드선은 Task 5 브리프에서 축소)
+    assert "guideLineCount" in layouts                      # 가이드선 복원(Task 5 fix)
+    assert "applyDash" in jsx and "ctx.applyDash" in layouts  # 함수 유지 + 실사용(죽은 코드 아님)
+    # 성장 애니메이션 복원 — bar 렌더러가 Anchor Point로 하단 고정 성장한다
+    assert "Anchor Point" in layouts
     # 패턴 종류 전부 처리(diagonal/crosshatch/vertical/dot)
     assert "crosshatch_light" in jsx and "vertical_stripe" in jsx and "dot_sparse" in jsx
 
