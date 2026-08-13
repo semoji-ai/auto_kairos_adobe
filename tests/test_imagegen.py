@@ -161,7 +161,7 @@ def test_generate_many_concurrency_min_one(tmp_path, monkeypatch):
 
 def test_build_element_layer_prompt():
     p = imagegen.build_element_layer_prompt("왼쪽 전기차", "프레임 왼쪽", "STYLE", "layers/x.png")
-    assert "왼쪽 전기차" in p and "마젠타" in p and "#FF00FF" in p and "layers/x.png" in p
+    assert "왼쪽 전기차" in p and "마젠타" in p and "#FF00FF" in p
     assert "얹혀" in p          # 위에 얹힌 것 함께 그림(베이스 포함)
 
 
@@ -210,9 +210,11 @@ def test_analyze_scene_layers_prompt_uses_narration(tmp_path, monkeypatch):
 
 
 def test_split_scene_to_elements(tmp_path, monkeypatch):
+    from PIL import Image
     from backend import imagegen as ig
     proj = tmp_path / "p"; proj.mkdir()
-    (proj / "storyboard").mkdir(); img = proj / "storyboard" / "s.png"; img.write_bytes(b"\x89PNG")
+    (proj / "storyboard").mkdir(); img = proj / "storyboard" / "s.png"
+    Image.new("RGB", (10, 10)).save(img)   # scene_key_color가 실제로 열 수 있어야 함
     made = []
 
     def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
@@ -220,8 +222,8 @@ def test_split_scene_to_elements(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     res = ig.split_scene_to_elements(proj, str(img), "sid9",
                                      [{"name": "전기차", "location": "왼쪽"},
                                       {"name": "인물", "location": "오른쪽"}], concurrency=2)
@@ -292,8 +294,8 @@ def test_split_normalizes_to_scene_size(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     res = ig.split_scene_to_elements(proj, str(scene), "sz1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     for r in res["layers"]:
@@ -437,8 +439,8 @@ def test_split_qc_retries_on_bad_ratio(tmp_path, monkeypatch):
 
     # 1차: ratio 0.01(불량 — 전체를 그림), 2차: 0.6(정상)
     ratios = iter([0.01, 0.6])
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": next(ratios)})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": next(ratios)})
     res = ig.split_scene_to_elements(proj, str(scene), "qc1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
@@ -458,8 +460,8 @@ def test_split_qc_marks_lowq_after_retry(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.005})  # 항상 불량
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.005})  # 항상 불량
     res = ig.split_scene_to_elements(proj, str(scene), "qc2",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
@@ -518,8 +520,8 @@ def test_split_qc_retries_on_bad_position(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     pos_seq = iter([0.2, 0.9])                           # 1차 어긋남 → 재시도 정상
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
     res = ig.split_scene_to_elements(proj, str(scene), "pq1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
@@ -535,24 +537,23 @@ def test_split_retry_prompt_uses_new_file_path(tmp_path, monkeypatch):
     proj = tmp_path / "p"; proj.mkdir()
     (proj / "storyboard").mkdir()
     scene = proj / "storyboard" / "s.png"; Image.new("RGB", (100, 100)).save(scene)
-    prompts = []
+    outs = []
 
     def fake_run_codex(proj_dir, out, prompt, *, images=None, retries=2, on_line=None, post=None):
-        prompts.append(prompt)
+        outs.append(str(out))
         Image.new("RGBA", (100, 100)).save(out)
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
     pos_seq = iter([0.2, 0.9])                          # 1차 어긋남 → 재시도 OK
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
     res = ig.split_scene_to_elements(proj, str(scene), "rp1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
     el = res["layers"][0]
     assert el["qc"] == "retried_ok" and el["pos_score"] == 0.9     # 최종 pos 보고
-    retry_prompt = prompts[1]
-    assert "rp1__0_차_v2.png" in retry_prompt           # 재시도는 새 버전 파일 경로
+    assert "rp1__0_차_v2.png" in outs[1]                 # 재시도는 새 버전 파일 경로로 저장
     assert el["rel"].endswith("_v2.png")
 
 
@@ -570,12 +571,12 @@ def test_split_lowq_rekeys_final_file(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    def fake_chroma(a, b):
+    def fake_chroma(a, b, key=None):
         keyed.append(Path(a).name)
         return {"transparent_ratio": 0.5}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", fake_chroma)
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", fake_chroma)
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.1)    # 항상 어긋남 → lowq
     res = ig.split_scene_to_elements(proj, str(scene), "lq1",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
@@ -599,8 +600,8 @@ def test_split_retry_retires_loser_no_duplicates(tmp_path, monkeypatch):
         return {"status": "completed", "path": str(out)}
 
     pos_seq = iter([0.2, 0.9])                          # 1차 탈락 → 재시도 합격
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: next(pos_seq, 0.9))
     ig.split_scene_to_elements(proj, str(scene), "dd1",
                                [{"name": "차", "location": "왼쪽"}], concurrency=1)
@@ -622,8 +623,8 @@ def test_split_lowq_retires_retry_file(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.1)     # 둘 다 탈락
     res = ig.split_scene_to_elements(proj, str(scene), "dd2",
                                      [{"name": "차", "location": "왼쪽"}], concurrency=1)
@@ -645,8 +646,8 @@ def test_split_writes_kinds_sidecar(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     ig.split_scene_to_elements(proj, str(scene), "kd",
                                [{"name": "남자", "location": "좌", "kind": "character"},
@@ -705,8 +706,8 @@ def test_split_aspect_mismatch_triggers_retry_not_stretch(tmp_path, monkeypatch)
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     res = ig.split_scene_to_elements(proj, str(scene), "ar1",
                                      [{"name": "차", "location": "좌", "kind": "object"}], concurrency=1)
@@ -734,8 +735,8 @@ def test_bg_retries_once_on_failure(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     res = ig.split_scene_to_elements(proj, str(scene), "bgr",
                                      [{"name": "차", "location": "좌", "kind": "object"}], concurrency=1)
@@ -755,8 +756,8 @@ def test_split_names_character_layers_with_char_suffix(tmp_path, monkeypatch):
         if post: post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(ig, "_run_codex_image", fake_run_codex)
-    monkeypatch.setattr(ig, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(ig, "_run_fal_image", fake_run_codex)
+    monkeypatch.setattr(ig, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(ig, "position_score", lambda L, S: 0.9)
     res = ig.split_scene_to_elements(proj, str(scene), "cs",
                                      [{"name": "남자", "location": "좌", "kind": "character"},

@@ -86,7 +86,7 @@ def test_regenerate_background_uses_remaining_names(tmp_path, monkeypatch):
         out.write_bytes(b"\x89PNG")
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(imagegen, "_run_codex_image", _fake)
+    monkeypatch.setattr(imagegen, "_run_fal_image", _fake)
     monkeypatch.setattr(imagegen, "load_style", lambda: "STYLE")
     monkeypatch.setattr(imagegen, "_scene_size", lambda p: None)
 
@@ -98,6 +98,8 @@ def test_regenerate_background_uses_remaining_names(tmp_path, monkeypatch):
 
 
 def test_regenerate_element_only_touches_that_layer(tmp_path, monkeypatch):
+    from PIL import Image
+    Image.new("RGB", (10, 10)).save(tmp_path / "scene.png")   # scene_key_color가 실제로 열 수 있어야 함
     d = _layers_dir(tmp_path)
     _touch(d, "ab__0_인물.png")
     _touch(d, "ab__1_탁자.png")
@@ -112,11 +114,11 @@ def test_regenerate_element_only_touches_that_layer(tmp_path, monkeypatch):
             post(out)
         return {"status": "completed", "path": str(out)}
 
-    monkeypatch.setattr(imagegen, "_run_codex_image", _fake)
+    monkeypatch.setattr(imagegen, "_run_fal_image", _fake)
     monkeypatch.setattr(imagegen, "load_style", lambda: "STYLE")
     monkeypatch.setattr(imagegen, "_scene_size", lambda p: None)
     monkeypatch.setattr(imagegen, "flatten_colors", lambda p: True)
-    monkeypatch.setattr(imagegen, "chroma_key_magenta", lambda a, b: {"transparent_ratio": 0.5})
+    monkeypatch.setattr(imagegen, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
     monkeypatch.setattr(imagegen, "position_score", lambda a, b: 0.9)
 
     res = imagegen.regenerate_layer(tmp_path, str(tmp_path / "scene.png"), "ab", "ab__0_인물")

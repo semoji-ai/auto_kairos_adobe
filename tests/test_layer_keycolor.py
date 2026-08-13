@@ -72,3 +72,44 @@ def test_chroma_key_magenta_alias_still_works(tmp_path):
     alpha = np.array(Image.open(out).convert("RGBA"))[:, :, 3]
     assert alpha[:, :5].max() == 0
     assert 0.4 < res["transparent_ratio"] < 0.6
+
+
+def test_element_prompt_uses_selected_key_color():
+    p_m = imagegen.build_element_layer_prompt("인물", "좌측", "STYLE", "layers/a.png")
+    assert "#FF00FF" in p_m and "마젠타" in p_m
+    p_g = imagegen.build_element_layer_prompt("인물", "좌측", "STYLE", "layers/a.png", key="green")
+    assert "#00FF00" in p_g and "그린" in p_g
+    assert "#FF00FF" not in p_g
+
+
+def test_element_prompt_exclusion_uses_key_color():
+    p = imagegen.build_element_layer_prompt("인물", "좌측", "STYLE", "layers/a.png",
+                                            others=["탁자"], key="green")
+    assert "탁자" in p and "그린" in p
+
+
+def test_run_fal_image_writes_output_and_runs_post(tmp_path, monkeypatch):
+    from backend import fal_api
+    out = tmp_path / "layers" / "x.png"
+    called = {}
+    monkeypatch.setattr(fal_api, "edit_image",
+                        lambda prompt, imgs, **k: called.setdefault("prompt", prompt) and b"PNGDATA")
+    monkeypatch.setattr(imagegen, "fal_api", fal_api)
+    res = imagegen._run_fal_image(tmp_path, out, "프롬프트",
+                                  images=[tmp_path / "scene.png"],
+                                  post=lambda o: called.setdefault("post", str(o)))
+    assert res["status"] == "completed"
+    assert out.read_bytes() == b"PNGDATA"
+    assert called["prompt"] == "프롬프트"
+    assert called["post"] == str(out)
+
+
+def test_run_fal_image_failure_returns_failed(tmp_path, monkeypatch):
+    from backend import fal_api
+
+    def _boom(*a, **k):
+        raise fal_api.FalError("FAL_KEY 없음")
+
+    monkeypatch.setattr(fal_api, "edit_image", _boom)
+    res = imagegen._run_fal_image(tmp_path, tmp_path / "y.png", "p", images=[])
+    assert res["status"] == "failed" and "FAL_KEY" in res["error"]

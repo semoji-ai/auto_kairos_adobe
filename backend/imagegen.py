@@ -19,6 +19,7 @@ import numpy as np
 from PIL import Image
 
 from backend import env
+from backend import fal_api
 from backend import llm
 from backend.codex_runner import run_skill  # noqa: F401 — 하위 호환 재export
 
@@ -169,6 +170,21 @@ def _run_codex_image(proj_dir: Path, out: Path, prompt: str, *,
     return {"status": "failed", "error": reason, "log_tail": last[-300:]}
 
 
+def _run_fal_image(proj_dir: Path, out: Path, prompt: str, *, images=None, post=None) -> dict:
+    """fal 편집 API로 이미지 1장 생성 → out에 저장. _run_codex_image와 같은 계약.
+    레이어 분리 전용 경로(CLAUDE.md 예외). 실패는 {"status": "failed", "error": ...}."""
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        data = fal_api.edit_image(prompt, list(images or []))
+    except fal_api.FalError as e:
+        return {"status": "failed", "error": str(e)[:200], "path": str(out)}
+    out.write_bytes(data)
+    if post:
+        post(out)
+    return {"status": "completed", "path": str(out)}
+
+
 def generate_one(proj_dir: Path, rel_out: str, image_prompt: str,
                  *, subdir: str = "images", retries: int = 2, on_line=None,
                  character_ref=None) -> dict:
@@ -276,11 +292,13 @@ def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
 
 
 def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_out: str,
-                               others: list | None = None) -> str:
+                               others: list | None = None, key: str = "magenta") -> str:
     """단일 요소 레이어 프롬프트. others=별도 레이어로 분리되는 다른 요소들(이 레이어에서 제외).
-    이 요소 위에 얹힌/붙은 것(others 제외)은 함께 그려 한 덩어리로 유지."""
+    이 요소 위에 얹힌/붙은 것(others 제외)은 함께 그려 한 덩어리로 유지.
+    key=빼낼 배경으로 채울 키 색(씬마다 scene_key_color가 정한다)."""
     others = [o for o in (others or []) if o and o != name]
-    excl = (f"단, 다음은 별도 레이어이므로 포함하지 말고 마젠타로 채운다: {', '.join(others)}.\n"
+    kl, kh = KEY_LABEL[key], KEY_HEX[key]
+    excl = (f"단, 다음은 별도 레이어이므로 포함하지 말고 {kl}로 채운다: {', '.join(others)}.\n"
             if others else "")
     return (
         f"{style_desc}\n\n## 레이어 분리 — 단일 요소\n첨부한 씬 이미지를 레퍼런스로 사용한다.\n"
@@ -290,8 +308,8 @@ def build_element_layer_prompt(name: str, location: str, style_desc: str, rel_ou
         f"이 레이어를 원본 위에 겹치면 픽셀이 일치해야 한다.\n"
         f"이 요소 위에 얹혀 있거나 붙어 있는 것(예: 위에 놓인 문서·물건)도 함께 그려 한 덩어리로 유지한다.\n"
         f"{excl}"
-        f"그 외 전 영역(다른 인물·사물·배경)은 순수 마젠타 단색(#FF00FF)으로 채운다.\n"
-        f"image_gen 도구로 생성해 현재 폴더의 {rel_out} 로 저장. 텍스트 없음. 저장되면 OK만 답해."
+        f"그 외 전 영역(다른 인물·사물·배경)은 순수 {kl} 단색({kh})으로 채운다.\n"
+        f"텍스트 없음."
     )
 
 
@@ -410,7 +428,8 @@ def _qc_feedback(ratio, pos):
     return None
 
 
-def _gen_element_once(proj_dir: Path, scene_image: str, out: Path, prompt: str, scene_size):
+def _gen_element_once(proj_dir: Path, scene_image: str, out: Path, prompt: str, scene_size,
+                      key: str = "magenta"):
     """요소 레이어 1회 생성 + 후처리 → (res, transparent_ratio, position_score)."""
     ratio_box = {}
 
@@ -419,10 +438,10 @@ def _gen_element_once(proj_dir: Path, scene_image: str, out: Path, prompt: str, 
         raw_dir = o.parent / "_raw"
         raw_dir.mkdir(exist_ok=True)
         shutil.copy(o, raw_dir / o.name)
-        flatten_colors(o)                       # 구름 얼룩 제거(색 양자화) → 그 후 마젠타 키잉
-        ratio_box.update(chroma_key_magenta(o, o))
+        flatten_colors(o)                       # 구름 얼룩 제거(색 양자화) → 그 후 키잉
+        ratio_box.update(chroma_key(o, o, key=key))
 
-    res = _run_codex_image(proj_dir, out, prompt, images=[scene_image], post=_post)
+    res = _run_fal_image(proj_dir, out, prompt, images=[scene_image], post=_post)
     pos = None
     if res.get("status") == "completed":
         if scene_size and _aspect_mismatch(out, scene_size):
@@ -447,8 +466,9 @@ def generate_element_layer(proj_dir: Path, scene_image: str, sid: str, index: in
     base_name = f"{sid}__{index}_{_layer_slug(name)}{tag}.png"
     out = versioned_path(out_base, base_name)
     rel = out.relative_to(proj_dir).as_posix()
-    prompt = build_element_layer_prompt(name, loc, style, rel, others=others)
-    res, ratio, pos = _gen_element_once(proj_dir, scene_image, out, prompt, scene_size)
+    key = scene_key_color(out_base, sid, scene_image)["key"]
+    prompt = build_element_layer_prompt(name, loc, style, rel, others=others, key=key)
+    res, ratio, pos = _gen_element_once(proj_dir, scene_image, out, prompt, scene_size, key=key)
     qc = None
     fb = _qc_feedback(ratio, pos) if res.get("status") == "completed" else None
     if fb:
@@ -456,18 +476,19 @@ def generate_element_layer(proj_dir: Path, scene_image: str, sid: str, index: in
         rel2 = out2.relative_to(proj_dir).as_posix()
         # 재시도 프롬프트는 반드시 새 파일 경로로 다시 빌드 — 1차 경로가 들어가면
         # codex가 1차본을 raw로 덮어쓰고 out2는 미생성(E2E에서 발견된 버그)
-        prompt2 = build_element_layer_prompt(name, loc, style, rel2, others=others)
+        prompt2 = build_element_layer_prompt(name, loc, style, rel2, others=others, key=key)
         res2, ratio2, pos2 = _gen_element_once(proj_dir, scene_image, out2,
-                                               prompt2 + "\n[재시도 피드백] " + fb, scene_size)
+                                               prompt2 + "\n[재시도 피드백] " + fb, scene_size,
+                                               key=key)
         if res2.get("status") == "completed" and _qc_feedback(ratio2, pos2) is None:
             _retire_layer(out_base, out)            # 탈락한 1차본 → _prev (중복 방지·무삭제)
             out, rel, res, qc, pos = out2, rel2, res2, "retried_ok", pos2
         else:
             # 1차본 유지 + 저품질 표시. 최종 파일이 키잉 안 된 raw일 가능성 가드:
-            # 마젠타가 그대로면(투명비 ~0) chroma 재적용(멱등 — 이미 키잉된 파일엔 무해)
+            # 키 색이 그대로면(투명비 ~0) chroma 재적용(멱등 — 이미 키잉된 파일엔 무해)
             try:
                 if out.exists():
-                    rr = chroma_key_magenta(out, out)
+                    rr = chroma_key(out, out, key=key)
                     if scene_size:
                         normalize_layer_size(out, scene_size)
                     ratio = rr.get("transparent_ratio", ratio)
@@ -499,7 +520,7 @@ def generate_background_layer(proj_dir: Path, scene_image: str, sid: str, names:
                   f"제거한 자리는 그 뒤에 있을 법한 내용(벽·바닥·뒤쪽 사물 등)으로 자연스럽게 메운다.\n"
                   f"위 목록과 무관한 다른 인물·사물·환경은 원본과 똑같이 그대로 둔다. 임의로 지우거나 추가하지 않는다.\n"
                   f"image_gen 도구로 생성해 현재 폴더의 {rel} 로 저장. 텍스트 없음. 저장되면 OK만 답해.")
-        res = _run_codex_image(proj_dir, out, prompt, images=[scene_image])
+        res = _run_fal_image(proj_dir, out, prompt, images=[scene_image])
         if res.get("status") == "completed":
             if scene_size:
                 normalize_layer_size(out, scene_size)   # 배경도 동일 크기 보장
