@@ -76,3 +76,48 @@ def test_analyze_passes_new_context_through(tmp_path, monkeypatch):
     assert "빛의 궤적" in seen["prompt"] and "브리핑" in seen["prompt"]
     assert res["elements"][0]["intent"] == "slide_in 좌→우"
     assert res["elements"][0]["name_en"] == "red sports car"
+
+
+def test_neighbor_context_builds_both_sides():
+    from backend import router
+    ss = [{"sceneNumber": 1, "title": "창업", "narration": "2003년 설립됐다."},
+          {"sceneNumber": 2, "title": "속도", "narration": "로드스터가 등장했다.",
+           "shot_relation": "continue"},
+          {"sceneNumber": 3, "title": "위기", "narration": "파산 직전까지 갔다.",
+           "shot_relation": "cut"}]
+    ctx = router._neighbor_context(ss, 2)
+    assert "창업" in ctx and "위기" in ctx
+    assert "continue" in ctx                      # 이 씬이 앞 씬과 이어지는지
+    assert router._neighbor_context(ss, 1).startswith("앞 씬: (없음)")
+    assert "뒤 씬: (없음)" in router._neighbor_context(ss, 3)
+    assert router._neighbor_context([], 1)        # 빈 목록도 문자열 반환
+
+
+def test_analyze_endpoint_passes_direction_context(tmp_path, monkeypatch):
+    import backend.router as r
+    from backend.jobs import JobRegistry
+    proj = tmp_path / "p"
+    (proj / "storyboard").mkdir(parents=True)
+    (proj / "storyboard" / "sb_a.png").write_bytes(b"\x89PNG")
+    (proj / "scenes.json").write_text(json.dumps({"scenes": [
+        {"sceneNumber": 1, "sceneId": "a", "title": "속도", "narration": "빠르다.",
+         "visual_summary": "가속 순간", "image_prompt": "빛의 궤적이 있는 빨간 스포츠카",
+         "imageRef": "storyboard/sb_a.png"},
+        {"sceneNumber": 2, "sceneId": "b", "title": "위기", "narration": "위험했다."}]}),
+        encoding="utf-8")
+    seen = {}
+
+    def _fake(proj_dir, scene_image, **kw):
+        seen.update(kw)
+        return {"elements": [], "dropped": []}
+
+    monkeypatch.setattr(r.imagegen, "analyze_scene_layers", _fake)
+    monkeypatch.setattr(r.vault, "read_context", lambda d: "프로젝트 브리핑 요약")
+    ctx = {"root": tmp_path, "jobs": JobRegistry()}
+    code, _ = r.handle_request("POST", "/api/scenes/analyze-layers", {},
+                               {"project_id": "p", "sceneNumber": 1}, ctx)
+    assert code == 200
+    assert seen["image_prompt"] == "빛의 궤적이 있는 빨간 스포츠카"
+    assert "위기" in seen["neighbors"]
+    assert seen["briefing"] == "프로젝트 브리핑 요약"
+    assert "속도" in seen["context"]
