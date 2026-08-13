@@ -269,27 +269,60 @@ def apply_element_budget(elements: list) -> dict:
     return {"elements": els[:MAX_ELEMENTS], "dropped": els[MAX_ELEMENTS:]}
 
 
-def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
-                         narration: str = "", context: str = "", on_line=None) -> dict:
-    """codex 멀티모달로 씬 이미지+내레이션을 분석해 '움직임이 필요한' 레이어만 선별.
-    캐릭터는 항상 분리, 사물은 내레이션상 움직일 때만. {elements:[{name,location,kind,reason}]}|{error}."""
-    prompt = (
-        "첨부한 씬 이미지를 모션그래픽 레이어로 분리하려 한다. "
-        "분리한 요소들과 배경을 다시 겹쳤을 때 원본 씬이 그대로 복원되도록 빠짐없이 식별하는 게 핵심이다. "
-        "아래 내레이션과 맥락도 참고한다.\n\n"
-        f"## 내레이션\n{narration or '(없음)'}\n\n## 맥락\n{context or '(없음)'}\n\n"
-        "## 분리 기준(우선순위 순 — 이 순서대로 판단)\n"
-        "1순위) 캐릭터: 화면의 사람·인물·생명체는 한 명도 빠짐없이 각각 개별 레이어 "
-        "(다른 것에 가려져 일부만 보여도 반드시 포함).\n"
-        "2순위) 캐릭터를 '앞에서 가리는' 전경 레이어(책상·기둥·난간·소품 등) — "
-        "분리해야 앞뒤 겹침(가림)이 유지된다.\n"
-        "3순위) 내용상 필요한 레이어: 내레이션이 강조·언급하거나 연출상 등장이 필요한 사물.\n"
-        "그 외) 정적인 배경·장식 요소는 분리하지 말고 배경에 남긴다(목록에서 제외). "
-        "기준에 안 걸리면 쪼개지 않는 것이 원칙이다.\n"
-        "정렬) 요소는 '가장 뒤'에서 '가장 앞' 순서로 나열한다(뒤→앞). 가리는 사물은 가려지는 인물보다 앞에 온다.\n\n"
-        "각 요소: name(짧은 한국어 이름), location(화면 내 위치), kind('character' 또는 'object'), "
-        "reason(왜 분리하는지 — 특히 전경에서 무엇을 가리는지 한 줄)."
+def build_layer_analysis_prompt(*, narration: str = "", context: str = "",
+                                image_prompt: str = "", neighbors: str = "",
+                                briefing: str = "") -> str:
+    """레이어 분석 프롬프트 — 사물 분류가 아니라 '이 장면을 어떻게 움직일 것인가'에서 역산한다.
+
+    씬 이미지는 image_prompt로 생성됐고 그 프롬프트는 나레이션을 표현하려고 쓰였다.
+    즉 연출 의도가 거기 이미 적혀 있으므로, 그것을 판단의 출발점으로 삼는다."""
+    from backend import motion
+    return (
+        "너는 모션그래픽 연출가다. 첨부한 씬 이미지를 레이어로 분리하려 한다.\n"
+        "분류가 목적이 아니다 — **이 장면을 효과적으로 연출하려면 무엇이 따로 떨어져 있어야 하는가**를 판단해라.\n\n"
+        f"## 이 그림을 만든 연출 의도(이미지 생성 프롬프트)\n{image_prompt or '(없음)'}\n\n"
+        f"## 내레이션\n{narration or '(없음)'}\n\n"
+        f"## 씬 맥락\n{context or '(없음)'}\n\n"
+        f"## 앞뒤 씬\n{neighbors or '(없음)'}\n\n"
+        f"## 프로젝트 브리핑\n{briefing or '(없음)'}\n\n"
+        "## 판단 순서\n"
+        "1) 이 씬의 연출 의도는 무엇인가 — 위 이미지 생성 프롬프트가 노린 것.\n"
+        "2) 그 의도를 살리려면 무엇이 움직이거나 깊이(앞뒤)를 가져야 하는가.\n"
+        "3) 그 움직임을 만들려면 어떤 요소가 따로 떨어져 있어야 하는가. 그것만 목록에 넣는다.\n\n"
+        f"## 사용 가능한 레이어 모션\n{motion.PRESET_GUIDE}\n"
+        f"## 사용 가능한 카메라\n{motion.CAMERA_GUIDE}\n"
+        "여기 없는 동작은 구현할 수 없다. 목록 안에서만 연출을 구상해라.\n\n"
+        "## 최소성(중요)\n"
+        f"요소는 최대 {MAX_ELEMENTS}개지만 그것은 상한이지 목표가 아니다. "
+        "연출에 필요한 최소로 나눈다. **인물 한 명이 말하는 씬은 인물 1장 + 배경 1장이면 충분하다.** "
+        "더 쪼개도 연출이 나아지지 않으면 쪼개지 않는다. 요소 1~2개가 가장 흔한 정답이다.\n"
+        "각 요소에 intent(그 레이어로 무엇을 할 것인가)를 쓸 수 없다면 분리 근거가 없는 것이므로 "
+        "목록에서 빼고 배경에 남긴다.\n\n"
+        "## 항상 지키는 규칙\n"
+        "- 인물(사람·캐릭터·생명체)은 움직일 것이 없어 보여도 각각 분리한다 — 까딱임(bob)으로 화면이 죽지 않게 한다. "
+        "다른 것에 가려져 일부만 보여도 포함한다.\n"
+        "- 인물을 앞에서 가리는 전경은 분리해야 앞뒤 겹침이 유지된다.\n"
+        "- 정적인 배경·장식은 분리하지 않고 배경에 남긴다.\n"
+        "- 앞 씬과 이어지는 샷(continue)이면 레이어 구성을 앞 씬과 맞춰 연결이 끊기지 않게 한다.\n"
+        "- 요소는 '가장 뒤'에서 '가장 앞' 순서로 나열한다(뒤→앞). 가리는 사물은 가려지는 인물보다 앞에 온다.\n\n"
+        "## 각 요소에 쓸 것\n"
+        "- name: 짧은 한국어 이름\n"
+        "- name_en: 짧은 영어 이름(레이어 분리 모델 프롬프트에 쓴다)\n"
+        "- location: 화면 내 위치\n"
+        "- kind: 'character' 또는 'object'\n"
+        "- reason: 왜 이것이 따로 떨어져야 하는가 — 연출 관점으로 한 줄\n"
+        "- intent: 이 레이어로 무엇을 할 것인가 — 위 모션 어휘로. 예: 'slide_in 좌→우 후 drift로 가속 지속'"
     )
+
+
+def analyze_scene_layers(proj_dir: Path, scene_image: str, *,
+                         narration: str = "", context: str = "", image_prompt: str = "",
+                         neighbors: str = "", briefing: str = "", on_line=None) -> dict:
+    """씬 이미지+연출 맥락을 분석해 '연출에 필요한' 레이어만 선별.
+    {elements:[{name,name_en,location,kind,reason,intent}], dropped:[...]} 또는 error."""
+    prompt = build_layer_analysis_prompt(narration=narration, context=context,
+                                         image_prompt=image_prompt, neighbors=neighbors,
+                                         briefing=briefing)
     out_json = proj_dir / ".layer_analysis.json"
     res = llm.run_orchestrator(prompt, proj_dir, output_schema=str(_LAYER_SCHEMA),
                                output_last=str(out_json), images=[scene_image], on_line=on_line)

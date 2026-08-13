@@ -206,7 +206,7 @@ def test_analyze_scene_layers_prompt_uses_narration(tmp_path, monkeypatch):
     assert "아이가 전기차를 향해 달려간다" in cap["prompt"]   # 내레이션 주입
     assert "캐릭터" in cap["prompt"]                          # 1순위: 캐릭터 전원
     assert "가리는" in cap["prompt"]                           # 2순위: 전경 가림
-    assert "우선순위" in cap["prompt"]                         # 기준이 우선순위로 명시
+    assert "판단 순서" in cap["prompt"]                         # 연출 의도에서 역산하는 판단 순서 명시
 
 
 def test_split_scene_to_elements(tmp_path, monkeypatch):
