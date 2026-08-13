@@ -78,3 +78,12 @@ def test_normalize_omits_empty():
     out = SL.normalize_fields({"headline": "", "items": [], "unit": None, "source": "출처"})
     assert out == {"source": "출처"}
     assert SL.normalize_fields({}) == {}
+
+
+def test_normalize_keeps_zero_values():
+    """0은 유효한 수치다 — 파이썬 truthiness로 거르면 조용히 사라진다."""
+    out = SL.normalize_fields({"value": 0, "label": "년", "unit": "년"})
+    assert out["values"] == [0]
+    assert out["items"] == ["년"]
+    # 빈 문자열은 여전히 값 없음으로 취급
+    assert "values" not in SL.normalize_fields({"value": ""})
