@@ -1,53 +1,80 @@
-import json
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT / "skills/scene-decompose/scenes.schema.json"
-TOKENS = ROOT / "data/artstyle/ae_tokens.json"
-
-LAYOUTS = ["cinematic", "headline_only", "items_list", "metric_spotlight", "bar", "quote"]
-NEW_FIELDS = ["layout", "headline", "sub", "items", "value", "label", "chart", "quote_text", "quote_who"]
+"""레이아웃 단일 출처 — 목록·별칭·필드 정규화."""
+from backend import scene_layouts as SL
 
 
-def test_schema_layout_enum():
-    s = json.loads(SCHEMA.read_text(encoding="utf-8"))
-    item = s["properties"]["scenes"]["items"]
-    enum = item["properties"]["layout"]["enum"]
-    for l in LAYOUTS:
-        assert l in enum
-    assert None in enum  # nullable
+def test_resolve_native_layouts_unchanged():
+    for name in ("cinematic", "headline_only", "items_list",
+                 "metric_spotlight", "bar", "quote", "map"):
+        assert SL.resolve_layout(name) == name
 
 
-def test_schema_new_fields_required_and_nullable():
-    s = json.loads(SCHEMA.read_text(encoding="utf-8"))
-    item = s["properties"]["scenes"]["items"]
-    for f in NEW_FIELDS:
-        assert f in item["properties"], f
-        assert f in item["required"], f
-    # codex strict: 모든 속성이 required에
-    assert set(item["required"]) == set(item["properties"].keys())
-    # nullable 타입
-    assert item["properties"]["headline"]["type"] == ["string", "null"]
-    assert item["properties"]["items"]["type"] == ["array", "null"]
-    ch = item["properties"]["chart"]
-    assert ch["type"] == ["object", "null"]
-    assert ch["additionalProperties"] is False
-    assert set(ch["required"]) == {"labels", "values", "unit"}
+def test_resolve_v3_aliases():
+    """v3 라우터가 쓰던 매핑을 그대로 가져온다 — 같은 그림을 그리는 이름들."""
+    assert SL.resolve_layout("slide_list") == "items_list"
+    assert SL.resolve_layout("slide_statistic") == "metric_spotlight"
+    assert SL.resolve_layout("slide_highlight") == "headline_only"
+    assert SL.resolve_layout("title_card") == "headline_only"
+    assert SL.resolve_layout("bar_chart") == "bar"
+    assert SL.resolve_layout("graph") == "bar"
+    assert SL.resolve_layout("dramatic_number") == "metric_spotlight"
+    assert SL.resolve_layout("narrative_build") == "items_list"
+    assert SL.resolve_layout("reveal_sequence") == "items_list"
 
 
-def test_ae_tokens_keys():
-    t = json.loads(TOKENS.read_text(encoding="utf-8"))
-    assert t["colors"]["accent"] == "#4A90D9"
-    for k in ("bgRgb", "textRgb", "mutedRgb", "accentRgb"):
-        assert len(t["colors"][k]) == 3
-    for k in ("headline", "body", "number", "fallback"):
-        assert t["fonts"][k]
-    for k in ("headline", "sub", "item", "metric", "metricLabel", "quote", "quoteWho", "barLabel", "barValue"):
-        assert isinstance(t["type"][k], (int, float))
+def test_unknown_layout_falls_back_to_generic_never_cinematic():
+    """모르는 이름이라고 내용을 버리면 안 된다 — 범용 렌더러가 받는다."""
+    for name in ("tech_tree", "slide_qna", "timeline", "table",
+                 "완전히_모르는_이름", "", None, 123):
+        got = SL.resolve_layout(name)
+        assert got != "cinematic", name
+        assert got in SL.NATIVE or got == SL.GENERIC, (name, got)
+    assert SL.resolve_layout("tech_tree") == SL.GENERIC
 
 
-def test_skill_md_has_layout_guidance():
-    md = (ROOT / "skills/scene-decompose/SKILL.md").read_text(encoding="utf-8")
-    assert "레이아웃 선택" in md
-    for l in LAYOUTS:
-        assert l in md
+def test_known_includes_native_and_aliases_and_generic():
+    for name in ("bar", "cinematic", "slide_ranking", "generic"):
+        assert name in SL.KNOWN, name
+
+
+def test_normalize_maps_legacy_aliases():
+    out = SL.normalize_fields({
+        "headline": "제목", "sub": "부제",
+        "chart": {"labels": ["가", "나"], "values": [3, 5]}})
+    assert out["title"] == "제목"
+    assert out["descriptions"] == ["부제"]
+    assert out["items"] == ["가", "나"]
+    assert out["values"] == [3, 5]
+
+
+def test_normalize_maps_metric_and_quote():
+    m = SL.normalize_fields({"value": "26", "label": "년", "unit": "년"})
+    assert m["values"] == ["26"] and m["items"] == ["년"] and m["unit"] == "년"
+    q = SL.normalize_fields({"quote_text": "말했다", "quote_who": "머스크"})
+    assert q["items"] == ["말했다"] and q["source"] == "머스크"
+
+
+def test_normalize_prefers_canonical_over_alias():
+    """정규 필드가 이미 있으면 별칭이 덮어쓰지 않는다."""
+    out = SL.normalize_fields({"headline": "제목",
+                               "items": ["A"], "chart": {"labels": ["B"], "values": [1]}})
+    assert out["title"] == "제목"
+    assert out["items"] == ["A"]
+    assert out["values"] == [1]          # items는 정규 우선, values는 chart에서만 온다
+
+
+def test_normalize_passes_through_v3_fields():
+    out = SL.normalize_fields({
+        "headline": "t", "items": ["a"], "values": [1], "descriptions": ["d"],
+        "unit": "%", "source": "출처",
+        "left": {"title": "L", "items": ["x"]}, "right": {"title": "R", "items": ["y"]},
+        "relations": ["a>b"], "profileName": "이름", "profileSubtitle": "직함"})
+    for k in ("title", "items", "values", "descriptions", "unit", "source",
+              "left", "right", "relations", "profileName", "profileSubtitle"):
+        assert k in out, k
+
+
+def test_normalize_omits_empty():
+    """빈 값은 싣지 않는다 — 매니페스트가 커지고 jsx가 빈 텍스트를 그린다."""
+    out = SL.normalize_fields({"headline": "", "items": [], "unit": None, "source": "출처"})
+    assert out == {"source": "출처"}
+    assert SL.normalize_fields({}) == {}
