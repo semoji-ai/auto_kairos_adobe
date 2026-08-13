@@ -1,6 +1,7 @@
 import base64
 import json
 from pathlib import Path
+import urllib.error
 
 import pytest
 
@@ -104,5 +105,15 @@ def test_edit_image_raises_on_empty_images(tmp_path, monkeypatch):
 
     monkeypatch.setattr(fal_api.env, "get_key", lambda n: "K")
     monkeypatch.setattr(fal_api.urllib.request, "urlopen", lambda req, timeout=None: _Resp())
+    with pytest.raises(fal_api.FalError):
+        fal_api.edit_image("p", [_png(tmp_path)])
+
+
+def test_edit_image_raises_on_http_error(tmp_path, monkeypatch):
+    def _fake_urlopen(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 500, "Server Error", {}, None)
+
+    monkeypatch.setattr(fal_api.env, "get_key", lambda n: "K")
+    monkeypatch.setattr(fal_api.urllib.request, "urlopen", _fake_urlopen)
     with pytest.raises(fal_api.FalError):
         fal_api.edit_image("p", [_png(tmp_path)])
