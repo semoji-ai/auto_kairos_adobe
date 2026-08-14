@@ -229,3 +229,67 @@ def test_non_map_scene_gets_no_map_fields():
     out = v3_import._map_scene({"sceneNumber": 1, "narration": "말",
                                 "visualization": {"creative": {"layout": "headline_only"}}})
     assert not [k for k in out if k.startswith("map_")]
+
+
+def test_markers_from_lat_lng_shape_not_swapped():
+    """scene_specs.json의 실제 형태 — 이미 위도·경도 이름이 붙어 있어 뒤집으면 안 된다."""
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"markers": [
+        {"label": "알레포", "lat": 36.20, "lng": 37.13},
+        {"label": "키이우", "lat": 50.45, "lng": 30.52}]}})
+    assert out["map_markers"] == [
+        {"coord": [36.20, 37.13], "name": "알레포"},
+        {"coord": [50.45, 30.52], "name": "키이우"}]
+
+
+def test_flat_center_without_camera():
+    """지도 씬 다수가 camera 없이 평평한 center/zoom만 갖는다."""
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"center": [120.0, 35.0], "zoom": 3}})
+    assert out["map_center"] == [35.0, 120.0]      # 경도 먼저 → 뒤집힘
+    assert out["map_zoom"] == 3
+
+
+def test_flat_center_already_latitude_first_is_not_swapped():
+    """[35.18, 128.1076]은 진주 — 둘째 값이 90을 넘으므로 위도가 앞이다."""
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {
+        "mode": "locate", "center": [35.18, 128.1076], "zoom": 9}})
+    assert out["map_center"] == [35.18, 128.1076]
+
+
+def test_route_at_pairs_are_latitude_first():
+    """at은 이미 위도 먼저 — 뒤집으면 경로가 인도양으로 간다."""
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"route": [
+        {"label": "진주", "at": [35.18, 128.1076]},
+        {"label": "서울", "at": [37.5665, 126.978]}]}})
+    assert out["map_route"] == [[35.18, 128.1076], [37.5665, 126.978]]
+
+
+def test_route_empty_object_yields_nothing():
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"route": {}}})
+    assert "map_route" not in out
+
+
+def test_keyframe_center_still_preferred_over_flat():
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {
+        "center": [1, 2], "zoom": 9,
+        "camera": {"keyframes": [{"center": [53, 30], "zoom": 3.5}]}}})
+    assert out["map_center"] == [30, 53] and out["map_zoom"] == 3.5
+
+
+def test_real_v3_corpus_map_scene_produces_markers():
+    """손으로 쓴 픽스처가 실제 스키마와 어긋나 있던 것이 이 작업의 근본 원인이었다."""
+    import glob, json as _j
+    import pytest as _p
+    files = sorted(glob.glob(str(Path.home() / "LocalProjects" / "auto_kairos_v3"
+                                 / "output" / "*" / "scene_specs.json")))
+    scenes = []
+    for f in files:
+        try:
+            scenes += [s for s in _j.loads(Path(f).read_text(encoding="utf-8")).get("scenes", [])
+                       if s.get("mapScene")]
+        except Exception:
+            continue
+    if not scenes:
+        _p.skip("v3 코퍼스 없음")
+    outs = [v3_import._map_scene(s) for s in scenes]
+    assert any(o.get("map_markers") for o in outs), "실제 코퍼스에서 마커가 하나도 안 나온다"
+    assert any(o.get("map_center") for o in outs), "실제 코퍼스에서 중심 좌표가 하나도 안 나온다"

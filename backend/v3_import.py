@@ -44,35 +44,68 @@ def _lonlat_to_latlon(coord):
     return [lat, lon]
 
 
+def _center_to_latlon(coord):
+    """v3 flat center(순서 미확정) → [위도, 경도]. v3 자체 휴리스틱을 따른다.
+
+    위도는 90을 넘을 수 없다 — 둘째 값이 90을 넘으면 이미 [위도, 경도]이므로
+    그대로 두고, 아니면 [경도, 위도]로 보고 뒤집는다."""
+    if not isinstance(coord, (list, tuple)) or len(coord) != 2:
+        return None
+    a, b = _num(coord[0]), _num(coord[1])
+    if a is None or b is None:
+        return None
+    if abs(b) > 90:
+        return [a, b]
+    return [b, a]
+
+
 def _map_fields(map_scene: dict) -> dict:
     """v3 mapScene → 패널이 읽는 지도 필드(유효한 것만).
 
     카메라는 첫 키프레임을 쓴다 — 가장 넓어 마커가 다 들어오고,
-    어도비가 지도 씬에 slow_zoom_in을 자동으로 걸어 v3의 밀어들어감이 재현된다."""
+    어도비가 지도 씬에 slow_zoom_in을 자동으로 걸어 v3의 밀어들어감이 재현된다.
+    실제 코퍼스는 지도 씬 18개 중 10개가 camera 자체가 없고 mapScene에
+    center/zoom을 바로 얹는다 — 그 경우 플랫 필드로 대체한다."""
     m = map_scene or {}
     out: dict = {"layout": "map", "map_v3": m}
     kfs = ((m.get("camera") or {}).get("keyframes")) or []
     first = kfs[0] if kfs and isinstance(kfs[0], dict) else {}
-    center = _lonlat_to_latlon(first.get("center"))
+    center = _center_to_latlon(first.get("center"))
+    zoom = _num(first.get("zoom"))
+    if center is None:
+        center = _center_to_latlon(m.get("center"))
+    if zoom is None:
+        zoom = _num(m.get("zoom"))
     if center:
         out["map_center"] = center
-    zoom = _num(first.get("zoom"))
     if zoom is not None:
         out["map_zoom"] = zoom
     markers = []
     for mk in (m.get("markers") or []):
         if not isinstance(mk, dict):
             continue
-        coord = _lonlat_to_latlon(mk.get("coordinates"))
+        lat, lng = _num(mk.get("lat")), _num(mk.get("lng"))
+        if lat is not None and lng is not None:
+            coord = [lat, lng]                      # 이미 위도·경도 이름 — 뒤집지 않는다
+        else:
+            coord = _lonlat_to_latlon(mk.get("coordinates"))
         if coord:                                   # 깨진 마커는 그것만 건너뛴다
             markers.append({"coord": coord, "name": mk.get("label", "") or ""})
     if markers:
         out["map_markers"] = markers
     route = []
-    for pt in (m.get("route") or []):
-        p = _lonlat_to_latlon(pt)
-        if p:
-            route.append(p)
+    route_src = m.get("route")
+    if isinstance(route_src, list):
+        for pt in route_src:
+            if isinstance(pt, dict):
+                at = pt.get("at")
+                if (isinstance(at, (list, tuple)) and len(at) == 2
+                        and _num(at[0]) is not None and _num(at[1]) is not None):
+                    route.append([_num(at[0]), _num(at[1])])   # at은 이미 위도 먼저 — 뒤집지 않는다
+                continue
+            p = _lonlat_to_latlon(pt)
+            if p:
+                route.append(p)
     if route:
         out["map_route"] = route
     if m.get("title"):
