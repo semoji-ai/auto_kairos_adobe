@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from backend import imagegen
 
@@ -40,42 +39,3 @@ def test_analyze_applies_budget(tmp_path, monkeypatch):
     assert len(res["dropped"]) == 2
 
 
-def test_background_prompt_excludes_only_kept_elements(tmp_path, monkeypatch):
-    """잘린 요소는 배경에 남아야 하므로 제거 목록에서 빠진다.
-    split_scene_to_elements에 6개를 주면 4개 요소 레이어 + 1개 배경이 생기고,
-    배경 프롬프트는 4개만 제거 대상으로 포함해야 한다(5번째·6번째는 배경에 유지)."""
-    prompts = []
-    monkeypatch.setattr(imagegen, "_run_fal_image",
-                        lambda proj_dir, out, prompt, images=None, post=None:
-                            (prompts.append(prompt),
-                             Path(out).write_bytes(b"\x89PNG"),
-                             {"status": "completed", "path": str(out)})[2])
-    monkeypatch.setattr(imagegen, "load_style", lambda: "STYLE")
-    monkeypatch.setattr(imagegen, "_scene_size", lambda p: None)
-    monkeypatch.setattr(imagegen, "pick_key_color", lambda p: {"key": "magenta", "rgb": [255, 0, 255], "coverage": {"magenta": 0.1, "green": 0.2}})
-    monkeypatch.setattr(imagegen, "chroma_key", lambda src, out, **kw: {"transparent_ratio": 0.7})
-
-    # 씬 이미지 생성
-    scene_img = tmp_path / "scene.png"
-    scene_img.write_bytes(b"\x89PNG")
-
-    # 6개 요소로 split 호출 — 4개만 채택되어야 함
-    elements = _els(6)
-    res = imagegen.split_scene_to_elements(tmp_path, str(scene_img), "ab", elements, subdir="layers")
-
-    # 결과: 4개 요소 레이어 + 1개 배경 = 5개 총
-    layers = res.get("layers", [])
-    assert len(layers) == 5, f"Expected 5 layers (4 elements + 1 background), got {len(layers)}"
-
-    # 배경 레이어는 마지막 (5번째)
-    bg_layer = layers[-1]
-    assert bg_layer.get("name") == "배경", f"Last layer should be background, got {bg_layer.get('name')}"
-
-    # 배경 프롬프트: el0~el3만 포함, el4·el5는 제외
-    bg_prompts = [p for p in prompts if "배경" in p and "제거" in p]
-    assert bg_prompts, f"No background prompt found. Prompts: {prompts}"
-    bg_prompt = bg_prompts[0]
-    assert "el0" in bg_prompt and "el1" in bg_prompt and "el2" in bg_prompt and "el3" in bg_prompt, \
-        f"Background prompt should contain el0-el3: {bg_prompt}"
-    assert "el4" not in bg_prompt and "el5" not in bg_prompt, \
-        f"Background prompt should NOT contain el4-el5: {bg_prompt}"

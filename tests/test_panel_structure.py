@@ -45,7 +45,7 @@ def test_existing_controls_present_in_detail():
     # 기존 버튼 ID 보존(바인딩 깨짐 방지)
     html = HTML.read_text(encoding="utf-8")
     for bid in ['id="btnDecompose"', 'id="btnGenCharacter"',
-                'id="btnRefList"', 'id="btnGenStoryboard"', 'id="btnGenLayers"',
+                'id="btnRefList"', 'id="btnGenStoryboard"',
                 'id="btnBuild"', 'id="btnCreate"', 'id="btnProjects"']:
         assert bid in html, bid
 
@@ -120,7 +120,7 @@ def test_storyboard_2pane():
 def test_storyboard_preserves_legacy_ids():
     html = HTML.read_text(encoding="utf-8")
     for bid in ['id="btnDecompose"', 'id="btnRefList"', 'id="btnGenStoryboard"',
-                'id="btnGenLayers"', 'id="btnBuild"', 'id="btnGenCharacter"',
+                'id="btnBuild"', 'id="btnGenCharacter"',
                 'id="btnRefreshCharacters"', 'id="btnGalRefresh"', 'id="btnGalSearch"',
                 'id="sheet"', 'id="gallery-panel"', 'id="scenes"', 'id="aeresult"']:
         assert bid in html, bid

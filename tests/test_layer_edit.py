@@ -73,60 +73,6 @@ def test_delete_layer_rejects_background_and_missing(tmp_path):
     assert "error" in imagegen.delete_layer(tmp_path, "ab", "ab__9_없음")
 
 
-def test_regenerate_background_uses_remaining_names(tmp_path, monkeypatch):
-    """요소를 지운 뒤 배경을 다시 만들면, 지운 요소는 제거 목록에서 빠져 배경에 남는다."""
-    d = _layers_dir(tmp_path)
-    _touch(d, "ab__bg.png")
-    imagegen.write_element_specs(d, "ab", [
-        {"layer": "ab__0_인물", "index": 0, "name": "인물", "location": "좌측", "kind": "character"}])
-    seen = {}
-
-    def _fake(proj_dir, out, prompt, images=None, post=None):
-        seen["prompt"] = prompt
-        out.write_bytes(b"\x89PNG")
-        return {"status": "completed", "path": str(out)}
-
-    monkeypatch.setattr(imagegen, "_run_fal_image", _fake)
-    monkeypatch.setattr(imagegen, "load_style", lambda: "STYLE")
-    monkeypatch.setattr(imagegen, "_scene_size", lambda p: None)
-
-    res = imagegen.regenerate_layer(tmp_path, str(tmp_path / "scene.png"), "ab", "ab__bg")
-    assert res["layer"]["status"] == "completed"
-    assert "인물" in seen["prompt"]                     # 남은 요소는 계속 제거 대상
-    assert "탁자" not in seen["prompt"]                 # 지운 요소는 배경에 남아야 하므로 빠짐
-    assert (d / "_prev" / "ab__bg.png").is_file()       # 이전 배경은 보존
-
-
-def test_regenerate_element_only_touches_that_layer(tmp_path, monkeypatch):
-    from PIL import Image
-    Image.new("RGB", (10, 10)).save(tmp_path / "scene.png")   # scene_key_color가 실제로 열 수 있어야 함
-    d = _layers_dir(tmp_path)
-    _touch(d, "ab__0_인물.png")
-    _touch(d, "ab__1_탁자.png")
-    _touch(d, "ab__bg.png")
-    imagegen.write_element_specs(d, "ab", [
-        {"layer": "ab__0_인물", "index": 0, "name": "인물", "location": "좌측", "kind": "object"},
-        {"layer": "ab__1_탁자", "index": 1, "name": "탁자", "location": "중앙", "kind": "object"}])
-
-    def _fake(proj_dir, out, prompt, images=None, post=None):
-        out.write_bytes(b"\x89PNG")
-        if post:
-            post(out)
-        return {"status": "completed", "path": str(out)}
-
-    monkeypatch.setattr(imagegen, "_run_fal_image", _fake)
-    monkeypatch.setattr(imagegen, "load_style", lambda: "STYLE")
-    monkeypatch.setattr(imagegen, "_scene_size", lambda p: None)
-    monkeypatch.setattr(imagegen, "flatten_colors", lambda p: True)
-    monkeypatch.setattr(imagegen, "chroma_key", lambda a, b, key=None: {"transparent_ratio": 0.5})
-    monkeypatch.setattr(imagegen, "position_score", lambda a, b: 0.9)
-
-    res = imagegen.regenerate_layer(tmp_path, str(tmp_path / "scene.png"), "ab", "ab__0_인물")
-    assert res["layer"]["status"] == "completed"
-    assert (d / "ab__1_탁자.png").is_file()             # 다른 요소는 그대로
-    assert (d / "ab__bg.png").is_file()                 # 배경도 그대로
-
-
 def test_regenerate_missing_spec_errors(tmp_path):
     _layers_dir(tmp_path)
     res = imagegen.regenerate_layer(tmp_path, str(tmp_path / "scene.png"), "ab", "ab__7_없음")

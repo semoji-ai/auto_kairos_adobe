@@ -424,25 +424,6 @@ function showStoryboard() {
     });
 }
 
-function genLayers() {
-  if (!SELECTED_PROJECT) { $("layers").textContent = "프로젝트를 먼저 선택하세요."; return; }
-  $("layers").textContent = "레이어 생성 중... (씬별 배경+인물, codex)";
-  fetch(BACKEND + "/api/layers/generate", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project_id: SELECTED_PROJECT }),
-  }).then(function (r) { return r.json(); })
-    .then(function (j) {
-      if (j.status !== "running" || !j.job_id) { $("layers").textContent = "실패: " + JSON.stringify(j); return; }
-      _awaitJob(j.job_id, function (job) {
-        if (job.status !== "completed") { $("layers").textContent = "실패/일부: " + JSON.stringify(job.error || job); }
-        showLayers();
-      }, function (logs) {
-        if (logs.length) $("layers").textContent = "레이어 생성 중... " + logs[logs.length - 1];
-      });
-    })
-    .catch(function (e) { $("layers").textContent = "오류: " + e; });
-}
-
 function showLayers() {
   if (!SELECTED_PROJECT) { $("layers").textContent = "프로젝트를 먼저 선택하세요."; return; }
   fetch(BACKEND + "/api/layers/list?project_id=" + encodeURIComponent(SELECTED_PROJECT))
@@ -571,7 +552,6 @@ document.addEventListener("DOMContentLoaded", function () {
   $("btnRefreshGallery").addEventListener("click", showGallery);
   $("btnGenStoryboard").addEventListener("click", genStoryboard);
   $("btnRefreshStoryboard").addEventListener("click", showStoryboard);
-  $("btnGenLayers").addEventListener("click", genLayers);
   $("btnRefreshLayers").addEventListener("click", showLayers);
   $("btnImportImages").addEventListener("click", importAllImages);
   $("btnImportStoryboard").addEventListener("click", importAllStoryboard);

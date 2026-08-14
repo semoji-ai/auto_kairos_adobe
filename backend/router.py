@@ -723,48 +723,6 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         names = sorted(f.name for f in sb_dir.glob("*.png"))
         return 200, {"images": names, "dir": str(sb_dir)}
 
-    if method == "POST" and p == "/api/layers/generate":
-        b = body or {}
-        pid = b.get("project_id", "")
-        proj_dir = root / pid
-        scenes_fp = proj_dir / "scenes.json"
-        sb_dir = proj_dir / "storyboard"
-        if not scenes_fp.exists() or not sb_dir.is_dir():
-            return 422, {"error": "scenes.json + storyboard/ 필요 — 씬분해·스토리보드 먼저"}
-        import json as _json
-        data = scenes.load_scenes(proj_dir)
-        items = []        # (sid, sb_path)
-        sid_to_n = {}
-        for sc in data["scenes"]:
-            sid, n = sc.get("sceneId"), sc.get("sceneNumber")
-            if sc.get("_image"):
-                items.append((sid, proj_dir / sc["_image"]))
-                sid_to_n[sid] = n
-        if not items:
-            return 422, {"error": "씬 이미지 없음(sb_{sid}.png)"}
-        jobs = ctx["jobs"]
-        jid = jobs.create("layers", pid)
-        # 기본 순차(1) — 같은 프로젝트 폴더에서 codex image_gen 동시 실행 시 출력이 섞이는
-        # 충돌 관측됨(요소 A 레이어에 요소 B 그림). AK_LAYER_CONCURRENCY로 조정.
-        conc = int(b.get("concurrency") or os.environ.get("AK_LAYER_CONCURRENCY", "1"))
-        def _do(proj_dir=proj_dir, pid=pid, items=items, sid_to_n=sid_to_n, conc=conc, jid=jid):
-            results = imagegen.generate_scene_layers(
-                proj_dir, items, concurrency=conc,
-                on_event=lambda key, kind, res: jobs.append_log(jid, f"{key}/{kind}: {res['status']}"))
-            ok = sum(1 for v in results.values()
-                     if v.get("background", {}).get("status") == "completed"
-                     and v.get("character", {}).get("status") == "completed")
-            layers = {"project_id": pid, "scenes": [
-                {"sceneNumber": sid_to_n[sid], "background": f"layers/bg_{sid}.png",
-                 "character": f"layers/char_{sid}.png"} for sid in sid_to_n]}
-            (proj_dir / "layers.json").write_text(_json.dumps(layers, ensure_ascii=False, indent=2), encoding="utf-8")
-            if not ok:
-                raise RuntimeError("레이어 생성 전체 실패")
-            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers.json")])
-            return {"scenes": ok, "total": len(items)}
-        run_async(jobs, jid, _do)
-        return 200, {"job_id": jid, "status": "running"}
-
     if method == "GET" and p == "/api/layers/list":
         pid = query.get("project_id", "")
         ld = root / pid / "layers"
