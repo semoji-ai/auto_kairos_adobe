@@ -24,6 +24,64 @@ def _image_prompt(s: dict) -> str:
     return (ia.get("prompt") or ia.get("query") or s.get("image_prompt") or "")
 
 
+def _num(v):
+    """숫자면 그대로, 아니면 None. bool은 숫자로 치지 않는다."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    return v
+
+
+def _lonlat_to_latlon(coord):
+    """v3 [경도, 위도] → 어도비 [위도, 경도]. 길이 2의 숫자쌍이 아니면 None.
+
+    패널(mapgen.js)은 map_center/map_markers를 [위도, 경도]로 읽고 MapLibre에 넘길 때
+    다시 뒤집는다. 여기서 안 뒤집으면 예외 없이 엉뚱한 좌표가 렌더된다."""
+    if not isinstance(coord, (list, tuple)) or len(coord) != 2:
+        return None
+    lon, lat = _num(coord[0]), _num(coord[1])
+    if lon is None or lat is None:
+        return None
+    return [lat, lon]
+
+
+def _map_fields(map_scene: dict) -> dict:
+    """v3 mapScene → 패널이 읽는 지도 필드(유효한 것만).
+
+    카메라는 첫 키프레임을 쓴다 — 가장 넓어 마커가 다 들어오고,
+    어도비가 지도 씬에 slow_zoom_in을 자동으로 걸어 v3의 밀어들어감이 재현된다."""
+    m = map_scene or {}
+    out: dict = {"layout": "map", "map_v3": m}
+    kfs = ((m.get("camera") or {}).get("keyframes")) or []
+    first = kfs[0] if kfs and isinstance(kfs[0], dict) else {}
+    center = _lonlat_to_latlon(first.get("center"))
+    if center:
+        out["map_center"] = center
+    zoom = _num(first.get("zoom"))
+    if zoom is not None:
+        out["map_zoom"] = zoom
+    markers = []
+    for mk in (m.get("markers") or []):
+        if not isinstance(mk, dict):
+            continue
+        coord = _lonlat_to_latlon(mk.get("coordinates"))
+        if coord:                                   # 깨진 마커는 그것만 건너뛴다
+            markers.append({"coord": coord, "name": mk.get("label", "") or ""})
+    if markers:
+        out["map_markers"] = markers
+    route = []
+    for pt in (m.get("route") or []):
+        p = _lonlat_to_latlon(pt)
+        if p:
+            route.append(p)
+    if route:
+        out["map_route"] = route
+    if m.get("title"):
+        out["headline"] = m["title"]                # 씬의 title(씬 이름)과 충돌하지 않게
+    if m.get("source"):
+        out["source"] = m["source"]
+    return out
+
+
 def _map_scene(s: dict) -> dict:
     out = {
         "sceneNumber": s.get("sceneNumber"),
@@ -47,20 +105,21 @@ def _map_scene(s: dict) -> dict:
     cre = viz.get("creative") or {}
     layout = (viz.get("vizType") or cre.get("layout") or "").strip()
     if s.get("mapScene"):
-        out["layout"] = "map"
-        out["mapScene"] = s["mapScene"]
+        out.update(_map_fields(s["mapScene"]))
     elif layout:
         out["layout"] = layout
     if viz:
         if viz.get("title"):
-            out["headline"] = viz["title"]          # 씬의 title(씬 이름)과 충돌하지 않게 headline으로
+            out.setdefault("headline", viz["title"])          # 씬의 title(씬 이름)과 충돌하지 않게 headline으로
         elif cre.get("headline"):
-            out["headline"] = cre["headline"]
-        for key in ("items", "values", "descriptions", "unit", "source",
+            out.setdefault("headline", cre["headline"])
+        for key in ("items", "values", "descriptions", "unit",
                     "left", "right", "relations", "profileName", "profileSubtitle"):
             val = viz.get(key)
             if val:
                 out[key] = val
+        if viz.get("source"):
+            out.setdefault("source", viz["source"])
         if not out.get("unit"):
             chart_unit = (viz.get("chart") or {}).get("unit")
             if chart_unit:

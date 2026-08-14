@@ -132,3 +132,100 @@ def test_map_scene_without_visualization_is_unchanged():
     out = v3_import._map_scene({"sceneNumber": 1, "narration": "말", "title": "제목"})
     assert "layout" not in out
     assert out["narration"] == "말"
+
+
+# --- 지도 씬 임포트 ---
+# 실제 v3 데이터(이란 공습 씬)의 값으로 고정한다.
+MAP_SCENE = {
+    "mapType": "location_reveal",
+    "mapStyle": "dark_cyber",
+    "title": "동시 타격",
+    "source": "최소 9개 도시",
+    "camera": {
+        "easing": "easeOut",
+        "keyframes": [
+            {"frame": 0, "center": [53, 30], "zoom": 3.5, "bearing": 0, "pitch": 0},
+            {"frame": 45, "center": [53, 32], "zoom": 5.0, "bearing": 0, "pitch": 0},
+        ],
+    },
+    "markers": [
+        {"coordinates": [51.39, 35.69], "label": "테헤란", "style": "pulse", "appearAtFrame": 15},
+        {"coordinates": [51.68, 32.65], "label": "이스파한", "style": "pulse", "appearAtFrame": 25},
+    ],
+}
+
+
+def test_lonlat_swapped_to_latlon():
+    """v3는 [경도, 위도], 어도비는 [위도, 경도] — 안 뒤집으면 조용히 엉뚱한 곳이 렌더된다."""
+    assert v3_import._lonlat_to_latlon([51.39, 35.69]) == [35.69, 51.39]
+    assert v3_import._lonlat_to_latlon([53, 30]) == [30, 53]
+    for bad in ([1], [1, 2, 3], ["a", 2], None, "51,35", [None, 1], {}):
+        assert v3_import._lonlat_to_latlon(bad) is None, bad
+
+
+def test_map_center_and_zoom_come_from_first_keyframe():
+    """첫 키프레임이 가장 넓어 마커가 다 들어온다. 어도비가 slow_zoom_in을 걸어 밀어들어감이 재현된다."""
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": MAP_SCENE})
+    assert out["map_center"] == [30, 53]        # [53, 30] 뒤집힘
+    assert out["map_zoom"] == 3.5               # 둘째 키프레임의 5.0이 아니다
+
+
+def test_markers_translated_with_labels():
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": MAP_SCENE})
+    assert out["map_markers"] == [
+        {"coord": [35.69, 51.39], "name": "테헤란"},
+        {"coord": [32.65, 51.68], "name": "이스파한"},
+    ]
+
+
+def test_map_title_and_source_go_to_layout_fields():
+    """씬의 title(시트에 보이는 이름)은 건드리지 않는다."""
+    out = v3_import._map_scene({"sceneNumber": 1, "title": "씬 이름", "mapScene": MAP_SCENE})
+    assert out["headline"] == "동시 타격"
+    assert out["source"] == "최소 9개 도시"
+    assert out["title"] == "씬 이름"
+    assert out["layout"] == "map"
+
+
+def test_original_mapscene_preserved_for_later():
+    """대응 없는 정보(mapStyle·mapType·bearing·appearAtFrame 등)를 다시 임포트하지 않아도 되게."""
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": MAP_SCENE})
+    assert out["map_v3"] == MAP_SCENE
+    assert "mapScene" not in out                # 옛 키 이름은 쓰지 않는다
+
+
+def test_missing_camera_leaves_center_absent():
+    """좌표를 만들어내는 것보다 없는 편이 낫다 — 없으면 패널 기본값으로 가고 사람이 알아챈다."""
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"markers": []}})
+    assert out["layout"] == "map"
+    assert "map_center" not in out and "map_zoom" not in out
+
+
+def test_bad_center_or_zoom_are_skipped_individually():
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {
+        "camera": {"keyframes": [{"center": ["a", "b"], "zoom": "가까이"}]}}})
+    assert "map_center" not in out and "map_zoom" not in out
+    ok_zoom = v3_import._map_scene({"sceneNumber": 1, "mapScene": {
+        "camera": {"keyframes": [{"center": [1], "zoom": 4}]}}})
+    assert "map_center" not in ok_zoom and ok_zoom["map_zoom"] == 4
+
+
+def test_broken_marker_skipped_not_whole_scene():
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {"markers": [
+        {"coordinates": [51.39, 35.69], "label": "테헤란"},
+        {"coordinates": "이상함", "label": "깨짐"},
+        {"coordinates": [51.68, 32.65], "label": "이스파한"},
+    ]}})
+    assert [m["name"] for m in out["map_markers"]] == ["테헤란", "이스파한"]
+
+
+def test_route_translated_when_present():
+    out = v3_import._map_scene({"sceneNumber": 1, "mapScene": {
+        "route": [[53, 30], [51.39, 35.69], ["나쁨", 1]]}})
+    assert out["map_route"] == [[30, 53], [35.69, 51.39]]
+
+
+def test_non_map_scene_gets_no_map_fields():
+    out = v3_import._map_scene({"sceneNumber": 1, "narration": "말",
+                                "visualization": {"creative": {"layout": "headline_only"}}})
+    assert not [k for k in out if k.startswith("map_")]
