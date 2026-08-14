@@ -826,3 +826,10 @@ def test_layouts_jsx_conserves_draw_calls_from_pre_move_build_scene():
         assert body.count("addTextL(") >= min_text, fn
         assert body.count("addRectL(") >= min_rect, fn
         assert body.count("anim:") >= min_anim, fn
+
+
+def test_layer_buttons_say_scene_resplit():
+    """layerize는 씬 단위 호출이라 레이어 한 장만 다시 뽑을 수 없다 — 문구가 그걸 알려야 한다."""
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "씬을 다시 분리" in js
+    assert "이 레이어만 다시 생성" not in js

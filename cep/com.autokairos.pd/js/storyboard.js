@@ -228,7 +228,7 @@ function renderRow(s, dir) {
       + ' — 클릭하면 씬 위에 위치 확인(빨간 윤곽선)">'
       + '<span class="lyr-acts">'
       +   (isBg ? '' : '<button class="lyr-del" title="이 레이어를 빼고 배경을 다시 만듭니다">✕</button>')
-      +   '<button class="lyr-regen" title="' + (isBg ? '배경 다시 생성' : '이 레이어만 다시 생성') + '">↻</button>'
+      +   '<button class="lyr-regen" title="' + (isBg ? '씬을 다시 분리(배경 포함 전체)' : '씬을 다시 분리합니다 — 레이어 전체가 새로 만들어집니다') + '">↻</button>'
       + '</span></span>';
   }).join("");
   var chars = (s.characters || []).join(", ");
@@ -834,7 +834,7 @@ function _layerBusy(n, stem, on) {
 /* 삭제 — 파일은 layers/_prev 로 보존되고, 남은 요소 기준으로 배경을 다시 만든다. */
 function deleteLayer(n, stem) {
   if (!confirm("레이어 '" + stem + "' 를 뺍니다.\n\n"
-             + "지운 요소는 다시 배경에 포함되어야 하므로 배경을 새로 생성합니다(1~2분).\n"
+             + "지운 요소는 다시 배경에 포함되어야 하므로 씬을 다시 분리합니다(1~2분).\n"
              + "파일은 지워지지 않고 layers/_prev 로 이동합니다.")) return;
   _layerBusy(n, stem, true);
   _rowStatus(n, "레이어 제거 중...");
@@ -864,7 +864,7 @@ function deleteLayer(n, stem) {
 /* 재생성 — 그 요소(또는 배경)만 다시. 나머지 레이어는 건드리지 않는다. */
 function regenLayer(n, stem) {
   _layerBusy(n, stem, true);
-  _rowStatus(n, "레이어 재생성 중... (codex)");
+  _rowStatus(n, "씬 다시 분리 중... (layerize)");
   return fetch(BACKEND + "/api/layers/regenerate", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), layer: stem }),
