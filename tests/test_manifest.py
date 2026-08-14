@@ -349,3 +349,58 @@ def test_build_manifest_fractional_scene_number(tmp_path):
     assert [s["ae_comp_name"] for s in mf["scenes"]] == ["S25_a", "S25_25_b", "S26_c"]
     sub = json.loads(Path(_m.build_manifest(d, only_scenes=[25.25])["path"]).read_text(encoding="utf-8"))
     assert [s["ae_comp_name"] for s in sub["scenes"]] == ["S25_25_b"]   # 25번이 섞이지 않음
+
+
+def test_layer_placement_from_bbox(tmp_path):
+    """layerize 레이어는 크롭돼 오므로 bbox로 위치·크기를 되살린다(실측값 고정)."""
+    import json as _j
+    from PIL import Image
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ab", "narration": "n"}])
+    lay = d / "layers"; lay.mkdir()
+    Image.new("RGBA", (1052, 477)).save(lay / "ab__0_car.png")      # 실측 PNG 크기
+    Image.new("RGB", (1536, 1024)).save(lay / "ab__bg.png")
+    (lay / "ab__elements.json").write_text(_j.dumps([
+        {"layer": "ab__0_car", "index": 0, "name": "차량", "name_en": "car",
+         "kind": "object", "bbox": [344, 500, 1254, 912], "z": 3}]), encoding="utf-8")
+
+    mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
+    car = [L for L in mf["scenes"][0]["layers"] if "car" in L["name"]][0]
+    assert car["position"] == [799.0, 706.0]        # bbox 중심
+    assert round(car["scale"], 1) == 86.5           # (1254-344)/1052*100
+    assert car["foot"] == [799.0, 912.0]            # bbox 하단 중앙
+
+
+def test_layers_ordered_by_z(tmp_path):
+    import json as _j
+    from PIL import Image
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ab", "narration": "n"}])
+    lay = d / "layers"; lay.mkdir()
+    for nm in ("ab__bg.png", "ab__0_front.png", "ab__1_back.png"):
+        Image.new("RGBA", (100, 100)).save(lay / nm)
+    (lay / "ab__elements.json").write_text(_j.dumps([
+        {"layer": "ab__0_front", "index": 0, "name": "앞", "kind": "object",
+         "bbox": [0, 0, 50, 50], "z": 5},
+        {"layer": "ab__1_back", "index": 1, "name": "뒤", "kind": "object",
+         "bbox": [0, 0, 50, 50], "z": 2}]), encoding="utf-8")
+
+    mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
+    names = [L["name"] for L in mf["scenes"][0]["layers"]]
+    assert names[0] == "ab__bg"                     # 배경이 항상 맨 앞(AE 최하단)
+    assert names.index("ab__1_back") < names.index("ab__0_front")   # z 오름차순
+
+
+def test_legacy_layers_without_bbox_stay_fullframe(tmp_path):
+    """기존 프로젝트는 풀프레임 PNG라 좌표가 없다 — 지금처럼 1:1로 겹친다."""
+    import json as _j
+    from PIL import Image
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ab", "narration": "n"}])
+    lay = d / "layers"; lay.mkdir()
+    Image.new("RGBA", (1920, 1080)).save(lay / "ab__0_old.png")
+    Image.new("RGB", (1920, 1080)).save(lay / "ab__bg.png")
+
+    mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
+    old = [L for L in mf["scenes"][0]["layers"] if "old" in L["name"]][0]
+    assert "position" not in old and "scale" not in old

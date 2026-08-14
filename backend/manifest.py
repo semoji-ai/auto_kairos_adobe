@@ -32,17 +32,34 @@ def _img_size(path: Path):
         return None
 
 
-def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
-    """[{name, path(abs), kind, foot?}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
-    레이어는 풀프레임(요소가 제 위치에 그려진 투명 PNG) — 컴프 크기를 이미지에 맞추면 1:1·중앙으로 정확히 겹침.
-    foot = 알파(불투명) 영역의 하단 중앙 [x, y] — 까딱 모션의 피벗(전신=발, 상반신=절단점)."""
-    out = []
+def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "") -> list:
+    """[{name, path(abs), kind, position?, scale?, foot?}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
+
+    layerize 레이어는 요소 크기로 크롭돼 오므로 요소 사이드카의 bbox로 위치·크기를 되살린다:
+    position=bbox 중심, scale=bbox폭/PNG폭. bbox가 없는 기존 프로젝트 레이어는
+    풀프레임 PNG라 좌표를 싣지 않고 jsx가 1:1로 겹친다."""
+    from backend import imagegen
+    specs = {s.get("layer"): s for s in imagegen.load_element_specs(proj_dir / "layers", sid)} if sid else {}
     bg = [r for r in layer_rels if "__bg" in Path(r).name]
     el = [r for r in layer_rels if "__bg" not in Path(r).name]
+    el.sort(key=lambda r: (specs.get(Path(r).stem, {}).get("z") is None,
+                           specs.get(Path(r).stem, {}).get("z") or 0,
+                           Path(r).name))
+    out = []
     for r in bg + el:
-        entry = {"name": Path(r).stem, "path": _abs(proj_dir, r),
+        stem = Path(r).stem
+        entry = {"name": stem, "path": _abs(proj_dir, r),
                  "kind": "bg" if "__bg" in Path(r).name else "element"}
-        if entry["kind"] == "element":
+        bbox = (specs.get(stem) or {}).get("bbox")
+        if entry["kind"] == "element" and bbox and len(bbox) == 4:
+            l, t, rr, b = [float(v) for v in bbox]
+            size = _img_size(proj_dir / r)
+            if size and size[0]:
+                entry["position"] = [(l + rr) / 2, (t + b) / 2]
+                entry["scale"] = (rr - l) / size[0] * 100
+                entry["foot"] = [(l + rr) / 2, b]
+        elif entry["kind"] == "element":
+            # bbox 없는 기존(풀프레임) 레이어 — 알파 영역으로 까딱 모션 피벗만 복원
             foot = _alpha_foot(proj_dir / r)
             if foot:
                 entry["foot"] = foot
@@ -51,7 +68,8 @@ def _scene_layers(proj_dir: Path, layer_rels: list) -> list:
 
 
 def _alpha_foot(path: Path) -> list | None:
-    """불투명 영역 bbox의 하단 중앙 [x, y](레이어=컴프 좌표). 전부 투명/실패 시 None."""
+    """불투명 영역 bbox의 하단 중앙 [x, y](레이어=컴프 좌표). 전부 투명/실패 시 None.
+    bbox 사이드카가 없는 기존(풀프레임) 레이어의 까딱 모션 피벗 폴백."""
     try:
         from PIL import Image
         with Image.open(path) as im:
@@ -95,7 +113,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
         # 레이아웃 씬(비이미지)은 이미지/레이어를 쓰지 않음 — 기본 1920×1080 컴프
         size = None if is_layout_scene else (_img_size(proj_dir / s["_image"]) if s.get("_image") else None)
         sw, sh = size if size else (W, H)
-        layers = [] if is_layout_scene else _scene_layers(proj_dir, s.get("_layers") or [])
+        layers = [] if is_layout_scene else _scene_layers(proj_dir, s.get("_layers") or [], sid)
         cam = None
         mp = proj_dir / f"motion_{sid}.json"
         if mp.is_file():
