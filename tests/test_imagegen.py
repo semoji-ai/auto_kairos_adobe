@@ -1,3 +1,7 @@
+import json
+
+import pytest
+
 from backend import imagegen
 
 
@@ -308,6 +312,68 @@ def test_gen_semaphore_limits_concurrency(tmp_path, monkeypatch):
           for o in outs]
     [t.start() for t in ts]; [t.join() for t in ts]
     assert state["peak"] <= 2                              # 상한 준수
+
+
+def test_split_scene_failed_relayerize_preserves_existing_layers(tmp_path, monkeypatch):
+    """발견1 — layerize가 실패하면 아카이브(이동)가 일어나기 전이어야 기존 레이어가 살아남는다."""
+    from backend import imagegen as ig, fal_api
+    lay = tmp_path / "layers"; lay.mkdir()
+    existing_bg = lay / "sid1__bg.png"
+    existing_el = lay / "sid1__0_old.png"
+    existing_bg.write_bytes(b"\x89PNG-bg")
+    existing_el.write_bytes(b"\x89PNG-el")
+
+    def fail_layerize(image_path, names, **kw):
+        raise fal_api.FalError("fal 호출 실패: 429")
+
+    monkeypatch.setattr(ig.fal_api, "layerize", fail_layerize)
+    img = tmp_path / "scene.png"; img.write_bytes(b"\x89PNG")
+    elements = [{"name": "차", "name_en": "car", "kind": "object"}]
+    with pytest.raises(fal_api.FalError):
+        ig.split_scene_to_elements(tmp_path, str(img), "sid1", elements)
+    assert existing_bg.exists()
+    assert existing_el.exists()
+    assert not (lay / "_prev").exists()   # 아카이브 자체가 일어나지 않았어야 함
+
+
+def test_regenerate_layer_legacy_sidecar_less_gets_name_en(tmp_path, monkeypatch):
+    """발견1 — 사이드카 없는 옛 프로젝트도 name_en이 복원돼 layerize가 실제로 호출된다."""
+    from backend import imagegen as ig
+    lay = tmp_path / "layers"; lay.mkdir()
+    (lay / "sid2__0_red_car.png").write_bytes(b"\x89PNG")
+    (lay / "sid2__bg.png").write_bytes(b"\x89PNG-bg")
+    img = tmp_path / "scene.png"; img.write_bytes(b"\x89PNG")
+    called = {}
+
+    def fake_layerize(image_path, names, **kw):
+        called["names"] = list(names)
+        return [{"name": None, "z": 0, "bbox": None, "data": b"\x89PNG-newbg"},
+                {"name": "red car", "z": 1, "bbox": [0, 0, 10, 10], "data": b"\x89PNG-newcar"}]
+
+    monkeypatch.setattr(ig.fal_api, "layerize", fake_layerize)
+    res = ig.regenerate_layer(tmp_path, str(img), "sid2", "sid2__0_red_car")
+    assert called["names"] == ["red car"]        # 빈 이름이 아니어야 layerize가 호출됨
+    assert res["layer"]["status"] == "completed"
+
+
+def test_kinds_json_not_overwritten_with_empty(tmp_path, monkeypatch):
+    """발견1 — 새로 계산된 kinds가 비어 있으면 기존 kinds.json 내용을 지우지 않는다."""
+    from backend import imagegen as ig
+    lay = tmp_path / "layers"; lay.mkdir()
+    kp = lay / "sid3__kinds.json"
+    kp.write_text(json.dumps({"sid3__0_old_char": "character"}), encoding="utf-8")
+    img = tmp_path / "scene.png"; img.write_bytes(b"\x89PNG")
+
+    def fake_layerize(image_path, names, **kw):
+        # 요청한 이름과 다른 이름을 돌려줘 매칭이 하나도 안 되게(=kinds가 빈 채로 계산됨)
+        return [{"name": None, "z": 0, "bbox": None, "data": b"\x89PNG-newbg"},
+                {"name": "unrelated", "z": 1, "bbox": [0, 0, 10, 10], "data": b"\x89PNG-x"}]
+
+    monkeypatch.setattr(ig.fal_api, "layerize", fake_layerize)
+    elements = [{"name": "차", "name_en": "car", "kind": "object"}]
+    ig.split_scene_to_elements(tmp_path, str(img), "sid3", elements)
+    kinds = json.loads(kp.read_text(encoding="utf-8"))
+    assert kinds == {"sid3__0_old_char": "character"}   # 그대로 보존
 
 
 def test_style_forbids_grain_texture():

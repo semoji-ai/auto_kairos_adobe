@@ -404,8 +404,9 @@ def _specs_from_filenames(out_base: Path, sid: str) -> list:
         rest = re.sub(r"_v\d+$", "", rest)          # versioned_path 접미사 제거
         kind = kinds.get(stem) or ("character" if rest.endswith("_char") else "object")
         name = rest[:-5] if rest.endswith("_char") else rest
+        name_en = name.replace("_", " ").strip()     # 재분리(regenerate_layer)가 쓸 영문 이름 복원
         specs.append({"layer": stem, "index": int(num), "name": name.replace("_", " ").strip(),
-                      "location": "", "kind": kind})
+                      "name_en": name_en, "location": "", "kind": kind})
     return specs
 
 
@@ -482,14 +483,20 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
 
     모델이 프롬프트에 적은 이름대로 오려내므로 다시 그리지 않는다 — 원위치가 어긋날 수 없다.
     z_index 0은 요소가 지워지고 메워진 배경판이라 그대로 배경 레이어로 쓴다.
-    concurrency는 호출 1회 구조라 쓰지 않으며, 기존 호출부 호환을 위해 남긴다."""
+    concurrency는 호출 1회 구조라 쓰지 않으며, 기존 호출부 호환을 위해 남긴다.
+
+    실패 시 기존 레이어를 보존한다 — layerize()가 성공을 반환하기 전까지는 아카이브(이동)하지
+    않는다. name_en이 비어 있어 분리 자체가 불가능한 경우도 layerize 호출 전에 걸러낸다 —
+    그래야 실패한 재분리가 이미 있던 레이어를 지우지 않는다."""
     out_base = Path(proj_dir) / subdir
     out_base.mkdir(parents=True, exist_ok=True)
-    _archive_prev_layers(out_base, sid)     # 재분리 시 기존 레이어 누적 방지(무삭제)
     picked = apply_element_budget(elements)["elements"]
     names = [(e.get("name_en") or "").strip() for e in picked]
     names = [n for n in names if n]
+    if not names:
+        raise fal_api.FalError("분리할 요소 이름 없음 — name_en이 비어 있습니다")
     layers = fal_api.layerize(scene_image, names)
+    _archive_prev_layers(out_base, sid)     # layerize 성공 후에만 기존 레이어 아카이브(무삭제)
 
     by_name = {}
     for i, el in enumerate(picked):
@@ -542,8 +549,9 @@ def split_scene_to_elements(proj_dir: Path, scene_image: str, sid: str, elements
             if on_event:
                 on_event({"name": name_en, "status": "missing"})
 
-    (out_base / KINDS_SIDECAR.format(sid=sid)).write_text(
-        json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
+    if kinds:   # 빈 kinds로 기존(legacy) kinds.json을 덮어써 자동 bob 근거를 지우지 않는다
+        (out_base / KINDS_SIDECAR.format(sid=sid)).write_text(
+            json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
     write_element_specs(out_base, sid, specs)
     return {"layers": results, "unexpected": unexpected, "missing": missing}
 

@@ -785,7 +785,12 @@ function splitLayers(n, els) {
       _awaitJob(j.job_id, function (job) {
         var res = (job.result && job.result.result) || {};
         var done = (res.layers || []).filter(function (l) { return l.status === "completed"; }).length;
-        _rowStatus(n, done ? ("레이어 " + done + "개 생성 ✓") : ("실패: " + JSON.stringify(job.error || job)));
+        var missing = res.missing || [];
+        var unexpected = res.unexpected || [];
+        var extra = "";
+        if (missing.length) extra += " (못 만든 요소 " + missing.length + "개: " + missing.join(", ") + ")";
+        if (unexpected.length) extra += " (요청 외 " + unexpected.length + "개)";
+        _rowStatus(n, done ? ("레이어 " + done + "개 생성 ✓" + extra) : ("실패: " + JSON.stringify(job.error || job)));
         if (done) refreshRow(n);   // 레이어 썸네일 갱신(행 단위)
       }, function (logs) {
         if (logs.length) _rowStatus(n, "레이어 분리 중... " + logs[logs.length - 1]);
@@ -861,7 +866,7 @@ function deleteLayer(n, stem) {
     .catch(function (e) { _layerBusy(n, stem, false); _rowStatus(n, "오류: " + e); });
 }
 
-/* 재생성 — 그 요소(또는 배경)만 다시. 나머지 레이어는 건드리지 않는다. */
+/* 재생성 — layerize는 씬 단위 호출이라 그 요소만 따로 다시 만들 수 없다. 씬 전체를 다시 분리한다. */
 function regenLayer(n, stem) {
   _layerBusy(n, stem, true);
   _rowStatus(n, "씬 다시 분리 중... (layerize)");

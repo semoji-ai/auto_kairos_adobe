@@ -533,15 +533,18 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return 400, {"error": "elements 필요"}
         jobs = ctx["jobs"]
         jid = jobs.create("split-layers", b.get("project_id", ""))
-        # 기본 순차(1) — 같은 프로젝트 폴더에서 codex image_gen 동시 실행 시 출력이 섞이는
-        # 충돌 관측됨(요소 A 레이어에 요소 B 그림). AK_LAYER_CONCURRENCY로 조정.
-        conc = int(b.get("concurrency") or os.environ.get("AK_LAYER_CONCURRENCY", "1"))
-        def _do(proj_dir=proj_dir, sc=sc, elements=elements, conc=conc, jid=jid):
+        def _do(proj_dir=proj_dir, sc=sc, elements=elements, jid=jid):
             res = imagegen.split_scene_to_elements(
                 proj_dir, str(proj_dir / sc["_image"]), sc.get("sceneId"), elements,
-                concurrency=conc, on_event=lambda r: jobs.append_log(jid, f"{r['name']}: {r['status']}"))
-            if not any(l.get("status") == "completed" for l in res.get("layers", [])):
-                first_error = next((l.get("error") for l in res.get("layers", []) if l.get("error")), None)
+                on_event=lambda r: jobs.append_log(jid, f"{r['name']}: {r['status']}"))
+            layers_res = res.get("layers", [])
+            elements_completed = any(l.get("status") == "completed" and l.get("name") != "배경"
+                                     for l in layers_res)
+            if not elements_completed:
+                missing = res.get("missing") or []
+                if missing:
+                    raise RuntimeError("레이어 분리 실패 — 못 만든 요소: " + ", ".join(missing))
+                first_error = next((l.get("error") for l in layers_res if l.get("error")), None)
                 if first_error:
                     raise RuntimeError("레이어 분리 전체 실패: " + str(first_error))
                 raise RuntimeError("레이어 분리 전체 실패")
@@ -597,8 +600,7 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             if j.get("skill_name") == "layer-bg" and j.get("project_id") == pid:
                 jobs.request_cancel(j["job_id"])
         jid = jobs.create("layer-bg", pid)
-        names = res.get("remaining_names") or []
-        def _do_bg(proj_dir=proj_dir, scene_img=scene_img, sid=sid, names=names, jid=jid):
+        def _do_bg(proj_dir=proj_dir, scene_img=scene_img, sid=sid, jid=jid):
             if jobs.is_cancelled(jid):      # 더 최근 삭제가 이미 배경을 다시 만들고 있다
                 return {"skipped": True}
             r = imagegen.regenerate_layer(

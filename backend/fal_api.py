@@ -14,6 +14,7 @@ from pathlib import Path
 
 from backend import env
 
+# edit_image은 현재 레이어 분리 경로에서 호출되지 않는다 — 향후 용도를 위해 남겨둔다(테스트만 사용 중).
 ENDPOINT = "https://fal.run/xai/grok-imagine-image/v2.0/edit"
 MAX_INPUT_IMAGES = 3          # 모델 상한 — 초과분은 앞에서부터 자른다
 # auto_kairos_v3의 .env는 같은 키를 FAL_API_KEY로 갖고 있다. 비밀값을 두 벌로 복사해 두면

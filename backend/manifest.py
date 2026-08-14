@@ -32,12 +32,16 @@ def _img_size(path: Path):
         return None
 
 
-def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "") -> list:
+def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "", comp_width: int | None = None) -> list:
     """[{name, path(abs), kind, position?, scale?, foot?}] — 배경(__bg)을 맨 앞(AE 최하단)으로.
 
     layerize 레이어는 요소 크기로 크롭돼 오므로 요소 사이드카의 bbox로 위치·크기를 되살린다:
     position=bbox 중심, scale=bbox폭/PNG폭. bbox가 없는 기존 프로젝트 레이어는
-    풀프레임 PNG라 좌표를 싣지 않고 jsx가 1:1로 겹친다."""
+    풀프레임 PNG라 좌표를 싣지 않고 jsx가 1:1로 겹친다.
+
+    layerize는 image_size: "auto"로 호출돼 응답 bbox가 씬 이미지 픽셀 좌표계와 같다는
+    보장이 없다 — z_index 0 배경판(전체 캔버스)의 PNG 폭을 좌표계 기준으로 삼아,
+    comp_width(씬 이미지 폭)와 다르면 모든 bbox 값에 comp_width/plate_width를 곱해 보정한다."""
     from backend import imagegen
     specs = {s.get("layer"): s for s in imagegen.load_element_specs(proj_dir / "layers", sid)} if sid else {}
     bg = [r for r in layer_rels if "__bg" in Path(r).name]
@@ -45,24 +49,36 @@ def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "") -> list:
     el.sort(key=lambda r: (specs.get(Path(r).stem, {}).get("z") is None,
                            specs.get(Path(r).stem, {}).get("z") or 0,
                            Path(r).name))
+    scale_factor = 1.0
+    if comp_width and bg:
+        plate_size = _img_size(proj_dir / bg[0])
+        if plate_size and plate_size[0]:
+            scale_factor = comp_width / plate_size[0]
     out = []
     for r in bg + el:
         stem = Path(r).stem
         entry = {"name": stem, "path": _abs(proj_dir, r),
                  "kind": "bg" if "__bg" in Path(r).name else "element"}
-        bbox = (specs.get(stem) or {}).get("bbox")
-        if entry["kind"] == "element" and bbox and len(bbox) == 4:
-            l, t, rr, b = [float(v) for v in bbox]
-            size = _img_size(proj_dir / r)
-            if size and size[0]:
-                entry["position"] = [(l + rr) / 2, (t + b) / 2]
-                entry["scale"] = (rr - l) / size[0] * 100
-                entry["foot"] = [(l + rr) / 2, b]
-        elif entry["kind"] == "element":
-            # bbox 없는 기존(풀프레임) 레이어 — 알파 영역으로 까딱 모션 피벗만 복원
-            foot = _alpha_foot(proj_dir / r)
-            if foot:
-                entry["foot"] = foot
+        if entry["kind"] == "element":
+            placed = False
+            bbox = (specs.get(stem) or {}).get("bbox")
+            if bbox and len(bbox) == 4:
+                try:
+                    l, t, rr, b = [float(v) * scale_factor for v in bbox]
+                except (TypeError, ValueError):
+                    l = rr = None      # 비정상(비수치) bbox — bbox 없는 것으로 취급
+                if l is not None and (rr - l) > 0:
+                    size = _img_size(proj_dir / r)
+                    if size and size[0]:
+                        entry["position"] = [(l + rr) / 2, (t + b) / 2]
+                        entry["scale"] = (rr - l) / size[0] * 100
+                        entry["foot"] = [(l + rr) / 2, b]
+                        placed = True
+            if not placed:
+                # bbox 없음 / 비정상 / 폭≤0 / PIL이 못 읽음 — 알파 영역으로 까딱 모션 피벗만 복원
+                foot = _alpha_foot(proj_dir / r)
+                if foot:
+                    entry["foot"] = foot
         out.append(entry)
     return out
 
@@ -113,7 +129,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
         # 레이아웃 씬(비이미지)은 이미지/레이어를 쓰지 않음 — 기본 1920×1080 컴프
         size = None if is_layout_scene else (_img_size(proj_dir / s["_image"]) if s.get("_image") else None)
         sw, sh = size if size else (W, H)
-        layers = [] if is_layout_scene else _scene_layers(proj_dir, s.get("_layers") or [], sid)
+        layers = [] if is_layout_scene else _scene_layers(proj_dir, s.get("_layers") or [], sid, sw)
         cam = None
         mp = proj_dir / f"motion_{sid}.json"
         if mp.is_file():

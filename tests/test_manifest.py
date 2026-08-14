@@ -356,7 +356,10 @@ def test_layer_placement_from_bbox(tmp_path):
     import json as _j
     from PIL import Image
     from backend import manifest as _m
-    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ab", "narration": "n"}])
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ab", "narration": "n",
+                          "imageRef": "storyboard/sb_ab.png"}])
+    (d / "storyboard").mkdir()
+    Image.new("RGB", (1536, 1024)).save(d / "storyboard" / "sb_ab.png")   # 컴프 폭 = 배경판 폭(스케일 없음)
     lay = d / "layers"; lay.mkdir()
     Image.new("RGBA", (1052, 477)).save(lay / "ab__0_car.png")      # 실측 PNG 크기
     Image.new("RGB", (1536, 1024)).save(lay / "ab__bg.png")
@@ -389,6 +392,52 @@ def test_layers_ordered_by_z(tmp_path):
     names = [L["name"] for L in mf["scenes"][0]["layers"]]
     assert names[0] == "ab__bg"                     # 배경이 항상 맨 앞(AE 최하단)
     assert names.index("ab__1_back") < names.index("ab__0_front")   # z 오름차순
+
+
+def test_layer_bbox_scaled_when_plate_smaller_than_comp(tmp_path):
+    """발견2 — 배경판 PNG 폭이 씬 이미지(컴프) 폭과 다르면 bbox를 comp_width/plate_width로 보정한다."""
+    import json as _j
+    from PIL import Image
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "sc", "narration": "n",
+                          "imageRef": "storyboard/sb_sc.png"}])
+    (d / "storyboard").mkdir()
+    Image.new("RGB", (2000, 1000)).save(d / "storyboard" / "sb_sc.png")   # 컴프 폭 2000
+    lay = d / "layers"; lay.mkdir()
+    Image.new("RGBA", (200, 100)).save(lay / "sc__0_car.png")
+    Image.new("RGB", (1000, 500)).save(lay / "sc__bg.png")                # 배경판 폭 1000 = 컴프의 절반
+    (lay / "sc__elements.json").write_text(_j.dumps([
+        {"layer": "sc__0_car", "index": 0, "name": "차량", "name_en": "car",
+         "kind": "object", "bbox": [100, 100, 300, 300], "z": 1}]), encoding="utf-8")
+
+    mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
+    car = [L for L in mf["scenes"][0]["layers"] if "car" in L["name"]][0]
+    # factor = 2000/1000 = 2 → bbox [100,100,300,300] * 2 = [200,200,600,600]
+    assert car["position"] == [400.0, 400.0]
+    assert car["foot"] == [400.0, 600.0]
+
+
+def test_bbox_non_numeric_degrades_to_no_placement(tmp_path):
+    """발견6 — 비수치 bbox 값은 예외를 던지지 않고 bbox 없는 것처럼(alpha_foot 폴백) 처리한다."""
+    import json as _j
+    from PIL import Image
+    from backend import manifest as _m
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "bx", "narration": "n"}])
+    lay = d / "layers"; lay.mkdir()
+    im = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    for y in range(20, 80):
+        for x in range(20, 80):
+            im.putpixel((x, y), (200, 30, 40, 255))
+    im.save(lay / "bx__0_car.png")
+    Image.new("RGB", (100, 100), (9, 9, 9)).save(lay / "bx__bg.png")
+    (lay / "bx__elements.json").write_text(_j.dumps([
+        {"layer": "bx__0_car", "index": 0, "name": "차량", "name_en": "car",
+         "kind": "object", "bbox": ["bad", None, "x", "y"], "z": 1}]), encoding="utf-8")
+
+    mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
+    car = [L for L in mf["scenes"][0]["layers"] if "car" in L["name"]][0]
+    assert "position" not in car and "scale" not in car
+    assert car.get("foot") == [50.0, 80.0]   # alpha_foot 폴백으로 피벗은 보존
 
 
 def test_legacy_layers_without_bbox_stay_fullframe(tmp_path):
