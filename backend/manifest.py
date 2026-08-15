@@ -248,6 +248,8 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
             "duration": dur,
             "start": starts.get(_key(s.get("sceneNumber")), 0.0),
             "prefix": prefix,
+            # fit — jsx는 읽지 않는다(레이어 좌표는 이미 컴프 공간으로 구워서 낸다).
+            # 테스트·디버깅에서 fit_transform 계산값을 매니페스트만 보고 검증하려고 남긴다.
             "fit": {"f": f, "ox": ox, "w": sw, "h": sh},
             "bgFill": (sw * f) < (W - 1),
             **({"imageFit": {"position": [sw * f / 2 + ox, sh * f / 2],

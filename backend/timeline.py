@@ -18,16 +18,21 @@ DEFAULT_DUR = 5.0
 
 
 def comp_num(scene_number) -> str:
-    """컴프 이름에 쓰는 씬 번호 표기. 정수는 2자리 0채움, 소수는 점을 밑줄로.
+    """컴프 이름에 쓰는 씬 번호 표기. 정수는 2자리 0채움, 소수는 점을 하이픈으로.
 
-    씬을 삽입하면 25.25 같은 소수 번호가 생기는데, 이때 %02d는 그대로 터진다."""
+    씬을 삽입하면 25.25 같은 소수 번호가 생기는데, 이때 %02d는 그대로 터진다.
+    구분자는 밑줄이 아니라 하이픈을 쓴다 — 밑줄을 쓰면 25.25 → "25_25"가 되어
+    씬 25의 접두사 "S25_"가 씬 25.25의 레이어 이름 "S25_25_..."의 접두사도 돼 버린다.
+    akRemoveSceneGroup은 접두사 매치라서, 씬 25만 다시 빌드해도 25.25 레이어까지
+    통째로 지워지고 매니페스트에 없는 그 씬은 다시 만들어지지 않는다(영구 소실).
+    하이픈이면 "S25-25_"라 "S25_"의 접두사가 되지 않는다."""
     try:
         n = float(scene_number)
     except (TypeError, ValueError):
         return "00"
     if n == int(n):
         return f"{int(n):02d}"
-    return str(n).replace(".", "_")
+    return str(n).replace(".", "-")
 
 
 def comp_name(scene: dict) -> str:
@@ -66,20 +71,3 @@ def scene_timings(proj_dir: Path, data: dict) -> list:
     return out
 
 
-def build_plan(proj_dir: Path, only_scene: int | None = None) -> dict:
-    """{items:[{sceneNumber, sceneId, comp, start, duration}], total, scenes}.
-    only_scene이 있으면 그 씬만 담되 start는 전체 누적 기준을 유지."""
-    proj_dir = Path(proj_dir)
-    data = _scenes.load_scenes(proj_dir)
-    items, total = [], 0.0
-    for s, start, dur in scene_timings(proj_dir, data):
-        total = start + dur
-        if only_scene is None or s.get("sceneNumber") == only_scene:
-            items.append({
-                "sceneNumber": s.get("sceneNumber"),
-                "sceneId": s.get("sceneId"),
-                "comp": comp_name(s),
-                "start": start,
-                "duration": dur,
-            })
-    return {"items": items, "total": round(total, 3), "scenes": len(items)}

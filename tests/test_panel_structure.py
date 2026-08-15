@@ -453,9 +453,11 @@ def test_build_scene_jsx_layout_renderers():
     assert "function renderLayout" in jsx
     assert "function addBgSolid" in jsx and "function addTextL" in jsx and "function addRectL" in jsx
     assert "ae_tokens" in jsx                              # 토큰 로드
-    # 평면 컴프 전환(Task 2) 이후 레이아웃 씬을 buildSceneGroup에 연결하는 것은
-    # 다음 태스크 몫이다 — 여기서는 렌더러 함수 자체가 살아있는지만 확인한다.
+    # 평면 컴프에서 레이아웃 씬은 buildSceneGroup이 실제로 renderLayout을 호출해 배선한다
+    # (cinematic이 아닌 레이아웃 씬만 — 이미지 씬은 renderLayout을 타지 않는다).
     assert "function buildSceneGroup" in jsx
+    assert 's.layout && s.layout !== "cinematic"' in jsx
+    assert "try { renderLayout(proj, comp, s, W, H); }" in jsx
     # 레이아웃 5종 렌더러는 layouts.jsx로 이동(Task 5)
     layouts = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
     for l in ("headline_only", "items_list", "metric_spotlight", '"bar"', '"quote"'):

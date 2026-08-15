@@ -629,7 +629,17 @@ function akBuildScene(manifestPath) {
             akRemoveSceneGroup(comp, s.prefix);           // 재빌드 — 지우고 다시 넣는다
             var before = comp.numLayers;
             try { buildSceneGroup(proj, comp, s, W, H, log); }
-            catch (eB) { log.push((s.prefix || "") + "빌드 실패 " + eB.toString()); continue; }
+            catch (eB) {
+                log.push((s.prefix || "") + "빌드 실패 " + eB.toString());
+                // 실패해도 이미 만들어진 레이어는 남는다 — 접두사를 붙여 두지 않으면
+                // 다음 재빌드의 akRemoveSceneGroup이 못 지워 컴프에 영원히 쌓인다.
+                var madeErr = comp.numLayers - before;
+                if (madeErr > 0) {
+                    akTagGroup(comp, madeErr, s.prefix || "S00_", null,
+                               s.start || 0, (s.start || 0) + (s.duration || 5));
+                }
+                continue;
+            }
             var made = comp.numLayers - before;
             var group = [];                               // 인덱스는 옮기는 즉시 밀리므로 참조를 먼저 모은다
             for (var k = 1; k <= made && k <= comp.numLayers; k++) { group.push(comp.layer(k)); }
@@ -638,6 +648,13 @@ function akBuildScene(manifestPath) {
                 // 위에서부터 차례로 anchor 바로 위에 놓으면 그룹 안 순서가 그대로 유지된다
                 for (var g = 0; g < group.length; g++) { group[g].moveBefore(anchor); }
             }
+        }
+        // 말자막(subtitle_layers.jsx)이 씬 그룹 아래로 깔리는 것을 막는다.
+        // 씬 그룹 재배치는 위에서 다음 씬 그룹 위로만 옮기므로, 그룹이 없는 부분 빌드나
+        // 마지막 씬은 최상단에 남는다 — 그러면 그 아래 자막이 불투명 배경에 가려진다.
+        // 자막 레이어(이름 "말자막")를 마지막에 다시 최상단으로 올려 항상 보이게 한다.
+        for (var subI = 1; subI <= comp.numLayers; subI++) {
+            if (comp.layer(subI).name === "말자막") { comp.layer(subI).moveToBeginning(); break; }
         }
         comp.openInViewer();
         app.endUndoGroup();

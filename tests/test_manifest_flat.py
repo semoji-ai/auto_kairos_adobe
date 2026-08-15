@@ -161,10 +161,10 @@ def test_no_skip_final_key(tmp_path):
 
 
 def test_fractional_scene_prefix(tmp_path):
-    """삽입 씬 25.25 → S25_25_."""
+    """삽입 씬 25.25 → S25-25_ (하이픈 — 밑줄이면 씬 25의 접두사 S25_와 충돌한다)."""
     proj = _project(tmp_path)
     data = json.loads((proj / "scenes.json").read_text(encoding="utf-8"))
     data["scenes"][1]["sceneNumber"] = 25.25
     (proj / "scenes.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     mf = _manifest(proj)
-    assert mf["scenes"][1]["prefix"] == "S25_25_"
+    assert mf["scenes"][1]["prefix"] == "S25-25_"

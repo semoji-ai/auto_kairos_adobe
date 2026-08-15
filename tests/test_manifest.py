@@ -351,9 +351,9 @@ def test_build_manifest_fractional_scene_number(tmp_path):
                          {"sceneNumber": 25.25, "sceneId": "b"},
                          {"sceneNumber": 26, "sceneId": "c"}])
     mf = json.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
-    assert [s["ae_comp_name"] for s in mf["scenes"]] == ["S25_a", "S25_25_b", "S26_c"]
+    assert [s["ae_comp_name"] for s in mf["scenes"]] == ["S25_a", "S25-25_b", "S26_c"]
     sub = json.loads(Path(_m.build_manifest(d, only_scenes=[25.25])["path"]).read_text(encoding="utf-8"))
-    assert [s["ae_comp_name"] for s in sub["scenes"]] == ["S25_25_b"]   # 25번이 섞이지 않음
+    assert [s["ae_comp_name"] for s in sub["scenes"]] == ["S25-25_b"]   # 25번이 섞이지 않음
 
 
 def test_layer_placement_from_bbox(tmp_path):

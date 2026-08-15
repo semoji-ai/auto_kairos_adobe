@@ -104,3 +104,24 @@ def test_scene_build_is_idempotent():
     """같은 씬을 다시 빌드하면 기존 그룹을 지우고 다시 넣는다."""
     src = _src()
     assert "akRemoveSceneGroup(comp, s.prefix)" in src
+
+
+def test_subtitle_moved_above_scene_groups():
+    """말자막은 씬 그룹 재배치가 끝난 뒤 항상 컴프 최상단으로 올린다.
+
+    그룹 재배치는 다음 씬 그룹이 있을 때만 그 위로 옮기므로, 부분 빌드나
+    마지막 씬의 그룹은 컴프 맨 위에 남는다 — 그 아래로 자막이 깔리면
+    씬 그룹의 불투명 배경에 가려 안 보인다."""
+    src = _src()
+    assert 'name === "말자막"' in src
+    assert "moveToBeginning" in src
+
+
+def test_failed_build_still_tags_partial_layers():
+    """buildSceneGroup이 실패해도 이미 만들어진 레이어에 접두사를 붙인다.
+
+    안 붙이면 다음 재빌드의 akRemoveSceneGroup이 그 레이어를 못 찾아
+    컴프에 접두사 없는 레이어가 영구히 쌓인다."""
+    src = _src()
+    catch_block = src.split("catch (eB)")[1].split("continue;")[0]
+    assert "akTagGroup(comp" in catch_block
