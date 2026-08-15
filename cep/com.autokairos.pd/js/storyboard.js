@@ -217,20 +217,104 @@ function _teBadge(n, kind, stored, narration) {
     + ' title="이 칸을 비워 원고 기준으로 되돌립니다">원고에서 다시 채우기</button>';
 }
 
+/* ===== 레이어 목록 — 포토샵식. 기본은 접힘(썸네일 띠), 펴면 세로 목록. ===== */
+var LYR_OPEN = {};      // {sceneNumber: true} — 재렌더에도 펼침 유지
+var LYR_SEL = {};       // {sceneNumber: {stem: true}} — 벡터화 선택(눈과 무관)
+
+function _lyrStem(rel) {
+  return rel.split("/").pop().replace(/\.(png|svg)$/i, "");
+}
+
+/* 접힌 상태 — 지금까지 쓰던 가로 썸네일 띠(클릭하면 펴진다). */
+function _lyrStrip(s, dir) {
+  var meta = s._layer_meta || {};
+  var html = "";
+  for (var i = 0; i < (s._layers || []).length; i++) {
+    var stem = _lyrStem(s._layers[i]);
+    var m = meta[stem] || {};
+    if (m.removed) continue;
+    html += '<img class="lyr" src="file://' + dir + '/' + s._layers[i] + '"'
+          + ' title="' + _esc(m.name || stem) + '"'
+          + (m.hidden ? ' style="opacity:0.35"' : '') + '>';
+  }
+  return html;
+}
+
+/* 펼친 상태 — 세로 목록. z 오름차순, 배경이 맨 위(AE 최하단). */
+function renderLayerList(s, dir) {
+  var n = s.sceneNumber;
+  var meta = s._layer_meta || {};
+  var rels = (s._layers || []).slice();
+  rels.sort(function (a, b) {
+    var ma = meta[_lyrStem(a)] || {}, mb = meta[_lyrStem(b)] || {};
+    if ((ma.kind === "bg") !== (mb.kind === "bg")) return ma.kind === "bg" ? -1 : 1;
+    var za = (ma.z == null) ? 9999 : ma.z, zb = (mb.z == null) ? 9999 : mb.z;
+    if (za !== zb) return za - zb;
+    return a < b ? -1 : 1;
+  });
+  var sel = LYR_SEL[n] || {};
+  var live = "", gone = "";
+  for (var i = 0; i < rels.length; i++) {
+    var stem = _lyrStem(rels[i]);
+    var m = meta[stem] || {};
+    var isBg = m.kind === "bg";
+    var kindLabel = isBg ? "배경" : (m.kind === "character" ? "인물" : "사물");
+    var thumb = '<img class="lyr" src="file://' + dir + '/' + rels[i] + '">';
+    var nameCell = '<span class="lyr-name" title="' + _esc(stem) + '">'
+                 + _esc(m.name || stem) + '</span>'
+                 + '<span class="lyr-kind">' + kindLabel + '</span>'
+                 + (m.svg ? '<span class="lyr-badge">SVG</span>' : '');
+    if (m.removed) {
+      gone += '<div class="lyr-row gone" data-scene="' + n + '" data-layer="' + _esc(stem) + '">'
+            +   thumb + nameCell
+            +   '<button class="lyr-restore" title="이 레이어를 프로젝트에 되돌립니다">↩ 복구</button>'
+            + '</div>';
+      continue;
+    }
+    live += '<div class="lyr-row' + (m.hidden ? ' off' : '') + '"'
+          +   ' data-scene="' + n + '" data-layer="' + _esc(stem) + '">'
+          +   '<input type="checkbox" class="lyr-pick"' + (sel[stem] ? ' checked' : '')
+          +     ' title="벡터화 대상 선택">'
+          +   '<button class="lyr-eye" title="패널 미리보기에서만 끕니다 — 내보내기에는 그대로 들어갑니다">'
+          +     (m.hidden ? '🚫' : '👁') + '</button>'
+          +   thumb + nameCell
+          +   (isBg ? '<button class="lyr-regen" title="씬을 다시 분리합니다 — 레이어 전체가 새로 만들어집니다">↻</button>' : '')
+          +   (m.svg ? '<button class="lyr-revec" title="이 레이어를 다시 벡터화합니다(1크레딧)">↻SVG</button>'
+                     : '<button class="lyr-revec" title="이 레이어를 벡터화합니다(1크레딧)">SVG</button>')
+          +   (isBg ? '' : '<button class="lyr-rm" title="프로젝트에서 뺍니다 — 파일은 남고 되돌릴 수 있습니다">🗑</button>')
+          + '</div>';
+  }
+  return '<div class="lyr-list">' + live
+       + (gone ? '<div class="lyr-sep">제거됨</div>' + gone : '')
+       + '</div>';
+}
+
+function _lyrHead(s) {
+  var n = s.sceneNumber;
+  var open = !!LYR_OPEN[n];
+  var count = 0, meta = s._layer_meta || {};
+  for (var i = 0; i < (s._layers || []).length; i++) {
+    if (!(meta[_lyrStem(s._layers[i])] || {}).removed) count++;
+  }
+  return '<div class="lyr-head">'
+       + '<button class="lyr-toggle" data-scene="' + n + '">' + (open ? '▾' : '▸') + '</button>'
+       + '<span>레이어 ' + count + '</span>'
+       + (open ? '<button class="lyr-vec-all" data-scene="' + n + '"'
+                 + ' title="SVG가 없는 레이어를 모두 벡터화합니다(레이어당 1크레딧)">전체 벡터화</button>'
+               + '<button class="lyr-vec-sel" data-scene="' + n + '"'
+                 + ' title="체크한 레이어만 벡터화합니다">선택 벡터화</button>'
+             : '')
+       + '</div>';
+}
+
 function renderRow(s, dir) {
   var n = s.sceneNumber;
   var media = _previewHTML(s, dir);   // 컴프 결과 미리보기(배경+레이아웃+자막)
-  var layers = (s._layers || []).map(function (lp) {
-    var stem = lp.split("/").pop().replace(/\.png$/i, "");
-    var isBg = /__bg(_v\d+)?$/.test(stem);
-    return '<span class="lyr-item" data-scene="' + n + '" data-layer="' + _esc(stem) + '">'
-      + '<img class="lyr" src="file://' + dir + '/' + lp + '" title="' + _esc(lp)
-      + ' — 클릭하면 씬 위에 위치 확인(빨간 윤곽선)">'
-      + '<span class="lyr-acts">'
-      +   (isBg ? '' : '<button class="lyr-del" title="이 레이어를 빼고 배경을 다시 만듭니다">✕</button>')
-      +   '<button class="lyr-regen" title="' + (isBg ? '씬을 다시 분리(배경 포함 전체)' : '씬을 다시 분리합니다 — 레이어 전체가 새로 만들어집니다') + '">↻</button>'
-      + '</span></span>';
-  }).join("");
+  var hasLayers = (s._layers || []).length > 0;
+  var layerBlock = hasLayers
+    ? (_lyrHead(s) + (LYR_OPEN[n] ? renderLayerList(s, dir)
+                                  : '<div class="lyr-strip">' + _lyrStrip(s, dir) + '</div>'))
+    : "";
   var chars = (s.characters || []).join(", ");
   var st = s._status || {};
   return ''
@@ -244,7 +328,7 @@ function renderRow(s, dir) {
     + '  <div class="col-img">'
     +      (s._image ? '<button class="unlink-img" data-scene="' + n + '" title="씬 이미지 링크 해제">✕</button>' : '')
     + '    <div class="img-wrap">' + media + '</div>'
-    +      (layers ? '<div class="lyr-strip">' + layers + '</div>' : '')
+    +      layerBlock
     + '  </div>'
     // 스크립트(나레이션)
     + '  <div class="col-script">'
@@ -375,47 +459,79 @@ function bindRows(scope) {
       resetSceneText(this.getAttribute("data-scene"), this.getAttribute("data-kind"));
     });
   }
-  var dels = scope.querySelectorAll("button.lyr-del");
-  for (var dl = 0; dl < dels.length; dl++) {
-    dels[dl].addEventListener("click", function (ev) {
-      ev.stopPropagation();                       // 썸네일 오버레이 토글과 겹치지 않게
-      var it = this.closest(".lyr-item");
-      deleteLayer(it.getAttribute("data-scene"), it.getAttribute("data-layer"));
-    });
-  }
   var regs = scope.querySelectorAll("button.lyr-regen");
   for (var rgn = 0; rgn < regs.length; rgn++) {
     regs[rgn].addEventListener("click", function (ev) {
       ev.stopPropagation();
-      var it = this.closest(".lyr-item");
+      var it = this.closest(".lyr-row");
       regenLayer(it.getAttribute("data-scene"), it.getAttribute("data-layer"));
     });
   }
-  var thumbs = scope.querySelectorAll("img.lyr");
-  for (var th = 0; th < thumbs.length; th++) {
-    thumbs[th].addEventListener("click", function () { toggleLayerOverlay(this); });
+  var tgs = scope.querySelectorAll("button.lyr-toggle");
+  for (var tg = 0; tg < tgs.length; tg++) {
+    tgs[tg].addEventListener("click", function () {
+      var n = this.getAttribute("data-scene");
+      LYR_OPEN[n] = !LYR_OPEN[n];
+      refreshRow(n);
+    });
   }
-}
-
-/* 레이어 썸네일 클릭 — 풀프레임 레이어를 씬 이미지 위에 1:1로 겹치고
-   알파 윤곽을 따라 빨간 테두리(drop-shadow) 표시. 같은 썸네일 재클릭=해제. */
-function toggleLayerOverlay(thumb) {
-  var row = thumb.closest(".sheet-row");
-  if (!row) return;
-  var wrap = row.querySelector(".img-wrap");
-  if (!wrap) return;
-  var prev = wrap.querySelector(".lyr-overlay");
-  var was = thumb.classList.contains("sel");
-  // 기존 오버레이/선택 해제
-  if (prev) prev.parentNode.removeChild(prev);
-  var sels = row.querySelectorAll("img.lyr.sel");
-  for (var i = 0; i < sels.length; i++) sels[i].classList.remove("sel");
-  if (was) return;                     // 같은 썸네일 → 토글 오프
-  var ov = document.createElement("img");
-  ov.className = "lyr-overlay";
-  ov.src = thumb.src;                  // 풀프레임(씬과 동일 크기) — width:100%로 정확히 겹침
-  wrap.appendChild(ov);
-  thumb.classList.add("sel");
+  var eyes = scope.querySelectorAll("button.lyr-eye");
+  for (var ey = 0; ey < eyes.length; ey++) {
+    eyes[ey].addEventListener("click", function () {
+      var row = this.closest(".lyr-row");
+      setLayerState(row.getAttribute("data-scene"), row.getAttribute("data-layer"),
+                    { hidden: !row.classList.contains("off") });
+    });
+  }
+  var rms = scope.querySelectorAll("button.lyr-rm");
+  for (var rm = 0; rm < rms.length; rm++) {
+    rms[rm].addEventListener("click", function () {
+      var row = this.closest(".lyr-row");
+      setLayerState(row.getAttribute("data-scene"), row.getAttribute("data-layer"),
+                    { removed: true });
+    });
+  }
+  var rsts = scope.querySelectorAll("button.lyr-restore");
+  for (var rst = 0; rst < rsts.length; rst++) {
+    rsts[rst].addEventListener("click", function () {
+      var row = this.closest(".lyr-row");
+      setLayerState(row.getAttribute("data-scene"), row.getAttribute("data-layer"),
+                    { removed: false });
+    });
+  }
+  var picks = scope.querySelectorAll("input.lyr-pick");
+  for (var pk = 0; pk < picks.length; pk++) {
+    picks[pk].addEventListener("change", function () {
+      var row = this.closest(".lyr-row");
+      var n = row.getAttribute("data-scene"), stem = row.getAttribute("data-layer");
+      if (!LYR_SEL[n]) LYR_SEL[n] = {};
+      if (this.checked) LYR_SEL[n][stem] = true; else delete LYR_SEL[n][stem];
+    });
+  }
+  var vall = scope.querySelectorAll("button.lyr-vec-all");
+  for (var va = 0; va < vall.length; va++) {
+    vall[va].addEventListener("click", function () {
+      var n = this.getAttribute("data-scene");
+      vectorizeLayers(n, _lyrStemsOf(n, false), false);
+    });
+  }
+  var vsel = scope.querySelectorAll("button.lyr-vec-sel");
+  for (var vs = 0; vs < vsel.length; vs++) {
+    vsel[vs].addEventListener("click", function () {
+      var n = this.getAttribute("data-scene");
+      vectorizeLayers(n, _lyrStemsOf(n, true), false);
+    });
+  }
+  var revs = scope.querySelectorAll("button.lyr-revec");
+  for (var rv = 0; rv < revs.length; rv++) {
+    revs[rv].addEventListener("click", function () {
+      var row = this.closest(".lyr-row");
+      var n = row.getAttribute("data-scene");
+      // 이미 SVG가 있는 레이어를 다시 벡터화할 때만 force가 필요하다.
+      var has = !!row.querySelector(".lyr-badge");
+      vectorizeLayers(n, [row.getAttribute("data-layer")], has);
+    });
+  }
 }
 
 /* ===== 도구상자(시트 상단) — 체크된 씬에 일괄 실행 ===== */
@@ -830,40 +946,10 @@ function sceneOp(op, extra) {
     .catch(function (e) { alert("오류: " + e); });
 }
 
-/* 레이어 낱개 편집 — 썸네일 위 ✕(삭제) / ↻(재생성) */
+/* 레이어 낱개 편집 — 눈/제거/복구/벡터화 */
 function _layerBusy(n, stem, on) {
-  var it = $("sheet").querySelector('.lyr-item[data-scene="' + n + '"][data-layer="' + stem + '"]');
+  var it = $("sheet").querySelector('.lyr-row[data-scene="' + n + '"][data-layer="' + stem + '"]');
   if (it) it.classList.toggle("busy", !!on);
-}
-
-/* 삭제 — 파일은 layers/_prev 로 보존되고, 남은 요소 기준으로 배경을 다시 만든다. */
-function deleteLayer(n, stem) {
-  if (!confirm("레이어 '" + stem + "' 를 뺍니다.\n\n"
-             + "지운 요소는 다시 배경에 포함되어야 하므로 씬을 다시 분리합니다(1~2분).\n"
-             + "파일은 지워지지 않고 layers/_prev 로 이동합니다.")) return;
-  _layerBusy(n, stem, true);
-  _rowStatus(n, "레이어 제거 중...");
-  return fetch(BACKEND + "/api/layers/delete", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), layer: stem }),
-  }).then(function (r) { return r.json(); })
-    .then(function (j) {
-      if (!j.ok) { _layerBusy(n, stem, false); _rowStatus(n, "실패: " + JSON.stringify(j)); return; }
-      refreshRow(n);                                   // 썸네일에서 즉시 사라짐
-      _rowStatus(n, "레이어 제거됨 — 배경 다시 만드는 중...");
-      _awaitJob(j.job_id, function (job) {
-        if (job.status === "cancelled" || (job.result && job.result.skipped)) {
-          _rowStatus(n, "레이어 제거됨 (배경은 이후 삭제분과 함께 생성)");
-          return;
-        }
-        _rowStatus(n, job.status === "completed" ? "레이어 제거 + 배경 재생성 완료 ✓"
-                                                 : ("배경 재생성 실패: " + (job.error || "")));
-        if (job.status === "completed") refreshRow(n);
-      }, function (logs) {
-        if (logs.length) _rowStatus(n, "배경 재생성 중... " + logs[logs.length - 1]);
-      }, 1200);
-    })
-    .catch(function (e) { _layerBusy(n, stem, false); _rowStatus(n, "오류: " + e); });
 }
 
 /* 재생성 — layerize는 씬 단위 호출이라 그 요소만 따로 다시 만들 수 없다. 씬 전체를 다시 분리한다. */
@@ -888,6 +974,73 @@ function regenLayer(n, stem) {
       }, 1200);
     })
     .catch(function (e) { _layerBusy(n, stem, false); _rowStatus(n, "오류: " + e); });
+}
+
+/* 눈 토글 / 제거 / 복구 — 사이드카 플래그만 바꾼다. 파일은 그대로 남는다. */
+function setLayerState(n, stem, patch) {
+  var b = { project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10), layer: stem };
+  if (patch.hidden != null) b.hidden = patch.hidden;
+  if (patch.removed != null) b.removed = patch.removed;
+  _layerBusy(n, stem, true);
+  return fetch(BACKEND + "/api/layers/state", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(b),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      _layerBusy(n, stem, false);
+      if (!j.ok) { _rowStatus(n, "실패: " + (j.error || JSON.stringify(j))); return; }
+      refreshRow(n);
+    })
+    .catch(function (e) { _layerBusy(n, stem, false); _rowStatus(n, "오류: " + e); });
+}
+
+/* 벡터화 — 레이어당 1크레딧. 한 장이 실패해도 나머지는 계속된다. */
+function vectorizeLayers(n, stems, force) {
+  if (!stems.length) { _rowStatus(n, "벡터화할 레이어를 고르세요"); return; }
+  if (!confirm("레이어 " + stems.length + "장을 벡터화합니다.\n\n"
+             + "레이어당 1크레딧이 들고 장당 10초쯤 걸립니다.")) return;
+  _rowStatus(n, "벡터화 중... (Recraft)");
+  return fetch(BACKEND + "/api/layers/vectorize", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: SELECTED_PROJECT, sceneNumber: parseInt(n, 10),
+                           layers: stems, force: !!force }),
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j.status !== "running" || !j.job_id) {
+        _rowStatus(n, "실패: " + (j.error || JSON.stringify(j))); return;
+      }
+      _awaitJob(j.job_id, function (job) {
+        if (job.status !== "completed") {
+          _rowStatus(n, "벡터화 실패: " + (job.error || "")); return;
+        }
+        var res = job.result || {};
+        var okn = (res.ok || []).length, sk = (res.skipped || []).length,
+            fl = (res.failed || []).length;
+        _rowStatus(n, "벡터화 완료 " + okn + "장"
+                    + (sk ? " (건너뜀 " + sk + ")" : "")
+                    + (fl ? " — 실패 " + fl + ": "
+                          + res.failed.map(function (f) { return f.layer; }).join(", ") : ""));
+        refreshRow(n);
+      }, function (logs) {
+        if (logs.length) _rowStatus(n, "벡터화 중... " + logs[logs.length - 1]);
+      }, 1500);
+    })
+    .catch(function (e) { _rowStatus(n, "오류: " + e); });
+}
+
+/* 벡터화 대상 — 전체 버튼은 SVG가 없는 살아 있는 레이어만 넘긴다(있는 것은 백엔드가 건너뛴다). */
+function _lyrStemsOf(n, onlySelected) {
+  var rows = $("sheet").querySelectorAll('.lyr-row[data-scene="' + n + '"]');
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].classList.contains("gone")) continue;
+    if (onlySelected) {
+      var cb = rows[i].querySelector("input.lyr-pick");
+      if (!cb || !cb.checked) continue;
+    }
+    out.push(rows[i].getAttribute("data-layer"));
+  }
+  return out;
 }
 
 function genTts(n) {

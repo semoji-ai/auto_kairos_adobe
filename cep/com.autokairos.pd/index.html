@@ -88,23 +88,26 @@
     #sheet-actionbar button:hover { background:#3a6df0; }
     #sheet-actionbar .sab-txt { background:#23262b; color:#c5c8cc; }
     #sheet-actionbar .sab-danger:hover { background:#a33; }
-    /* 레이어 오버레이 — 썸네일 클릭 시 씬 이미지 위에 좌표 그대로 겹쳐 빨간 윤곽선으로 표시 */
     .col-img .img-wrap { position:relative; }
-    .col-img .lyr-overlay { position:absolute; top:0; left:0; width:100%; height:auto;
-      pointer-events:none; z-index:2;
-      filter: drop-shadow(1.5px 0 0 #e74c3c) drop-shadow(-1.5px 0 0 #e74c3c)
-              drop-shadow(0 1.5px 0 #e74c3c) drop-shadow(0 -1.5px 0 #e74c3c); }
-    .col-img .lyr.sel { outline:2px solid #e74c3c; outline-offset:1px; }
-    .col-img .lyr { cursor:pointer; }
-    /* 레이어 낱개 편집 — 썸네일에 올리면 ✕(삭제)·↻(재생성) */
-    .lyr-item { position:relative; display:inline-block; }
-    .lyr-item .lyr-acts { display:none; position:absolute; top:1px; right:4px; gap:2px; }
-    .lyr-item:hover .lyr-acts { display:flex; }
-    .lyr-item .lyr-acts button { width:auto; margin:0; padding:0 3px; font-size:10px; line-height:1.3;
-      background:rgba(0,0,0,0.72); border:1px solid #555; border-radius:3px; }
-    .lyr-item .lyr-del:hover { background:#a33; }
-    .lyr-item .lyr-regen:hover { background:#3a6df0; }
-    .lyr-item.busy { opacity:0.4; pointer-events:none; }
+    /* 레이어 목록 — 포토샵식 세로 리스트. 기본은 접힘(썸네일 띠). */
+    .lyr-head { display:flex; align-items:center; gap:6px; margin-top:4px; font-size:11px; color:#aaa; }
+    .lyr-head .lyr-toggle { width:auto; margin:0; padding:1px 5px; font-size:11px; }
+    .lyr-head .lyr-vec-all, .lyr-head .lyr-vec-sel { width:auto; margin:0; padding:1px 6px; font-size:11px; }
+    .lyr-list { margin-top:3px; border:1px solid #333; border-radius:4px; }
+    .lyr-row { display:flex; align-items:center; gap:5px; padding:2px 4px; border-bottom:1px solid #2a2a2a; }
+    .lyr-row:last-child { border-bottom:none; }
+    .lyr-row img.lyr { width:28px; height:auto; margin:0; border-radius:2px; background:#222; }
+    .lyr-row .lyr-name { flex:1; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .lyr-row .lyr-kind { font-size:10px; color:#888; }
+    .lyr-row .lyr-eye, .lyr-row .lyr-rm, .lyr-row .lyr-restore, .lyr-row .lyr-revec {
+      width:auto; margin:0; padding:0 4px; font-size:11px; line-height:1.3; background:#333; }
+    .lyr-row .lyr-rm:hover { background:#a33; }
+    .lyr-row.off img.lyr, .lyr-row.off .lyr-name { opacity:0.35; }
+    .lyr-row.gone { opacity:0.4; }
+    .lyr-row.busy { opacity:0.4; pointer-events:none; }
+    .lyr-badge { font-size:9px; padding:0 3px; border-radius:2px; background:#2d5a2d; color:#cfc; }
+    .lyr-badge.fail { background:#5a2d2d; color:#fcc; }
+    .lyr-sep { padding:2px 5px; font-size:10px; color:#777; background:#242424; }
     /* 씬 선택 체크박스 */
     .scene-sel-wrap { display:flex; align-items:center; gap:4px; cursor:pointer; }
     .scene-sel-wrap input { width:14px; height:14px; margin:0; }

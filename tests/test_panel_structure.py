@@ -392,9 +392,8 @@ def test_render_row_checkbox_and_dots():
 
 def test_layer_overlay_and_text_buttons():
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "function toggleLayerOverlay" in js and "lyr-overlay" in js and "img-wrap" in js
+    assert "img-wrap" in js
     html = HTML.read_text(encoding="utf-8")
-    assert "drop-shadow" in html                       # 알파 윤곽 빨간 테두리
     assert ">씬 추가<" in html and ">병합<" in html and ">삭제<" in html   # 구조 버튼은 텍스트
 
 
@@ -714,15 +713,16 @@ def test_assistant_has_stop_and_scope():
 
 
 def test_layer_thumbnail_has_edit_buttons():
-    """레이어 썸네일에서 낱개 삭제·재생성 — 배경은 재생성만."""
+    """레이어 목록 행에서 눈 토글·제거·복구·벡터화 — 배경은 제거 버튼 없음."""
     js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "function deleteLayer" in js and "function regenLayer" in js
-    assert "/api/layers/delete" in js and "/api/layers/regenerate" in js
-    assert "lyr-item" in js and "lyr-del" in js and "lyr-regen" in js
-    assert "isBg ? '' :" in js                  # 배경 썸네일엔 삭제 버튼 없음
-    assert "stopPropagation" in js              # 썸네일 오버레이 토글과 충돌 방지
+    assert "function regenLayer" in js
+    assert "function setLayerState" in js and "function vectorizeLayers" in js
+    assert "/api/layers/state" in js and "/api/layers/regenerate" in js
+    assert "/api/layers/vectorize" in js
+    assert "lyr-row" in js and "lyr-eye" in js and "lyr-rm" in js and "lyr-restore" in js
+    assert "isBg ? '' :" in js                  # 배경 행엔 제거 버튼 없음
     html = HTML.read_text(encoding="utf-8")
-    assert ".lyr-item" in html and ".lyr-item.busy" in html
+    assert ".lyr-row" in html and ".lyr-row.busy" in html
 
 
 def test_layer_modal_shows_budget():
