@@ -7,7 +7,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, timeline
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, timeline, vectorize
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -608,6 +608,40 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         if res.get("error"):
             return 422, res
         return 200, res
+
+    if method == "POST" and p == "/api/layers/vectorize":
+        b = body or {}
+        pid = b.get("project_id", "")
+        proj_dir = root / pid
+        if not proj_dir.is_dir():
+            return 404, {"error": "프로젝트 없음"}
+        data = scenes.load_scenes(proj_dir)
+        sc = next((s for s in data["scenes"] if s.get("sceneNumber") == b.get("sceneNumber")), None)
+        if not sc:
+            return 404, {"error": "씬 없음"}
+        stems = [s for s in (b.get("layers") or []) if s]
+        if not stems:
+            return 400, {"error": "layers 필요"}
+        if not vectorize.api_key():
+            # 키가 없으면 잡을 시작하지 않는다 — 크레딧도 시간도 쓰지 않는다.
+            return 422, {"error": "RECRAFT_API_KEY 없음 — .env 또는 환경변수에 넣어 주세요"}
+        sid = sc.get("sceneId")
+        force = bool(b.get("force"))
+        jobs = ctx["jobs"]
+        jid = jobs.create("layer-vectorize", pid)
+        def _do_vec(proj_dir=proj_dir, sid=sid, stems=stems, force=force, jid=jid):
+            res = vectorize.vectorize_layers(
+                proj_dir, sid, stems, force=force,
+                on_event=lambda e: jobs.append_log(
+                    jid, f"{e['layer']}: {e['status']}" + (f" — {e.get('error','')}"
+                                                          if e["status"] == "failed" else "")))
+            jobs.set_status(jid, "running", artifact_paths=[str(proj_dir / "layers")])
+            vault.log_work(proj_dir, "vectorize",
+                           f"씬{sc.get('sceneNumber')} 벡터화 {len(res['ok'])}장"
+                           f"(건너뜀 {len(res['skipped'])}, 실패 {len(res['failed'])})")
+            return res
+        run_async(jobs, jid, _do_vec)
+        return 200, {"job_id": jid, "status": "running"}
 
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")
