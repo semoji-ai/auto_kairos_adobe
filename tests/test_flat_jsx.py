@@ -89,3 +89,18 @@ def test_layout_image_uses_image_fit():
 def test_map_overlay_still_called():
     src = _src()
     assert "renderMapOverlay" in src
+
+
+def test_place_on_timeline_removed():
+    """씬 컴프를 얹던 스크립트는 평면에서 성립하지 않는다."""
+    assert not (PANEL / "jsx" / "place_on_timeline.jsx").exists()
+    html = (PANEL / "index.html").read_text(encoding="utf-8")
+    assert "place_on_timeline.jsx" not in html
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "akPlaceOnTimeline" not in js
+
+
+def test_scene_build_is_idempotent():
+    """같은 씬을 다시 빌드하면 기존 그룹을 지우고 다시 넣는다."""
+    src = _src()
+    assert "akRemoveSceneGroup(comp, s.prefix)" in src

@@ -7,7 +7,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, timeline, vectorize
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, vectorize
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -232,13 +232,6 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
                                   narration_tts=b.get("narration_tts"),
                                   subtitle_text=b.get("subtitle_text"))
         return (200, res) if res.get("ok") else (404, res)
-
-    if method == "POST" and p == "/api/timeline/plan":
-        b = body or {}
-        proj_dir = root / b.get("project_id", "")
-        if not proj_dir.is_dir():
-            return 404, {"error": "프로젝트 없음"}
-        return 200, timeline.build_plan(proj_dir, only_scene=b.get("sceneNumber"))
 
     if method == "POST" and p in ("/api/scenes/add", "/api/scenes/delete",
                                   "/api/scenes/split", "/api/scenes/merge"):

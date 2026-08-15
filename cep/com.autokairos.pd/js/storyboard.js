@@ -1146,32 +1146,16 @@ function resetSceneText(n, kind) {
     .catch(function (e) { _rowStatus(n, "오류: " + e); });
 }
 
-/* ⤓ — 씬 컴프를 현재 타임라인(활성 컴프, 없으면 Final)에 시간대로 배치.
-   sceneNumber=null이면 전체. 시작 시점은 TTS 길이 누적(없는 씬은 5초)으로 계산. */
+/* ⤓ — 이 씬을 타임라인에 다시 놓는다. 평면 컴프라 씬 빌드가 곧 재배치다:
+   빌드가 S{번호}_ 로 시작하는 레이어를 지우고 같은 시각 구간에 다시 넣는다.
+   sceneNumber=null이면 전체. */
 function exportToTimeline(sceneNumber) {
   var say = sceneNumber == null
     ? function (m) { var e = $("aeresult"); if (e) e.textContent = m; }
     : function (m) { _rowStatus(sceneNumber, m); };
   if (!SELECTED_PROJECT) { say("프로젝트를 먼저 선택하세요."); return; }
-  var bodyObj = { project_id: SELECTED_PROJECT };
-  if (sceneNumber != null) bodyObj.sceneNumber = sceneNumber;
-  say("타임라인 배치 계획 계산 중...");
-  return fetch(BACKEND + "/api/timeline/plan", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bodyObj),
-  }).then(function (r) { return r.json(); })
-    .then(function (plan) {
-      if (plan.error || !plan.items || !plan.items.length) {
-        say("실패: " + JSON.stringify(plan.error || "배치할 씬 없음")); return;
-      }
-      var jsx;
-      try { jsx = readLocal("./jsx/place_on_timeline.jsx"); }
-      catch (e) { say("jsx 로드 실패: " + e); return; }
-      say("타임라인 배치 중... (" + plan.items.length + "개)");
-      var call = "\nakPlaceOnTimeline(" + JSON.stringify(JSON.stringify(plan)) + ");";
-      return evalScript(jsx + call).then(function (r) { say(r || "(빈 응답 — AE 콘솔 확인)"); });
-    })
-    .catch(function (e) { say("오류: " + e); });
+  if (typeof _assemble !== "function") { say("빌드 함수를 찾지 못했습니다."); return; }
+  return _assemble(sceneNumber == null ? null : parseInt(sceneNumber, 10), say);
 }
 
 function exportAllToTimeline() { exportToTimeline(null); }

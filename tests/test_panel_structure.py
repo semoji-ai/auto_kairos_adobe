@@ -710,14 +710,16 @@ def test_planning_stepper_ui():
 
 
 def test_timeline_export_wired():
-    """전체 타임라인 버튼 + jsx 배치 함수 + 씬 행 버튼."""
+    """전체 타임라인 버튼 + 씬 재빌드 경로 + 씬 행 버튼. 평면 컴프라 씬 컴프 배치 스크립트는 없다."""
     html = HTML.read_text(encoding="utf-8")
     assert 'id="btnTimelineAll"' in html
-    jsx = (PANEL / "jsx" / "place_on_timeline.jsx").read_text(encoding="utf-8")
-    assert "function akPlaceOnTimeline" in jsx
+    assert not (PANEL / "jsx" / "place_on_timeline.jsx").exists()
+    build_jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
+    assert "akRemoveSceneGroup" in build_jsx
     sb = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
     for fn in ["function exportToTimeline", "function toggleTextEditor", "function saveSceneTexts"]:
         assert fn in sb, fn
+    assert "akPlaceOnTimeline" not in sb
     for act in ['data-act="img"', 'data-act="tts"', 'data-act="txt"', 'data-act="tl"']:
         assert act in sb, act
 

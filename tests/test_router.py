@@ -1043,17 +1043,6 @@ def test_scenes_texts_endpoint(tmp_path):
     assert code == 404
 
 
-def test_timeline_plan_endpoint(tmp_path):
-    ctx = _tmp_ctx(tmp_path, [{"sceneNumber": 1, "sceneId": "a", "narration": "가"},
-                              {"sceneNumber": 2, "sceneId": "b", "narration": "나"}])
-    code, body = handle_request("POST", "/api/timeline/plan", {}, {"project_id": "p1"}, ctx)
-    assert code == 200 and len(body["items"]) == 2
-    assert body["items"][0]["start"] == 0.0 and body["items"][1]["start"] == 5.0
-    code, one = handle_request("POST", "/api/timeline/plan", {},
-                               {"project_id": "p1", "sceneNumber": 2}, ctx)
-    assert code == 200 and len(one["items"]) == 1 and one["items"][0]["start"] == 5.0
-
-
 def test_assembly_manifest_scene_list(tmp_path, monkeypatch):
     """체크한 씬 여러 개 — 한 번의 호출로 목록을 넘긴다."""
     import backend.router as r
