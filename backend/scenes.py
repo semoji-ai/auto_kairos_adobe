@@ -100,6 +100,7 @@ def load_scenes(proj_dir: Path) -> dict:
         s["_image"] = ref if (ref and (proj_dir / ref).is_file()) else None
         s["_layers"] = (sorted(f"layers/{p.name}" for p in lay_dir.glob(f"*{sid}*.png"))
                         if sid and lay_dir.is_dir() else [])
+        s["_layer_meta"] = _layer_meta(lay_dir, sid) if sid and lay_dir.is_dir() else {}
         aud_dir = proj_dir / "audio"
         auds = ([p for p in aud_dir.glob(f"tts_{sid}.*") if p.suffix != ".json"]
                 if sid and aud_dir.is_dir() else [])    # .timestamps.json 사이드카 제외
@@ -164,6 +165,29 @@ def subtitle_text(scene: dict) -> str:
     """씬의 화면 자막용 텍스트. subtitle_text 없으면 narration."""
     t = (scene.get("subtitle_text") or "").strip()
     return t if t else (scene.get("narration") or "").strip()
+
+
+def _layer_meta(lay_dir, sid: str) -> dict:
+    """{stem: {name, kind, z, hidden, removed, svg}} — 패널 레이어 목록용.
+
+    사이드카에 없는 레이어(배경·레거시)도 파일 기준으로 항목을 만든다.
+    svg는 같은 이름의 .svg 파일 존재 여부다."""
+    from backend import imagegen
+    specs = {s.get("layer"): s for s in imagegen.load_element_specs(lay_dir, sid)}
+    out = {}
+    for p in sorted(lay_dir.glob(f"*{sid}*.png")):
+        stem = p.stem
+        sp = specs.get(stem) or {}
+        is_bg = imagegen.is_background_layer(stem)
+        out[stem] = {
+            "name": sp.get("name") or ("배경" if is_bg else stem),
+            "kind": "bg" if is_bg else (sp.get("kind") or "object"),
+            "z": sp.get("z"),
+            "hidden": bool(sp.get("hidden")),
+            "removed": bool(sp.get("removed")),
+            "svg": (lay_dir / (stem + ".svg")).is_file(),
+        }
+    return out
 
 
 def update_texts(proj_dir: Path, scene_number: int,

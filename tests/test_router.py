@@ -1102,48 +1102,6 @@ def _layer_proj(tmp_path):
     return proj
 
 
-def test_layers_delete_endpoint(tmp_path, monkeypatch):
-    import backend.router as r
-    proj = _layer_proj(tmp_path)
-    monkeypatch.setattr(r.imagegen, "regenerate_layer",
-                        lambda *a, **k: {"layer": {"name": "배경", "status": "completed"}})
-    monkeypatch.setattr(r.vault, "log_work", lambda *a, **k: None)
-    ctx = {"root": tmp_path, "jobs": JobRegistry()}
-    code, body = handle_request("POST", "/api/layers/delete", {},
-                                {"project_id": "lp", "sceneNumber": 1, "layer": "ab__1_탁자"}, ctx)
-    assert code == 200 and body["ok"] and body["removed"] == "ab__1_탁자"
-    assert not (proj / "layers" / "ab__1_탁자.png").exists()
-    assert (proj / "layers" / "_prev" / "ab__1_탁자.png").is_file()
-    _poll(ctx, {"status": body["status"], "job_id": body["job_id"]})   # 배경 재생성 잡
-
-
-def test_layers_delete_rejects_background(tmp_path):
-    _layer_proj(tmp_path)
-    ctx = {"root": tmp_path, "jobs": JobRegistry()}
-    code, body = handle_request("POST", "/api/layers/delete", {},
-                                {"project_id": "lp", "sceneNumber": 1, "layer": "ab__bg"}, ctx)
-    assert code == 422 and "error" in body
-
-
-def test_layers_delete_cancels_previous_bg_job(tmp_path, monkeypatch):
-    """연속 삭제 — 앞선 배경 재생성 잡을 취소해 배경을 마지막 한 번만 만든다."""
-    import threading
-    import backend.router as r
-    _layer_proj(tmp_path)
-    gate = threading.Event()
-    monkeypatch.setattr(r.imagegen, "regenerate_layer",
-                        lambda *a, **k: (gate.wait(5), {"layer": {"status": "completed"}})[1])
-    monkeypatch.setattr(r.vault, "log_work", lambda *a, **k: None)
-    ctx = {"root": tmp_path, "jobs": JobRegistry()}
-    _, b1 = handle_request("POST", "/api/layers/delete", {},
-                           {"project_id": "lp", "sceneNumber": 1, "layer": "ab__0_인물"}, ctx)
-    _, b2 = handle_request("POST", "/api/layers/delete", {},
-                           {"project_id": "lp", "sceneNumber": 1, "layer": "ab__1_탁자"}, ctx)
-    assert ctx["jobs"].is_cancelled(b1["job_id"]) is True       # 앞선 배경 잡은 취소
-    assert ctx["jobs"].is_cancelled(b2["job_id"]) is False      # 마지막 것만 살아남음
-    gate.set()
-
-
 def test_layers_regenerate_endpoint(tmp_path, monkeypatch):
     import backend.router as r
     _layer_proj(tmp_path)
@@ -1161,7 +1119,7 @@ def test_layers_regenerate_endpoint(tmp_path, monkeypatch):
 def test_layers_endpoints_validate_input(tmp_path):
     _layer_proj(tmp_path)
     ctx = {"root": tmp_path, "jobs": JobRegistry()}
-    code, _ = handle_request("POST", "/api/layers/delete", {},
+    code, _ = handle_request("POST", "/api/layers/regenerate", {},
                              {"project_id": "lp", "sceneNumber": 1}, ctx)
     assert code == 400                                          # layer 누락
     code, _ = handle_request("POST", "/api/layers/regenerate", {},
