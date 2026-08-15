@@ -46,6 +46,9 @@ def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "", comp_width: i
     specs = {s.get("layer"): s for s in imagegen.load_element_specs(proj_dir / "layers", sid)} if sid else {}
     bg = [r for r in layer_rels if "__bg" in Path(r).name]
     el = [r for r in layer_rels if "__bg" not in Path(r).name]
+    # 프로젝트에서 제거한 요소는 내보내지 않는다. hidden은 패널 미리보기 전용이라 무시한다.
+    # 배경은 제거 대상이 아니므로 el만 거른다.
+    el = [r for r in el if not (specs.get(Path(r).stem) or {}).get("removed")]
     el.sort(key=lambda r: (specs.get(Path(r).stem, {}).get("z") is None,
                            specs.get(Path(r).stem, {}).get("z") or 0,
                            Path(r).name))
@@ -57,8 +60,15 @@ def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "", comp_width: i
     out = []
     for r in bg + el:
         stem = Path(r).stem
-        entry = {"name": stem, "path": _abs(proj_dir, r),
+        # 벡터화한 레이어는 SVG로 내보낸다 — AE에서 연속 래스터화를 켜면 확대해도 깨지지 않는다.
+        # 크기 계산(position/scale)은 PNG 기준을 그대로 쓴다. Recraft SVG의 width/height가
+        # 원본 PNG와 같고, PIL은 SVG를 읽지 못한다.
+        svg_rel = str(Path(r).with_suffix(".svg"))
+        has_svg = (proj_dir / svg_rel).is_file()
+        entry = {"name": stem, "path": _abs(proj_dir, svg_rel if has_svg else r),
                  "kind": "bg" if "__bg" in Path(r).name else "element"}
+        if has_svg:
+            entry["vector"] = True
         if entry["kind"] == "element":
             placed = False
             bbox = (specs.get(stem) or {}).get("bbox")

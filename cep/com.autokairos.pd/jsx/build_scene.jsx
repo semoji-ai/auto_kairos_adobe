@@ -324,6 +324,10 @@ function akBuildScene(manifestPath) {
         if (!f.exists) return null;
         var foot = proj.importFile(new ImportOptions(f));
         var il = comp.layers.add(foot);
+        // SVG는 기본값으로 100% 크기에서 한 번만 래스터화된다 — 확대하면 PNG처럼 깨진다.
+        // 연속 래스터화를 켜야 배율마다 벡터에서 다시 그린다. 이것이 벡터화의 목적 그 자체다.
+        // 부작용: 이 스위치를 켠 레이어는 블렌딩 모드와 일부 이펙트가 무시된다(AE 제약).
+        if (layer.vector) { try { il.collapseTransformation = true; } catch (eCR) { } }
         var sw = il.source.width, sh = il.source.height;
         il.property("Anchor Point").setValue([sw / 2, sh / 2]);
         if (layer.position) {                         // 크롭된 요소 — 원위치 좌표 적용
