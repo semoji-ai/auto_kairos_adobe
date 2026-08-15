@@ -1,5 +1,8 @@
 import json
 from pathlib import Path
+
+import pytest
+
 from backend import manifest
 
 
@@ -94,7 +97,7 @@ def test_manifest_no_motion_file_ok(tmp_path):
 
 
 def test_manifest_element_foot_point(tmp_path):
-    """요소 레이어의 foot = 불투명 영역 하단 중앙(까딱 피벗)."""
+    """요소 레이어의 foot = 불투명 영역 하단 중앙(까딱 피벗) — 컴프 공간으로 굽는다."""
     from PIL import Image
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ft", "imageRef": "storyboard/sb.png"}])
     (d / "storyboard").mkdir(); Image.new("RGB", (200, 200)).save(d / "storyboard" / "sb.png")
@@ -108,7 +111,9 @@ def test_manifest_element_foot_point(tmp_path):
     manifest.build_manifest(d)
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     el = next(L for L in sc["layers"] if L["kind"] == "element")
-    assert el["foot"] == [90.0, 160.0]                    # bbox(60,40,120,160) 하단 중앙
+    f = 1080 / 200
+    ox = (1920 - 200 * f) / 2
+    assert el["foot"] == pytest.approx([90.0 * f + ox, 160.0 * f])   # bbox(60,40,120,160) 하단 중앙, 컴프 좌표
     bg = next(L for L in sc["layers"] if L["kind"] == "bg")
     assert "foot" not in bg
 
@@ -266,14 +271,14 @@ def test_manifest_injects_theme_colors(tmp_path, monkeypatch):
     assert mf["themeColors"]["accentRgb"] == [255, 80, 80]
 
 
-def test_scene_manifest_skips_final(tmp_path):
-    """씬별 manifest(only_scene)는 skipFinal — Final은 전체 컴프 때만(중복 방지)."""
+def test_scene_manifest_no_skip_final(tmp_path):
+    """평면 구조에서는 Final이 유일한 컴프 — 씬별 manifest(only_scene)도 skipFinal을 내지 않는다."""
     d = _proj(tmp_path, [
         {"sceneNumber": 1, "sceneId": "a", "layout": "headline_only", "headline": "x", "narration": "n"},
         {"sceneNumber": 2, "sceneId": "b", "layout": "headline_only", "headline": "y", "narration": "m"}])
     manifest.build_manifest(d, only_scene=1)
     m1 = json.loads((d / "manifest_scene_1.json").read_text())
-    assert m1.get("skipFinal") is True and len(m1["scenes"]) == 1
+    assert "skipFinal" not in m1 and len(m1["scenes"]) == 1
     manifest.build_manifest(d)
     m2 = json.loads((d / "manifest.json").read_text())
     assert "skipFinal" not in m2 and len(m2["scenes"]) == 2
@@ -291,7 +296,7 @@ def test_build_manifest_only_scenes_subset(tmp_path):
     assert res["path"].endswith("manifest_subset.json")
     mf = _j.loads(Path(res["path"]).read_text(encoding="utf-8"))
     assert [s["ae_comp_name"] for s in mf["scenes"]] == ["S02_s2", "S04_s4", "S06_s6"]
-    assert mf["skipFinal"] is True          # 부분 빌드는 Final을 다시 만들지 않음
+    assert "skipFinal" not in mf            # 평면 구조 — Final이 유일한 컴프, 부분 빌드도 그대로 들어감
     # 전체 빌드는 그대로
     assert _m.build_manifest(tmp_path)["scenes"] == 7
 
@@ -369,9 +374,11 @@ def test_layer_placement_from_bbox(tmp_path):
 
     mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
     car = [L for L in mf["scenes"][0]["layers"] if "car" in L["name"]][0]
-    assert car["position"] == [799.0, 706.0]        # bbox 중심
-    assert round(car["scale"], 1) == 86.5           # (1254-344)/1052*100
-    assert car["foot"] == [799.0, 912.0]            # bbox 하단 중앙
+    f = 1080 / 1024
+    ox = (1920 - 1536 * f) / 2
+    assert car["position"] == pytest.approx([799.0 * f + ox, 706.0 * f])   # bbox 중심, 컴프 좌표
+    assert round(car["scale"], 1) == round(86.5 * f, 1)   # (1254-344)/1052*100 × f
+    assert car["foot"] == pytest.approx([799.0 * f + ox, 912.0 * f])       # bbox 하단 중앙, 컴프 좌표
 
 
 def test_layers_ordered_by_z(tmp_path):
@@ -412,13 +419,18 @@ def test_layer_bbox_scaled_when_plate_smaller_than_comp(tmp_path):
 
     mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
     car = [L for L in mf["scenes"][0]["layers"] if "car" in L["name"]][0]
-    # factor = 2000/1000 = 2 → bbox [100,100,300,300] * 2 = [200,200,600,600]
-    assert car["position"] == [400.0, 400.0]
-    assert car["foot"] == [400.0, 600.0]
+    # factor = 2000/1000 = 2 → bbox [100,100,300,300] * 2 = [200,200,600,600] (씬 이미지 좌표)
+    # 그 다음 컴프 좌표로 굽는다: f, ox는 씬 이미지(2000x1000) 기준
+    f = 1080 / 1000
+    ox = (1920 - 2000 * f) / 2
+    assert car["position"] == pytest.approx([400.0 * f + ox, 400.0 * f])
+    assert car["foot"] == pytest.approx([400.0 * f + ox, 600.0 * f])
 
 
-def test_bbox_non_numeric_degrades_to_no_placement(tmp_path):
-    """발견6 — 비수치 bbox 값은 예외를 던지지 않고 bbox 없는 것처럼(alpha_foot 폴백) 처리한다."""
+def test_bbox_non_numeric_degrades_to_fullframe_placement(tmp_path):
+    """발견6 — 비수치 bbox 값은 예외를 던지지 않고 bbox 없는 것처럼(풀프레임 폴백) 처리한다.
+    평면 구조에서는 모든 레이어에 position/scale이 반드시 있어야 하므로, 풀프레임 폴백도
+    컴프 좌표를 낸다(그러나 foot은 여전히 alpha_foot으로 실제 인물 위치를 보존)."""
     import json as _j
     from PIL import Image
     from backend import manifest as _m
@@ -436,12 +448,15 @@ def test_bbox_non_numeric_degrades_to_no_placement(tmp_path):
 
     mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
     car = [L for L in mf["scenes"][0]["layers"] if "car" in L["name"]][0]
-    assert "position" not in car and "scale" not in car
-    assert car.get("foot") == [50.0, 80.0]   # alpha_foot 폴백으로 피벗은 보존
+    # 이미지 참조가 없으므로 씬은 기본 1920x1080(f=1, ox=0) — 풀프레임 폴백은 씬 사각형(전체 캔버스) 기준
+    assert car["position"] == pytest.approx([960.0, 540.0])
+    assert car["scale"] == pytest.approx(1920.0)   # sw(1920)/pw(100)*100 — car PNG가 캔버스보다 훨씬 작음
+    assert car.get("foot") == [50.0, 80.0]   # alpha_foot 폴백으로 피벗은 보존(f=1, ox=0이라 그대로)
 
 
-def test_legacy_layers_without_bbox_stay_fullframe(tmp_path):
-    """기존 프로젝트는 풀프레임 PNG라 좌표가 없다 — 지금처럼 1:1로 겹친다."""
+def test_legacy_layers_without_bbox_get_fullframe_comp_coords(tmp_path):
+    """기존 프로젝트는 풀프레임 PNG라 bbox가 없다 — 평면 구조에서도 좌표는 반드시 실어야
+    하므로 씬 사각형(컴프 좌표)을 채우는 position/scale을 낸다."""
     import json as _j
     from PIL import Image
     from backend import manifest as _m
@@ -452,4 +467,6 @@ def test_legacy_layers_without_bbox_stay_fullframe(tmp_path):
 
     mf = _j.loads(Path(_m.build_manifest(d)["path"]).read_text(encoding="utf-8"))
     old = [L for L in mf["scenes"][0]["layers"] if "old" in L["name"]][0]
-    assert "position" not in old and "scale" not in old
+    # 이미지 참조가 없으므로 씬은 기본 1920x1080(f=1, ox=0) — old.png도 1920x1080이라 1:1로 겹침
+    assert old["position"] == pytest.approx([960.0, 540.0])
+    assert old["scale"] == pytest.approx(100.0)
