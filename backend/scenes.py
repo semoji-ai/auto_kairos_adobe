@@ -174,6 +174,15 @@ def _layer_meta(lay_dir, sid: str) -> dict:
     svg는 같은 이름의 .svg 파일 존재 여부다."""
     from backend import imagegen
     specs = {s.get("layer"): s for s in imagegen.load_element_specs(lay_dir, sid)}
+    plate = None
+    for p in lay_dir.glob(f"*{sid}*bg*.png"):
+        try:
+            from PIL import Image
+            with Image.open(p) as im:
+                plate = (im.width, im.height)
+        except Exception:
+            plate = None
+        break
     out = {}
     for p in sorted(lay_dir.glob(f"*{sid}*.png")):
         stem = p.stem
@@ -186,8 +195,24 @@ def _layer_meta(lay_dir, sid: str) -> dict:
             "hidden": bool(sp.get("hidden")),
             "removed": bool(sp.get("removed")),
             "svg": (lay_dir / (stem + ".svg")).is_file(),
+            "box": _box_pct(sp.get("bbox"), plate) if not is_bg else None,
         }
     return out
+
+
+def _box_pct(bbox, plate):
+    """bbox(배경판 픽셀) → {left, top, width} 백분율. 패널 합성 미리보기용.
+    bbox나 배경판 크기가 없으면 None — 패널이 풀프레임으로 겹친다."""
+    if not bbox or len(bbox) != 4 or not plate or not plate[0] or not plate[1]:
+        return None
+    try:
+        l, t, r, b = [float(v) for v in bbox]
+    except (TypeError, ValueError):
+        return None
+    if r - l <= 0 or b - t <= 0:
+        return None
+    pw, ph = plate
+    return {"left": l / pw * 100, "top": t / ph * 100, "width": (r - l) / pw * 100}
 
 
 def update_texts(proj_dir: Path, scene_number: int,

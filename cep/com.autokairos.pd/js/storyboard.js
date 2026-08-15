@@ -289,6 +289,44 @@ function renderLayerList(s, dir) {
        + '</div>';
 }
 
+/* 레이어 합성 미리보기 — 배경판을 깔고 요소를 bbox 백분율로 얹는다.
+   눈을 끈 레이어는 그리지 않는다. 백엔드 호출 없이 이미 받은 PNG만 쓴다. */
+function renderComposite(s, dir) {
+  var meta = s._layer_meta || {};
+  var rels = (s._layers || []).slice();
+  if (rels.length < 2) return "";                 // 배경 + 요소가 있어야 합성이다
+  rels.sort(function (a, b) {
+    var ma = meta[_lyrStem(a)] || {}, mb = meta[_lyrStem(b)] || {};
+    if ((ma.kind === "bg") !== (mb.kind === "bg")) return ma.kind === "bg" ? -1 : 1;
+    var za = (ma.z == null) ? 9999 : ma.z, zb = (mb.z == null) ? 9999 : mb.z;
+    return za - zb;
+  });
+  var bgRel = null, html = "";
+  for (var i = 0; i < rels.length; i++) {
+    var stem = _lyrStem(rels[i]);
+    var m = meta[stem] || {};
+    if (m.removed || m.hidden) continue;
+    var src = 'file://' + dir + '/' + rels[i];
+    if (m.kind === "bg" && !bgRel) {
+      bgRel = src;
+      continue;
+    }
+    if (m.box) {
+      html += '<img class="comp-el" src="' + src + '"'
+            + ' style="left:' + m.box.left + '%;top:' + m.box.top + '%;width:'
+            + m.box.width + '%">';
+    } else {
+      html += '<img class="comp-el full" src="' + src + '">';   // bbox 없는 레거시 풀프레임
+    }
+  }
+  if (!bgRel) {
+    // 배경을 껐거나 없다 — 씬 이미지를 바탕으로 쓴다(요소 위치 기준이 같다)
+    if (!s._image) return "";
+    bgRel = 'file://' + dir + '/' + s._image;
+  }
+  return '<div class="comp"><img class="comp-bg" src="' + bgRel + '">' + html + '</div>';
+}
+
 function _lyrHead(s) {
   var n = s.sceneNumber;
   var open = !!LYR_OPEN[n];
@@ -309,7 +347,9 @@ function _lyrHead(s) {
 
 function renderRow(s, dir) {
   var n = s.sceneNumber;
-  var media = _previewHTML(s, dir);   // 컴프 결과 미리보기(배경+레이아웃+자막)
+  // 레이어가 있으면 합성 미리보기(눈 토글이 즉시 보인다), 없으면 기존 컴프 미리보기.
+  var comp = renderComposite(s, dir);
+  var media = comp || _previewHTML(s, dir);   // 컴프 결과 미리보기(배경+레이아웃+자막)
   var hasLayers = (s._layers || []).length > 0;
   var layerBlock = hasLayers
     ? (_lyrHead(s) + (LYR_OPEN[n] ? renderLayerList(s, dir)

@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from backend import jobs as jobs_mod
 from backend import router
 
@@ -92,3 +94,30 @@ def test_scene_layer_meta(tmp_path):
     assert meta[f"{SID}__0_car"]["name"] == "차"
     assert meta[f"{SID}__bg"]["svg"] is False
     assert meta[f"{SID}__bg"]["removed"] is False
+
+
+def test_layer_meta_box_percent(tmp_path):
+    """bbox가 배경판 크기 기준 백분율로 변환된다 — 패널 합성 미리보기용."""
+    from PIL import Image
+    from backend import scenes
+    proj = _project(tmp_path)
+    Image.new("RGBA", (1000, 500)).save(proj / "layers" / f"{SID}__bg.png")
+    Image.new("RGBA", (200, 100)).save(proj / "layers" / f"{SID}__0_car.png")
+    specs = [{"layer": f"{SID}__0_car", "index": 0, "name": "차", "name_en": "car",
+              "location": "", "kind": "object", "intent": "", "z": 1,
+              "bbox": [100, 50, 300, 150]}]
+    (proj / "layers" / f"{SID}__elements.json").write_text(
+        json.dumps(specs, ensure_ascii=False), encoding="utf-8")
+    meta = scenes.load_scenes(proj)["scenes"][0]["_layer_meta"]
+    box = meta[f"{SID}__0_car"]["box"]
+    assert box["left"] == pytest.approx(10.0)
+    assert box["top"] == pytest.approx(10.0)
+    assert box["width"] == pytest.approx(20.0)
+    assert meta[f"{SID}__bg"]["box"] is None
+
+
+def test_layer_meta_box_none_without_bbox(tmp_path):
+    from backend import scenes
+    proj = _project(tmp_path)
+    meta = scenes.load_scenes(proj)["scenes"][0]["_layer_meta"]
+    assert meta[f"{SID}__0_car"]["box"] is None
