@@ -317,6 +317,39 @@ function akBuildScene(manifestPath) {
             addTextL: addTextL, addRectL: addRectL, addBarShape: addBarShape, applyDash: applyDash
         });
     }
+    // 평면 컴프 — 컴프는 Final 하나. 씬은 S{번호}_ 접두사 레이어 그룹으로 구분한다.
+    function akFindOrMakeComp(proj, name, W, H, fps, dur) {
+        for (var i = 1; i <= proj.numItems; i++) {
+            var it = proj.item(i);
+            if (it instanceof CompItem && it.name === name) {
+                if (dur > it.duration) { it.duration = dur; }
+                return it;
+            }
+        }
+        return proj.items.addComp(name, W, H, 1.0, Math.max(dur, 1), fps);
+    }
+
+    // 이 씬의 레이어를 전부 지운다(재빌드는 지우고 다시 넣는다).
+    function akRemoveSceneGroup(comp, prefix) {
+        var n = 0;
+        for (var i = comp.numLayers; i >= 1; i--) {
+            if (comp.layer(i).name.indexOf(prefix) === 0) { comp.layer(i).remove(); n++; }
+        }
+        return n;
+    }
+
+    // 다음 씬 그룹의 최상단 레이어 — 새 그룹을 그 위에 놓아 씬 번호 순서를 지킨다.
+    function akGroupAnchor(comp, scenes, idx) {
+        for (var j = idx + 1; j < scenes.length; j++) {
+            var pf = scenes[j].prefix;
+            if (!pf) { continue; }
+            for (var i = 1; i <= comp.numLayers; i++) {
+                if (comp.layer(i).name.indexOf(pf) === 0) { return comp.layer(i); }
+            }
+        }
+        return null;
+    }
+
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
     // 자동 효과(페이드 등)는 넣지 않는다 — 모든 모션은 모션 플랜(applyMoves)에서만(규칙 기반).
     function addLayerObj(proj, comp, layer, W, H) {
@@ -330,29 +363,31 @@ function akBuildScene(manifestPath) {
         if (layer.vector) { try { il.collapseTransformation = true; } catch (eCR) { } }
         var sw = il.source.width, sh = il.source.height;
         il.property("Anchor Point").setValue([sw / 2, sh / 2]);
-        if (layer.position) {                         // 크롭된 요소 — 원위치 좌표 적용
-            il.property("Position").setValue([layer.position[0], layer.position[1]]);
-            var es = (layer.scale != null) ? layer.scale : 100;
-            il.property("Scale").setValue([es, es]);
-        } else {                                      // 풀프레임(배경/단일 이미지) — 채움·중앙
-            il.property("Position").setValue([W / 2, H / 2]);
-            var fs = Math.max(W / sw, H / sh) * 100;
-            il.property("Scale").setValue([fs, fs]);
-        }
+        // 좌표는 매니페스트가 컴프 공간으로 구워서 준다 — 여기서 계산하지 않는다.
+        var lp = layer.position || [W / 2, H / 2];
+        var ls = (layer.scale != null) ? layer.scale : 100;
+        il.property("Position").setValue([lp[0], lp[1]]);
+        il.property("Scale").setValue([ls, ls]);
         return il;
     }
     // 프리셋 모션 → 키프레임(결정적). 실패해도 빌드는 계속(try/catch).
     // 발밑(불투명 하단 중앙) 피벗 null 생성 + 페어런팅 + 세로 스케일 100↔(100+amt) 이지이즈 핑퐁 루프.
     // foot = manifest가 계산한 알파 bbox 하단 중앙(전신=발, 상반신=절단점) — 까딱까딱 idle.
-    function addBobNull(comp, il, layer, t0, amt, sceneDur) {
-        var nl = comp.layers.addNull(sceneDur);
-        nl.name = (layer.name || "el") + "_피벗";
+    function addBobNull(comp, il, layer, t0, amt, tEnd) {
+        var prevParent = il.parent;
+        il.parent = null;
+        var nl = comp.layers.addNull();
+        nl.name = (layer.aeName || layer.name || "el") + "_피벗";
         nl.property("Position").setValue([layer.foot[0], layer.foot[1]]);
+        nl.inPoint = il.inPoint;
+        nl.outPoint = il.outPoint;
         il.parent = nl;                                   // AE가 월드 변환 보존하며 페어런팅
+        if (prevParent) { nl.parent = prevParent; }
+        nl.moveAfter(il);                                 // 씬 그룹 안에 머무르게
         var sp = nl.property("Scale");
         var half = 0.6;                                   // 반주기 0.6s
         sp.setValueAtTime(t0, [100, 100]);
-        sp.setValueAtTime(Math.min(sceneDur, t0 + half), [100, 100 + amt]);
+        sp.setValueAtTime(Math.min(tEnd, t0 + half), [100, 100 + amt]);
         try {                                             // easy ease 양 키
             var ez = new KeyframeEase(0, 33.34);
             sp.setTemporalEaseAtKey(1, [ez, ez], [ez, ez]);
@@ -362,15 +397,15 @@ function akBuildScene(manifestPath) {
         return nl;
     }
 
-    function applyMoves(comp, il, layer, sceneDur, cw, ch) {
+    function applyMoves(comp, il, layer, sceneStart, sceneDur, cw, ch) {
         var moves = layer.moves;
         if (!moves || !moves.length) return;
         var P = il.property("Position").value;
         var S = il.property("Scale").value;
         for (var mi = 0; mi < moves.length; mi++) {
             var mv = moves[mi];
-            var t0 = Math.max(0, mv.start || 0);
-            var t1 = Math.min(sceneDur, t0 + (mv.duration || 0.5));
+            var t0 = sceneStart + Math.max(0, mv.start || 0);
+            var t1 = Math.min(sceneStart + sceneDur, t0 + (mv.duration || 0.5));
             if (t1 <= t0) continue;
             var amt = mv.amount;
             try {
@@ -408,7 +443,7 @@ function akBuildScene(manifestPath) {
                     pd.setValueAtTime(t1, [P[0] + d2, P[1] - d2 * 0.4]);
                 } else if (mv.type === "bob") {
                     if (layer.foot) {                     // 발밑 피벗 null 스쿼시 루프(우월 경로)
-                        addBobNull(comp, il, layer, t0, (amt && amt <= 5 ? amt : 1), sceneDur);
+                        addBobNull(comp, il, layer, t0, (amt && amt <= 5 ? amt : 1), sceneStart + sceneDur);
                     } else {                              // foot 없으면 구식 y 진동 폴백
                         var b2 = amt || 8, pb = il.property("Position");
                         var steps = Math.max(2, Math.floor((t1 - t0) / 0.6));
@@ -448,6 +483,66 @@ function akBuildScene(manifestPath) {
                 pp2.setValueAtTime(t + dur, [base[0] + dir2 * px / 2, base[1]]);
             }
         } catch (e) { }
+    }
+
+    // 씬 하나를 평면 컴프에 놓는다. 쌓임은 위에서 아래로 요소 → 배경 → 판 → 가이드 널.
+    // comp.layers.add는 맨 위에 넣으므로 가이드부터 거꾸로 추가하면 그 순서가 나온다.
+    function buildSceneGroup(proj, comp, s, W, H, log) {
+        var pf = s.prefix || "S00_";
+        var t0 = s.start || 0;
+        var dur = s.duration || 5;
+        var t1 = t0 + dur;
+
+        var guide = comp.layers.addNull();
+        guide.name = s.prefix + "가이드";
+        guide.property("Position").setValue([W / 2, H / 2]);
+        guide.inPoint = t0; guide.outPoint = t1;
+
+        if (s.bgFill) {                                   // 좌우 여백 — 테마 배경색으로
+            var c = TK.colors.bgRgb;
+            var fill = comp.layers.addSolid([c[0] / 255, c[1] / 255, c[2] / 255], pf + "판", W, H, 1.0);
+            fill.inPoint = t0; fill.outPoint = t1;
+            fill.parent = guide;
+        }
+
+        if (s.layers && s.layers.length) {
+            for (var li = 0; li < s.layers.length; li++) {
+                var lay = s.layers[li];
+                var il = addLayerObj(proj, comp, lay, W, H);
+                if (!il) { log.push(pf + "레이어 누락 " + (lay.aeName || lay.name)); continue; }
+                il.name = lay.aeName || lay.name;
+                il.inPoint = t0; il.outPoint = t1;
+                il.parent = guide;
+                if (lay.moves) { applyMoves(comp, il, lay, t0, dur, W, H); }
+                var top = il;                             // 까딱까딱 널이 끼면 그 널이 가이드의 자식
+                while (top.parent && top.parent !== guide) { top = top.parent; }
+                if (top !== guide && !top.parent) { top.parent = guide; }
+            }
+        } else if (s.image) {
+            var one = addLayerObj(proj, comp, {
+                path: s.image,
+                position: (s.imageFit || {}).position,
+                scale: (s.imageFit || {}).scale
+            }, W, H);
+            if (one) {
+                one.name = pf + "이미지";
+                one.inPoint = t0; one.outPoint = t1;
+                one.parent = guide;
+            } else { log.push(pf + "image 누락"); }
+        }
+
+        if (s.audio) {
+            var aF = new File(s.audio);
+            if (aF.exists) {
+                var al = comp.layers.add(proj.importFile(new ImportOptions(aF)));
+                al.name = pf + "음성";
+                al.startTime = t0;                        // 이것이 없으면 0초부터 재생된다
+                al.inPoint = t0; al.outPoint = t1;
+            }
+        }
+
+        if (s.camera) { applyCamera(guide, s.camera, t0, dur, 100, W, H); }
+        return guide;
     }
     try {
         var mf = new File(manifestPath);
@@ -492,70 +587,33 @@ function akBuildScene(manifestPath) {
         app.beginUndoGroup("auto_kairos PoC build");
         var proj = app.project || app.newProject();
 
-        var comps = [], totalDur = 0, log = [];
+        var log = [];
+        var endT = 0;
+        for (var ei = 0; ei < scenes.length; ei++) {
+            var se = (scenes[ei].start || 0) + (scenes[ei].duration || 5);
+            if (se > endT) { endT = se; }
+        }
+        var comp = akFindOrMakeComp(proj, "Final", W, H, FPS, endT);
+
         for (var i = 0; i < scenes.length; i++) {
             var s = scenes[i];
-            var dur = s.duration || 3;
-            var name = s.ae_comp_name || ("Scene_" + (i + 1));
-            // 씬 컴프 크기 = 씬 이미지 크기(레이어들과 동일) → 같은 크기 레이어가 1:1·중앙으로 정확히 겹침
-            var cw = s.width || W, ch = s.height || H;
-            var comp = proj.items.addComp(name, cw, ch, 1.0, dur, FPS);
-
-            // 레이아웃 씬(비이미지) — 셰이프/텍스트 결정적 렌더. 실패해도 빌드 지속.
-            var isLayoutScene = s.layout && s.layout !== "cinematic";
-            if (isLayoutScene) {
-                try { renderLayout(proj, comp, s, cw, ch); }
-                catch (eL) { log.push(name + ": 레이아웃 렌더 실패 " + eL.toString()); }
+            akRemoveSceneGroup(comp, s.prefix);           // 재빌드 — 지우고 다시 넣는다
+            var before = comp.numLayers;
+            try { buildSceneGroup(proj, comp, s, W, H, log); }
+            catch (eB) { log.push((s.prefix || "") + "빌드 실패 " + eB.toString()); continue; }
+            var made = comp.numLayers - before;
+            var group = [];                               // 인덱스는 옮기는 즉시 밀리므로 참조를 먼저 모은다
+            for (var k = 1; k <= made && k <= comp.numLayers; k++) { group.push(comp.layer(k)); }
+            var anchor = akGroupAnchor(comp, scenes, i);  // 다음 씬 그룹 위로 옮긴다
+            if (anchor) {
+                // 위에서부터 차례로 anchor 바로 위에 놓으면 그룹 안 순서가 그대로 유지된다
+                for (var g = 0; g < group.length; g++) { group[g].moveBefore(anchor); }
             }
-            // 레이어 스택(있으면) — 배열 앞이 먼저 추가되어 최하단(배경). 없으면 단일 이미지.
-            else if (s.layers && s.layers.length) {
-                for (var li = 0; li < s.layers.length; li++) {
-                    var ok = addLayerObj(proj, comp, s.layers[li], cw, ch);
-                    if (!ok) log.push(name + ": 레이어 누락 " + s.layers[li].name);
-                    else if (s.layers[li].moves) applyMoves(comp, ok, s.layers[li], dur, cw, ch);
-                }
-            } else if (s.image) {
-                if (!addLayerObj(proj, comp, { path: s.image }, cw, ch)) log.push(name + ": image 누락");
-            }
-            // 지도 씬 — 지도 배경판 위에 마커/라벨/경로를 AE 네이티브 레이어로
-            if (s.mapGeo) {
-                try { renderMapOverlay(comp, s.mapGeo, cw, ch, dur); }
-                catch (eMap) { log.push(name + ": 지도 오버레이 실패 " + eMap.toString()); }
-            }
-
-            // 오디오 (있으면) — 자막은 씬 컴프가 아닌 Final에 일괄(subtitle_layers.jsx)
-            if (s.audio) {
-                var aF = new File(s.audio);
-                if (aF.exists) { comp.layers.add(proj.importFile(new ImportOptions(aF))); }
-            }
-
-            comps.push(comp); totalDur += dur;
         }
-
-        // Final 컴프 — 전체 컴프 때만 생성(씬별 컴프는 m.skipFinal로 건너뜀).
-        // 씬별 컴프를 매번 Final로 감싸면 여러 씬 선택 시 Final이 중복 생성됨.
-        if (m.skipFinal) {
-            if (comps.length) comps[0].openInViewer();       // 방금 만든 씬 컴프를 띄움
-            app.endUndoGroup();
-            return "OK: 씬 컴프 " + comps.length + "개" +
-                   (log.length ? " | " + log.join(", ") : "") +
-                   (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "");
-        }
-        // Final 컴프(1920x1080) — 씬 컴프를 순서대로 배치(크기 다르면 채움 스케일 + 중앙)
-        var fc = proj.items.addComp("Final", W, H, 1.0, Math.max(totalDur, 1), FPS);
-        var t = 0;
-        for (var j = 0; j < comps.length; j++) {
-            var fl = fc.layers.add(comps[j]);
-            var fsc = Math.max(W / comps[j].width, H / comps[j].height) * 100;
-            fl.property("Scale").setValue([fsc, fsc]);
-            fl.startTime = t;
-            if (scenes[j].camera) applyCamera(fl, scenes[j].camera, t, comps[j].duration, fsc, W, H);
-            t += comps[j].duration;
-        }
-        fc.openInViewer();
+        comp.openInViewer();
         app.endUndoGroup();
 
-        return "OK: 씬 컴프 " + comps.length + "개 + Final(" + totalDur + "s)" +
+        return "OK: 씬 " + scenes.length + "개 → Final(" + endT + "s)" +
                (log.length ? " | " + log.join(", ") : "") +
                (FONT_WARN.length ? " | 폰트: " + FONT_WARN.join(", ") : "");
     } catch (e) {

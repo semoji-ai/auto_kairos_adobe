@@ -453,7 +453,9 @@ def test_build_scene_jsx_layout_renderers():
     assert "function renderLayout" in jsx
     assert "function addBgSolid" in jsx and "function addTextL" in jsx and "function addRectL" in jsx
     assert "ae_tokens" in jsx                              # 토큰 로드
-    assert 's.layout !== "cinematic"' in jsx               # 씬 루프 분기
+    # 평면 컴프 전환(Task 2) 이후 레이아웃 씬을 buildSceneGroup에 연결하는 것은
+    # 다음 태스크 몫이다 — 여기서는 렌더러 함수 자체가 살아있는지만 확인한다.
+    assert "function buildSceneGroup" in jsx
     # 레이아웃 5종 렌더러는 layouts.jsx로 이동(Task 5)
     layouts = (PANEL / "jsx" / "layouts.jsx").read_text(encoding="utf-8")
     for l in ("headline_only", "items_list", "metric_spotlight", '"bar"', '"quote"'):
@@ -515,7 +517,9 @@ def test_map_overlay_native_layers():
     assert "map.project" in mg and "labelRgb" in mg          # 픽셀 좌표 + 테마 대비색
     assert "addLayer" not in mg                              # 지도에 마커 굽기 금지
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
-    assert "renderMapOverlay" in jsx and "s.mapGeo" in jsx
+    # 평면 컴프 전환(Task 2) 이후 지도 씬을 buildSceneGroup에 연결하는 것은
+    # 다음 태스크 몫이다 — 여기서는 렌더러 함수 자체가 살아있는지만 확인한다.
+    assert "function renderMapOverlay" in jsx
     assert "ADBE Vector Filter - Trim" in jsx                # 경로 그리기 애니메이션
     assert "map_marker_" in jsx and "map_label_" in jsx
 
@@ -599,12 +603,12 @@ def test_preview_hatch_matches_pattern_kind():
     assert "dot_sparse" in js and "radial-gradient" in js  # 점
 
 
-def test_jsx_skips_final_for_scene_comp():
-    """jsx — skipFinal이면 Final 컴프 생성 건너뜀(씬 컴프만)."""
+def test_jsx_flat_comp_reused_not_recreated():
+    """jsx — 평면 컴프 전환 이후 skipFinal 분기는 없다. Final은 항상 찾거나 만든다(중복 생성 금지)."""
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
-    assert "m.skipFinal" in jsx
-    # skipFinal 분기가 Final addComp보다 먼저 와서 막아야 함
-    assert jsx.index("m.skipFinal") < jsx.index('addComp("Final"')
+    assert "skipFinal" not in jsx
+    assert "function akFindOrMakeComp" in jsx
+    assert 'akFindOrMakeComp(proj, "Final"' in jsx
 
 
 def test_all_text_anchors_centered():
