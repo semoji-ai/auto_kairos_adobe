@@ -68,6 +68,9 @@ def vectorize_png(png_path, *, timeout: int = 300) -> bytes:
         raise
     except Exception as e:
         raise VectorizeError(f"벡터화 호출 실패: {str(e)[:200]}") from e
+    # 응답이 dict인지 검증 (dict가 아니면 .get() 호출 시 AttributeError)
+    if not isinstance(data, dict):
+        raise VectorizeError(f"응답 형식 오류(dict 필요): {str(data)[:200]}")
     url = ((data.get("image") or {}).get("url") or data.get("url") or "").strip()
     if not url:
         raise VectorizeError(f"응답에 SVG URL 없음: {str(data)[:200]}")
@@ -108,10 +111,13 @@ def vectorize_layers(proj_dir, sid: str, stems: list, *, subdir: str = "layers",
         try:
             data = vectorize_png(png_path)
             svg_path.write_bytes(data)
-        except (VectorizeError, OSError) as e:
-            failed.append({"layer": stem, "error": str(e)[:200]})
+        except Exception as e:
+            # 예상 외 예외도 한 장의 실패로 처리 (다음 레이어 계속)
+            # 예외 타입을 메시지에 포함해 원인 추적 가능하게
+            error_msg = f"{type(e).__name__}: {str(e)}"[:200]
+            failed.append({"layer": stem, "error": error_msg})
             if on_event:
-                on_event({"layer": stem, "status": "failed", "error": str(e)[:200]})
+                on_event({"layer": stem, "status": "failed", "error": error_msg})
             continue
         ok.append(stem)
         if on_event:

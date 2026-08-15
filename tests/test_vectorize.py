@@ -150,3 +150,48 @@ def test_endpoint_requires_layers(tmp_path, monkeypatch):
         {"project_id": "p1", "sceneNumber": 1, "layers": []},
         {"root": tmp_path, "jobs": jobs_mod.JobRegistry()})
     assert status == 400
+
+
+def test_non_dict_response_raises_error(tmp_path, monkeypatch):
+    """Recraft가 dict가 아닌 JSON(예: 리스트)을 돌려주면 VectorizeError."""
+    import urllib.request
+    proj = _proj(tmp_path, [f"{SID}__0_car"])
+
+    # API 키 설정
+    monkeypatch.setattr(vectorize, "api_key", lambda: "test_key")
+
+    def mock_urlopen(req, timeout=300):
+        # 첫 번째 호출(벡터화 요청) → 리스트 반환 (dict가 아님)
+        class MockResponse:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+            def read(self):
+                return b'[]'  # dict가 아닌 리스트
+        return MockResponse()
+
+    monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+    with pytest.raises(vectorize.VectorizeError) as exc_info:
+        vectorize.vectorize_png(proj / "layers" / f"{SID}__0_car.png")
+    assert "형식 오류" in str(exc_info.value) or "dict" in str(exc_info.value)
+
+
+def test_unexpected_exception_doesnt_break_loop(tmp_path, monkeypatch):
+    """vectorize_png가 VectorizeError도 OSError도 아닌 예외(RuntimeError)를 던져도
+    vectorize_layers가 그 레이어만 failed에 담고 나머지는 계속 처리한다."""
+    stems = [f"{SID}__0_ok", f"{SID}__1_err", f"{SID}__2_ok"]
+    proj = _proj(tmp_path, stems)
+
+    def boom(path, **kw):
+        if Path(path).stem == f"{SID}__1_err":
+            raise RuntimeError("예상치 못한 오류")
+        return SVG
+
+    monkeypatch.setattr(vectorize, "vectorize_png", boom)
+    res = vectorize.vectorize_layers(proj, SID, stems)
+    assert sorted(res["ok"]) == [f"{SID}__0_ok", f"{SID}__2_ok"]
+    assert len(res["failed"]) == 1
+    assert res["failed"][0]["layer"] == f"{SID}__1_err"
+    # 오류 메시지에 예외 타입이 포함되어야 함
+    assert "RuntimeError" in res["failed"][0]["error"]
