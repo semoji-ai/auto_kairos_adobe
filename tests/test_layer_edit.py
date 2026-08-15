@@ -46,33 +46,6 @@ def test_is_background_layer():
     assert imagegen.is_background_layer("ab__0_인물.png") is False
 
 
-def test_delete_layer_moves_to_prev_and_updates_sidecars(tmp_path):
-    d = _layers_dir(tmp_path)
-    _touch(d, "ab__0_인물.png")
-    _touch(d, "ab__1_탁자.png")
-    imagegen.write_element_specs(d, "ab", [
-        {"layer": "ab__0_인물", "index": 0, "name": "인물", "location": "좌측", "kind": "character"},
-        {"layer": "ab__1_탁자", "index": 1, "name": "탁자", "location": "중앙", "kind": "object"}])
-    (d / "ab__kinds.json").write_text(json.dumps({"ab__0_인물": "character",
-                                                  "ab__1_탁자": "object"}), encoding="utf-8")
-
-    res = imagegen.delete_layer(tmp_path, "ab", "layers/ab__1_탁자.png")
-    assert res["ok"] and res["removed"] == "ab__1_탁자"
-    assert res["remaining_names"] == ["인물"]           # 배경 재생성에 쓸 목록
-    assert not (d / "ab__1_탁자.png").exists()          # 활성 폴더에서 사라짐
-    assert (d / "_prev" / "ab__1_탁자.png").is_file()   # 지우지 않고 보존
-    assert [s["layer"] for s in imagegen.load_element_specs(d, "ab")] == ["ab__0_인물"]
-    assert json.loads((d / "ab__kinds.json").read_text(encoding="utf-8")) == {"ab__0_인물": "character"}
-
-
-def test_delete_layer_rejects_background_and_missing(tmp_path):
-    d = _layers_dir(tmp_path)
-    _touch(d, "ab__bg.png")
-    assert "error" in imagegen.delete_layer(tmp_path, "ab", "ab__bg")
-    assert (d / "ab__bg.png").is_file()                # 배경은 그대로
-    assert "error" in imagegen.delete_layer(tmp_path, "ab", "ab__9_없음")
-
-
 def test_regenerate_missing_spec_errors(tmp_path):
     _layers_dir(tmp_path)
     res = imagegen.regenerate_layer(tmp_path, str(tmp_path / "scene.png"), "ab", "ab__7_없음")

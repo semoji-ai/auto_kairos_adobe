@@ -432,32 +432,35 @@ def is_background_layer(layer: str) -> bool:
     return _stem_of(layer).endswith("__bg") or "__bg_v" in _stem_of(layer)
 
 
-def delete_layer(proj_dir: Path, sid: str, layer: str, *, subdir: str = "layers") -> dict:
-    """요소 레이어 1개를 _prev로 치우고 사이드카에서 제거. 배경은 삭제 대상이 아니다.
-    반환 {ok, removed, remaining_names} 또는 {error}. 배경 재생성은 호출자(잡)가 한다."""
+def set_layer_state(proj_dir: Path, sid: str, layer: str, *, hidden=None, removed=None,
+                    subdir: str = "layers") -> dict:
+    """레이어의 hidden/removed 플래그를 사이드카에 기록한다. 파일은 옮기지 않는다.
+
+    hidden은 패널 미리보기 전용이고 removed만 매니페스트에서 빠진다.
+    파일을 그대로 두므로 복구가 플래그를 끄는 것으로 끝난다.
+    반환 {ok, layer, hidden, removed} 또는 {error}."""
     out_base = Path(proj_dir) / subdir
     stem = _stem_of(layer)
-    if is_background_layer(stem):
-        return {"error": "배경 레이어는 삭제할 수 없습니다 — 재생성만 가능합니다"}
-    target = None
-    for p in out_base.glob(f"{stem}.png"):
-        target = p
-        break
-    if target is None or not target.is_file():
+    if removed and is_background_layer(stem):
+        return {"error": "배경 레이어는 제거할 수 없습니다 — 합성의 바탕입니다"}
+    if not (out_base / f"{stem}.png").is_file():
         return {"error": f"레이어 없음: {stem}"}
-    specs = [s for s in load_element_specs(out_base, sid) if s.get("layer") != stem]
-    _retire_layer(out_base, target)
+    specs = load_element_specs(out_base, sid)
+    target = None
+    for s in specs:
+        if s.get("layer") == stem:
+            target = s
+            break
+    if target is None:              # 배경 또는 사이드카에 없는 레거시 레이어
+        target = {"layer": stem}
+        specs.append(target)
+    if hidden is not None:
+        target["hidden"] = bool(hidden)
+    if removed is not None:
+        target["removed"] = bool(removed)
     write_element_specs(out_base, sid, specs)
-    kp = out_base / KINDS_SIDECAR.format(sid=sid)
-    if kp.is_file():
-        try:
-            kinds = json.loads(kp.read_text(encoding="utf-8"))
-            kinds.pop(stem, None)
-            kp.write_text(json.dumps(kinds, ensure_ascii=False, indent=2), encoding="utf-8")
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {"ok": True, "removed": stem,
-            "remaining_names": [s.get("name", "") for s in specs]}
+    return {"ok": True, "layer": stem,
+            "hidden": bool(target.get("hidden")), "removed": bool(target.get("removed"))}
 
 
 def regenerate_layer(proj_dir: Path, scene_image: str, sid: str, layer: str, *,
@@ -468,9 +471,14 @@ def regenerate_layer(proj_dir: Path, scene_image: str, sid: str, layer: str, *,
     specs = load_element_specs(out_base, sid)
     if not specs:
         return {"error": f"요소 명세 없음 — 먼저 레이어 분리 필요: {sid}"}
+    # 제거된 요소는 다시 만들지 않는다 — 새 배경판에 그대로 녹아든다.
+    # name_en이 없는 항목(배경의 hidden 기록 등)은 분리 대상이 아니다.
+    live = [s for s in specs if not s.get("removed") and (s.get("name_en") or "").strip()]
+    if not live:
+        return {"error": f"분리할 요소가 없습니다 — 모두 제거되었습니다: {sid}"}
     elements = [{"name": s.get("name", ""), "name_en": s.get("name_en", ""),
                  "location": s.get("location", ""), "kind": s.get("kind", "object"),
-                 "reason": "", "intent": s.get("intent", "")} for s in specs]
+                 "reason": "", "intent": s.get("intent", "")} for s in live]
     res = split_scene_to_elements(proj_dir, scene_image, sid, elements,
                                   subdir=subdir, on_event=on_event)
     return {"layer": {"name": "씬 재분리", "status": "completed"},
