@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend import scenes, llm, tts
+from backend import scenes, llm, tts, imagegen
 
 _SCHEMA = Path(__file__).resolve().parent / "schemas" / "motion_plan.schema.json"
 
@@ -71,7 +71,10 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
     if not s:
         return {"error": f"scene {scene_number} 없음"}
     sid = s.get("sceneId")
-    elements = [Path(r).stem for r in (s.get("_layers") or []) if "__bg" not in Path(r).name]
+    specs = {sp.get("layer"): sp for sp in imagegen.load_element_specs(proj_dir / "layers", sid)} if sid else {}
+    elements = [Path(r).stem for r in (s.get("_layers") or [])
+               if "__bg" not in Path(r).name
+               and not (specs.get(Path(r).stem) or {}).get("removed")]
     if not elements:
         return {"error": "레이어 없음 — 먼저 레이어 분리 필요"}
     # kind 사이드카(분리 시 저장) — 현재 규칙: 캐릭터만 모션, 사물은 모션 금지(규칙 추후 별도 설계)
@@ -90,7 +93,6 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
         return {"error": "캐릭터 레이어 없음 — 현재 모션 규칙은 캐릭터(bob)만"}
     dur = _scene_duration(proj_dir, s)
     # 분리 시점의 연출 의도 — 있으면 모션이 그것과 어긋나지 않게 한다
-    from backend import imagegen
     intents = []
     for spec in imagegen.load_element_specs(proj_dir / "layers", sid):
         if spec.get("layer") in chars and (spec.get("intent") or "").strip():

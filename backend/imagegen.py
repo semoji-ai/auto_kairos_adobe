@@ -332,41 +332,29 @@ def _layer_slug(name: str) -> str:
 
 
 def _archive_prev_layers(out_base: Path, sid: str) -> int:
-    """재분리 전, 같은 sid의 기존 레이어를 layers/_prev/ 로 이동(무삭제). 옮긴 개수 반환.
-    load_scenes의 _layers glob(layers/*{sid}*.png, 비재귀)은 _prev/ 를 보지 않는다."""
+    """재분리 전, 같은 sid의 기존 레이어(PNG+SVG)를 layers/_prev/ 로 이동(무삭제). 옮긴 개수 반환.
+    load_scenes의 _layers glob(layers/*{sid}*.png, 비재귀)은 _prev/ 를 보지 않는다.
+    같은 stem의 .svg(Recraft 벡터화 결과)를 남겨두면 재분리 후에도 매니페스트가
+    옛 SVG를 새 PNG보다 우선해 골라 낡은 그림이 내보내진다 — PNG와 함께 옮긴다."""
     if not sid:
         return 0
     existing = [p for p in out_base.glob(f"*{sid}*.png") if p.is_file()]
     if not existing:
         return 0
+    svgs = [p.with_suffix(".svg") for p in existing]
+    svgs = [p for p in svgs if p.is_file()]
     prev = out_base / "_prev"
     prev.mkdir(exist_ok=True)
-    for p in existing:
+    moved = 0
+    for p in existing + svgs:
         dest = prev / p.name
         n = 2
         while dest.exists():
             dest = prev / f"{p.stem}_p{n}{p.suffix}"
             n += 1
         shutil.move(str(p), str(dest))
-    return len(existing)
-
-
-def _retire_layer(out_base: Path, path: Path) -> None:
-    """QC에서 탈락한 시도 파일을 layers/_prev/ 로 이동(무삭제).
-    활성 폴더에 한 시도만 남겨 _layers glob 중복(같은 요소 2장)을 방지."""
-    try:
-        if not path or not Path(path).is_file():
-            return
-        prev = out_base / "_prev"
-        prev.mkdir(exist_ok=True)
-        dest = prev / Path(path).name
-        n = 2
-        while dest.exists():
-            dest = prev / f"{Path(path).stem}_p{n}{Path(path).suffix}"
-            n += 1
-        shutil.move(str(path), str(dest))
-    except Exception:
-        pass
+        moved += 1
+    return moved
 
 
 ELEMENTS_SIDECAR = "{sid}__elements.json"

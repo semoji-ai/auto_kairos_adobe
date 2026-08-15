@@ -390,9 +390,35 @@ def test_render_row_checkbox_and_dots():
     assert res["chk"] and res["dots"] and res["on"] and res["noBtn"] and res["player"], out.stdout
 
 
-def test_layer_overlay_and_text_buttons():
-    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
-    assert "img-wrap" in js
+def test_composite_preview_and_text_buttons():
+    """오버레이는 없어졌고 대체물은 renderComposite 합성 미리보기(comp-bg/comp-el) —
+    실제로 배경을 깔고 눈 끈/제거된 레이어는 그리지 않는지 검사한다."""
+    import subprocess, json
+    sb = str(PANEL / "js" / "storyboard.js")
+    script = (
+        "global.window={localStorage:{getItem:function(){return null;},setItem:function(){}}};"
+        "global.document={getElementById:function(){return null;},addEventListener:function(){}};"
+        "eval(require('fs').readFileSync(" + json.dumps(sb) + ",'utf8'));"
+        "var s={sceneNumber:9,sceneId:'z',_image:'storyboard/z.png',"
+        "_layers:['layers/z__bg.png','layers/z__0_car.png','layers/z__1_hidden.png','layers/z__2_removed.png'],"
+        "_layer_meta:{"
+        "'z__bg':{kind:'bg',z:0},"
+        "'z__0_car':{kind:'element',z:1,box:{left:10,top:20,width:30}},"
+        "'z__1_hidden':{kind:'element',z:2,hidden:true},"
+        "'z__2_removed':{kind:'element',z:3,removed:true}"
+        "}};"
+        "var comp=renderComposite(s,'/p');"
+        "process.stdout.write(JSON.stringify({"
+        "bg:comp.indexOf('comp-bg')>=0&&comp.indexOf('z__bg.png')>=0,"
+        "el:comp.indexOf('comp-el')>=0&&comp.indexOf('z__0_car.png')>=0,"
+        "box:comp.indexOf('left:10%;top:20%;width:30%')>=0,"
+        "noHidden:comp.indexOf('z__1_hidden.png')<0,"
+        "noRemoved:comp.indexOf('z__2_removed.png')<0}));"
+    )
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    res = json.loads(out.stdout)
+    assert res["bg"] and res["el"] and res["box"] and res["noHidden"] and res["noRemoved"], out.stdout
+
     html = HTML.read_text(encoding="utf-8")
     assert ">씬 추가<" in html and ">병합<" in html and ">삭제<" in html   # 구조 버튼은 텍스트
 

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from backend import manifest
+from backend import imagegen, manifest
 
 SID = "abc123"
 
@@ -65,6 +65,36 @@ def test_background_svg_also_preferred(tmp_path):
     assert bg["kind"] == "bg"
     assert bg["path"].endswith(".svg")
     assert bg["vector"] is True
+
+
+def test_reseparation_archives_stale_svg(tmp_path):
+    """재분리로 아카이브가 일어난 뒤에는 옛 SVG가 선택되지 않는다.
+
+    fal API를 실제로 호출하지 않고 _archive_prev_layers를 직접 불러 재분리의
+    아카이브 단계만 재현한다 — 그 다음 같은 stem으로 새 PNG만 다시 만들었을 때
+    옛 SVG가 활성 폴더에 남아 매니페스트에 잘못 뽑히지 않아야 한다."""
+    lay = tmp_path / "layers"
+    lay.mkdir(parents=True)
+    (lay / f"{SID}__bg.png").write_bytes(b"old-bg-png")
+    (lay / f"{SID}__0_car.png").write_bytes(b"old-car-png")
+    (lay / f"{SID}__0_car.svg").write_bytes(b"<svg>old</svg>")
+    (lay / f"{SID}__elements.json").write_text(
+        json.dumps([_spec(0, "car")], ensure_ascii=False), encoding="utf-8")
+
+    moved = imagegen._archive_prev_layers(lay, SID)
+    assert moved == 3   # bg.png + car.png + car.svg
+    assert not (lay / f"{SID}__0_car.svg").exists()
+    assert (lay / "_prev" / f"{SID}__0_car.svg").exists()
+
+    # 재분리로 새 PNG만 다시 생성됨(아직 벡터화 전)
+    (lay / f"{SID}__bg.png").write_bytes(b"new-bg-png")
+    (lay / f"{SID}__0_car.png").write_bytes(b"new-car-png")
+
+    rels = [f"layers/{SID}__bg.png", f"layers/{SID}__0_car.png"]
+    out = manifest._scene_layers(tmp_path, rels, SID)
+    car = next(e for e in out if e["name"] == f"{SID}__0_car")
+    assert car["path"].endswith(".png")   # 옛 SVG가 아니라 새 PNG를 골라야 함
+    assert "vector" not in car
 
 
 def test_removed_background_still_included(tmp_path):

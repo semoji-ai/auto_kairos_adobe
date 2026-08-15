@@ -102,6 +102,32 @@ def test_plan_filters_to_characters_and_allowed_moves(tmp_path, monkeypatch):
     assert [m["type"] for m in res["layers"][0]["moves"]] == ["bob"]
 
 
+def test_plan_excludes_removed_layers(tmp_path, monkeypatch):
+    """removed 플래그가 있는 레이어는 매니페스트에서 빠지므로 모션 플랜 대상에서도 빠져야 한다."""
+    d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "rm", "narration": "n"}])
+    lay = d / "layers"; lay.mkdir()
+    (lay / "rm__0_남자.png").write_bytes(b"x")
+    (lay / "rm__1_지운차.png").write_bytes(b"x")
+    (lay / "rm__elements.json").write_text(json.dumps([
+        {"layer": "rm__0_남자", "name_en": "man", "kind": "character"},
+        {"layer": "rm__1_지운차", "name_en": "car", "kind": "character", "removed": True},
+    ], ensure_ascii=False), encoding="utf-8")
+    cap = {}
+
+    def fake_run(prompt, cwd, **kw):
+        cap["prompt"] = prompt
+        Path(kw["output_last"]).write_text(json.dumps({
+            "layers": [{"layer": "rm__0_남자", "moves": [
+                {"type": "bob", "start": 0, "duration": 3}]}],
+            "camera": {"type": "none"}}), encoding="utf-8")
+        return {"returncode": 0}
+
+    monkeypatch.setattr(motion.llm, "run_orchestrator", fake_run)
+    res = motion.plan_scene_motion(d, 1)
+    assert "rm__1_지운차" not in cap["prompt"]           # 제거된 레이어는 LLM에 제시도 안 함
+    assert [L["layer"] for L in res["layers"]] == ["rm__0_남자"]
+
+
 def test_plan_error_when_no_characters(tmp_path):
     d = _proj(tmp_path, [{"sceneNumber": 1, "sceneId": "ob", "narration": "n"}])
     lay = d / "layers"; lay.mkdir()
