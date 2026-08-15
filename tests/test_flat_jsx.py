@@ -70,3 +70,22 @@ def test_es5_only():
     assert "=>" not in src
     assert "const " not in src and "let " not in src
     assert "`" not in src
+
+
+def test_layout_group_tagged():
+    """레이아웃 씬이 만든 셰이프·텍스트도 접두사가 붙고 가이드에 묶인다."""
+    src = _src()
+    assert "function akTagGroup" in src
+    assert "akTagGroup(comp" in src
+
+
+def test_layout_image_uses_image_fit():
+    """레이아웃 씬의 배경 이미지도 구운 좌표를 쓴다."""
+    src = _src()
+    assert "s.imageFit" in src
+    assert "Math.max(W / isw, H / ish)" not in src
+
+
+def test_map_overlay_still_called():
+    src = _src()
+    assert "renderMapOverlay" in src

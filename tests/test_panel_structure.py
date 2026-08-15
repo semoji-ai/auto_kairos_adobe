@@ -517,11 +517,12 @@ def test_map_overlay_native_layers():
     assert "map.project" in mg and "labelRgb" in mg          # 픽셀 좌표 + 테마 대비색
     assert "addLayer" not in mg                              # 지도에 마커 굽기 금지
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
-    # 평면 컴프 전환(Task 2) 이후 지도 씬을 buildSceneGroup에 연결하는 것은
-    # 다음 태스크 몫이다 — 여기서는 렌더러 함수 자체가 살아있는지만 확인한다.
     assert "function renderMapOverlay" in jsx
     assert "ADBE Vector Filter - Trim" in jsx                # 경로 그리기 애니메이션
     assert "map_marker_" in jsx and "map_label_" in jsx
+    # 평면 컴프(Task 3) — buildSceneGroup이 s.mapGeo와 함께 실제로 배선한다.
+    assert "if (s.mapGeo)" in jsx
+    assert "renderMapOverlay(comp, s.mapGeo, W, H, dur)" in jsx
 
 
 def test_webgl_enabled_for_map():

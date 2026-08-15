@@ -303,11 +303,13 @@ function akBuildScene(manifestPath) {
                 if (imgF.exists) {
                     var imgFoot = proj.importFile(new ImportOptions(imgF));
                     var imgL = comp.layers.add(imgFoot);
-                    var isw = imgL.source.width, ish = imgL.source.height;
-                    imgL.property("Anchor Point").setValue([isw / 2, ish / 2]);
-                    imgL.property("Position").setValue([W / 2, H / 2]);
-                    var ifs = Math.max(W / isw, H / ish) * 100;
-                    imgL.property("Scale").setValue([ifs, ifs]);
+                    // 좌표는 매니페스트가 구워서 준다 — 세로 기준 배율이라 위아래가 안 잘린다.
+                    var ifit = s.imageFit || {};
+                    var ipos = ifit.position || [W / 2, H / 2];
+                    var isc = (ifit.scale != null) ? ifit.scale : 100;
+                    imgL.property("Anchor Point").setValue([imgL.source.width / 2, imgL.source.height / 2]);
+                    imgL.property("Position").setValue([ipos[0], ipos[1]]);
+                    imgL.property("Scale").setValue([isc, isc]);
                 }
             } catch (eImg) { }
         }
@@ -348,6 +350,18 @@ function akBuildScene(manifestPath) {
             }
         }
         return null;
+    }
+
+    // 방금 만들어진 레이어 구간(맨 위 ~ fromIndex)에 접두사를 붙이고 가이드에 묶는다.
+    // renderLayout/renderMapOverlay가 만든 레이어를 돌려주지 않으므로 개수로 구간을 잡는다.
+    function akTagGroup(comp, madeCount, prefix, guide, t0, t1) {
+        for (var i = 1; i <= madeCount && i <= comp.numLayers; i++) {
+            var lay = comp.layer(i);
+            if (lay === guide) { continue; }
+            if (lay.name.indexOf(prefix) !== 0) { lay.name = prefix + lay.name; }
+            lay.inPoint = t0; lay.outPoint = t1;
+            if (!lay.parent) { lay.parent = guide; }
+        }
     }
 
     // 레이어 추가. layer.position 있으면 그 좌표·스케일로(크롭된 요소), 없으면 컴프 채움·중앙(풀프레임/배경).
@@ -505,6 +519,14 @@ function akBuildScene(manifestPath) {
             fill.parent = guide;
         }
 
+        var isLayoutScene = s.layout && s.layout !== "cinematic";
+        if (isLayoutScene) {
+            var beforeL = comp.numLayers;
+            try { renderLayout(proj, comp, s, W, H); }
+            catch (eL) { log.push(pf + "레이아웃 렌더 실패 " + eL.toString()); }
+            akTagGroup(comp, comp.numLayers - beforeL, pf, guide, t0, t1);
+        }
+
         if (s.layers && s.layers.length) {
             for (var li = 0; li < s.layers.length; li++) {
                 var lay = s.layers[li];
@@ -518,7 +540,7 @@ function akBuildScene(manifestPath) {
                 while (top.parent && top.parent !== guide) { top = top.parent; }
                 if (top !== guide && !top.parent) { top.parent = guide; }
             }
-        } else if (s.image) {
+        } else if (s.image && !isLayoutScene) {
             var one = addLayerObj(proj, comp, {
                 path: s.image,
                 position: (s.imageFit || {}).position,
@@ -529,6 +551,13 @@ function akBuildScene(manifestPath) {
                 one.inPoint = t0; one.outPoint = t1;
                 one.parent = guide;
             } else { log.push(pf + "image 누락"); }
+        }
+
+        if (s.mapGeo) {
+            var beforeM = comp.numLayers;
+            try { renderMapOverlay(comp, s.mapGeo, W, H, dur); }
+            catch (eMap) { log.push(pf + "지도 오버레이 실패 " + eMap.toString()); }
+            akTagGroup(comp, comp.numLayers - beforeM, pf, guide, t0, t1);
         }
 
         if (s.audio) {
