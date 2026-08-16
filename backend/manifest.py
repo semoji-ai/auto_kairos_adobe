@@ -79,6 +79,7 @@ def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "", scene_width: 
             scale_factor = scene_width / plate_size[0]
     out = []
     idx = 0
+    n_el = len(el)
     for r in bg + el:
         stem = Path(r).stem
         is_bg = "__bg" in Path(r).name
@@ -89,9 +90,10 @@ def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "", scene_width: 
         if is_bg:
             ae_name = prefix + "배경"
         else:
+            # 순번은 최상위(가장 앞) 레이어가 01 — 배열은 z 오름차순(뒤→앞)이라 뒤집어 센다.
             idx += 1
             nm = (specs.get(stem) or {}).get("name") or stem
-            ae_name = "%s%02d_%s" % (prefix, idx, re.sub(r"\s+", "", str(nm)))
+            ae_name = "%s%02d_%s" % (prefix, n_el - idx + 1, re.sub(r"\s+", "", str(nm)))
         entry = {"name": stem, "aeName": ae_name,
                  "path": _abs(proj_dir, svg_rel if has_svg else r),
                  "kind": "bg" if is_bg else "element"}

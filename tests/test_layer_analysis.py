@@ -55,11 +55,27 @@ def test_prompt_demands_minimality_and_intent():
 
 
 def test_prompt_states_executable_motion_limits():
-    """모션 어휘 8종을 다 보여주되, 실제 실행되는 것은 인물 bob(+fade_in)뿐임을 명시해야 한다 —
-    안 그러면 사물에도 없는 동작을 지어내 분리 근거로 쓸 수 있다."""
+    """종류별 실제 프리셋을 명시해야 한다 — 인물은 bob·zoom_emphasis뿐이고,
+    사물 분리는 내레이션 요구(등장/제거/움직임)·전경 가림·카메라 분리 근거가 필요하다."""
     p = imagegen.build_layer_analysis_prompt()
-    assert "사물 레이어에는 지금 개별 모션이 붙지 않는다" in p
+    assert "인물 레이어는 bob(까딱임 idle)과 zoom_emphasis만" in p
+    assert "등장(slide_in/pop/stamp)" in p
+    assert "퇴장(exit_fade)" in p
     assert "slide_in 좌→우 후 drift로 가속 지속" not in p    # 실행 불가능한 사물 예시 제거
+
+
+def test_prompt_narration_asset_rule():
+    """내레이션에서 발생·제거·움직임이 필요한 소품을 분리하라는 규칙이 명시돼야 한다."""
+    p = imagegen.build_layer_analysis_prompt()
+    assert "발생(새로 등장)" in p and "제거(사라짐)" in p
+
+
+def test_prompt_orders_topmost_first():
+    """요소 나열은 최상위(가장 앞)부터 — 순번 1이 최상위 레이어다."""
+    p = imagegen.build_layer_analysis_prompt()
+    assert "순번 1이 최상위 레이어다" in p
+    assert "가장 앞(최상위)" in p
+    assert "뒤→앞" not in p
 
 
 def test_prompt_handles_empty_inputs():

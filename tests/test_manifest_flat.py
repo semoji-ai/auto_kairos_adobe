@@ -221,3 +221,25 @@ def test_source_field_passed(tmp_path):
     mf = _manifest(proj)
     assert mf["scenes"][0]["source"] == "자료: 국토부 2025"
     assert "source" not in mf["scenes"][1]
+
+
+def test_ae_name_numbering_topmost_first(tmp_path):
+    """순번 01 = 최상위(z 큰) 레이어 — 프롬프트·파일명·AE 이름이 같은 방향을 본다."""
+    proj = _project(tmp_path)
+    from PIL import Image
+    sid = "aaa111"
+    Image.new("RGBA", (100, 100), (0, 0, 0, 255)).save(proj / "layers" / f"{sid}__1_desk.png")
+    specs = [
+        {"layer": f"{sid}__0_kid_char", "index": 0, "name": "노란옷 아이", "name_en": "kid",
+         "location": "", "kind": "character", "intent": "", "z": 1, "bbox": [100, 200, 300, 600]},
+        {"layer": f"{sid}__1_desk", "index": 1, "name": "책상", "name_en": "desk",
+         "location": "", "kind": "object", "intent": "", "z": 2, "bbox": [50, 500, 900, 900]},
+    ]
+    (proj / "layers" / f"{sid}__elements.json").write_text(
+        json.dumps(specs, ensure_ascii=False), encoding="utf-8")
+    mf = _manifest(proj)
+    names = [L["aeName"] for L in mf["scenes"][0]["layers"]]
+    # 배열은 뒤→앞(스택 순서: 먼저 추가 = 최하단)이지만 순번은 앞이 01
+    assert names[0] == "S01_배경"
+    assert names[1] == "S01_02_노란옷아이"    # z=1, 뒤쪽 → 02
+    assert names[2] == "S01_01_책상"          # z=2, 최상위 → 01

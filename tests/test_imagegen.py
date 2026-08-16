@@ -185,7 +185,7 @@ def test_analyze_scene_layers_prompt_uses_narration(tmp_path, monkeypatch):
     assert "캐릭터" in cap["prompt"]                          # 1순위: 캐릭터 전원
     assert "가리는" in cap["prompt"]                           # 2순위: 전경 가림
     assert "판단 순서" in cap["prompt"]                         # 연출 의도에서 역산하는 판단 순서 명시
-    assert "내레이션이 강조" in cap["prompt"]                   # 내레이션 강조 사물 분리 기준 보존
+    assert "발생(새로 등장)" in cap["prompt"]                   # 내레이션 발생·제거·움직임 사물 분리 기준
 
 
 def test_archive_prev_layers_moves_not_deletes(tmp_path):
