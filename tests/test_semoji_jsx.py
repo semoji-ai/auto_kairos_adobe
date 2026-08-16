@@ -44,3 +44,40 @@ def test_source_caption_called_in_build():
 def test_es5_only():
     src = _src()
     assert "=>" not in src and "const " not in src and "let " not in src and "`" not in src
+
+
+TOOLS = PANEL / "jsx" / "tools.jsx"
+
+
+def test_tools_jsx_exists_and_functions():
+    src = TOOLS.read_text(encoding="utf-8")
+    for fn in ("function akImportSrt", "function akInsertNull", "function akApplyPreset"):
+        assert fn in src
+
+
+def test_tools_srt_single_text_layer():
+    """SRT도 1레이어 + Source Text 키프레임 — 줄별 레이어 금지(577레이어 사태의 교훈)."""
+    src = TOOLS.read_text(encoding="utf-8")
+    assert '"가져온자막"' in src
+    assert "setValueAtTime" in src
+    # 큐마다 addText를 부르는 구조가 아니어야 한다
+    assert src.count("layers.addText") == 1
+
+
+def test_tools_insert_null_preserves_parent():
+    src = TOOLS.read_text(encoding="utf-8")
+    body = src.split("function akInsertNull")[1].split("\nfunction ")[0]
+    assert "parent" in body and "addNull" in body and "moveAfter" in body
+
+
+def test_tools_es5_only():
+    src = TOOLS.read_text(encoding="utf-8")
+    assert "=>" not in src and "const " not in src and "let " not in src and "`" not in src
+
+
+def test_panel_tools_section():
+    html = (PANEL / "index.html").read_text(encoding="utf-8")
+    assert 'id="toolsSection"' in html
+    js = (PANEL / "js" / "storyboard.js").read_text(encoding="utf-8")
+    assert "akImportSrt" in js and "akInsertNull" in js and "akApplyPreset" in js
+    assert "/api/tools/srt-parse" in js

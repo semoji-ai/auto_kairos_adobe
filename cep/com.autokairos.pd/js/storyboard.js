@@ -1220,3 +1220,49 @@ function loadThemes() {
     }).then(function () { loadSheet(); });
   };
 }
+
+/* ===== 도구 구역 — AE 보조 기능(tools.jsx) ===== */
+function _toolsSay(m) { var e = $("toolsStatus"); if (e) e.textContent = m; }
+
+function _runTool(call) {
+  var jsx;
+  try { jsx = readLocal("./jsx/json2.jsx") + "\n" + readLocal("./jsx/tools.jsx"); }
+  catch (e) { _toolsSay("jsx 로드 실패: " + e); return; }
+  return evalScript(jsx + "\n" + call).then(function (r) { _toolsSay(r || "(빈 응답)"); });
+}
+
+function importSrtFile() {
+  var inp = $("srtFile");
+  if (!inp || !inp.files || !inp.files.length) { _toolsSay("SRT 파일을 고르세요"); return; }
+  var reader = new FileReader();
+  reader.onload = function () {
+    _toolsSay("파싱 중...");
+    fetch(BACKEND + "/api/tools/srt-parse", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ srt: String(reader.result || "") }),
+    }).then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.cues || !j.cues.length) { _toolsSay("실패: " + (j.error || "큐 없음")); return; }
+        _toolsSay("AE에 넣는 중... (" + j.cues.length + "줄)");
+        var tokens = "";   // 토큰 경로는 빌드와 동일 파일 — 없으면 기본 스타일
+        _runTool("akImportSrt(" + JSON.stringify(JSON.stringify(j.cues)) + ", " + JSON.stringify(tokens) + ");");
+      })
+      .catch(function (e) { _toolsSay("오류: " + e); });
+  };
+  reader.readAsText(inp.files[0]);
+}
+
+function bindTools() {
+  var b1 = $("srtImportBtn");
+  if (b1) b1.addEventListener("click", importSrtFile);
+  var b2 = $("insertNullBtn");
+  if (b2) b2.addEventListener("click", function () { _runTool("akInsertNull();"); });
+  var b3 = $("presetApplyBtn");
+  if (b3) b3.addEventListener("click", function () {
+    var t = $("presetSelect").value;
+    var a = $("presetAmt").value;
+    _runTool("akApplyPreset(" + JSON.stringify(t) + ", " + JSON.stringify(a) + ");");
+  });
+}
+
+document.addEventListener("DOMContentLoaded", bindTools);
