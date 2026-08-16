@@ -438,6 +438,38 @@
         <button id="btnChatStop" hidden title="실행 중인 비서 작업 중단">⏹ 중단</button>
       </div>
     </div>
+
+    <details id="toolsSection">
+      <summary>도구 — AE 보조 기능</summary>
+      <div class="tools-body">
+        <div class="tools-row">
+          <label class="mini-label">SRT 가져오기</label>
+          <input type="file" id="srtFile" accept=".srt">
+          <button class="mini" id="srtImportBtn">Final에 넣기</button>
+        </div>
+        <div class="tools-row">
+          <label class="mini-label">널 끼우기</label>
+          <button class="mini" id="insertNullBtn" title="선택한 레이어와 부모 사이에 널을 끼웁니다">선택 레이어에</button>
+        </div>
+        <div class="tools-row">
+          <label class="mini-label">프리셋 적용</label>
+          <select id="presetSelect">
+            <option value="slide_in">slide_in — 밀어 등장</option>
+            <option value="fade_in">fade_in — 서서히</option>
+            <option value="pop">pop — 통통 등장</option>
+            <option value="stamp">stamp — 도장</option>
+            <option value="zoom_emphasis">zoom_emphasis — 강조</option>
+            <option value="shake">shake — 흔들림</option>
+            <option value="wiggle">wiggle — 위글</option>
+            <option value="drift">drift — 떠다님</option>
+            <option value="exit_fade">exit_fade — 퇴장</option>
+          </select>
+          <input type="text" id="presetAmt" placeholder="진폭(선택)" style="width:70px">
+          <button class="mini" id="presetApplyBtn" title="AE에서 선택한 레이어에 겁니다">선택 레이어에</button>
+        </div>
+        <div id="toolsStatus" class="tools-status"></div>
+      </div>
+    </details>
   </div>
 
   <!-- 이미지 생성 모달 -->
@@ -497,38 +529,6 @@
       <div class="box" id="layerModalStatus" style="min-height:16px">—</div>
     </div>
   </div>
-
-  <details id="toolsSection">
-    <summary>도구 — AE 보조 기능</summary>
-    <div class="tools-body">
-      <div class="tools-row">
-        <label class="mini-label">SRT 가져오기</label>
-        <input type="file" id="srtFile" accept=".srt">
-        <button class="mini" id="srtImportBtn">Final에 넣기</button>
-      </div>
-      <div class="tools-row">
-        <label class="mini-label">널 끼우기</label>
-        <button class="mini" id="insertNullBtn" title="선택한 레이어와 부모 사이에 널을 끼웁니다">선택 레이어에</button>
-      </div>
-      <div class="tools-row">
-        <label class="mini-label">프리셋 적용</label>
-        <select id="presetSelect">
-          <option value="slide_in">slide_in — 밀어 등장</option>
-          <option value="fade_in">fade_in — 서서히</option>
-          <option value="pop">pop — 통통 등장</option>
-          <option value="stamp">stamp — 도장</option>
-          <option value="zoom_emphasis">zoom_emphasis — 강조</option>
-          <option value="shake">shake — 흔들림</option>
-          <option value="wiggle">wiggle — 위글</option>
-          <option value="drift">drift — 떠다님</option>
-          <option value="exit_fade">exit_fade — 퇴장</option>
-        </select>
-        <input type="text" id="presetAmt" placeholder="진폭(선택)" style="width:70px">
-        <button class="mini" id="presetApplyBtn" title="AE에서 선택한 레이어에 겁니다">선택 레이어에</button>
-      </div>
-      <div id="toolsStatus" class="tools-status"></div>
-    </div>
-  </details>
 
   <script src="js/main.js"></script>
   <script src="js/nav.js"></script>

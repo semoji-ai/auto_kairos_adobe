@@ -33,7 +33,8 @@ def test_source_caption_not_parented_to_guide():
     src = _src()
     body = src.split("function addSourceCaption")[1].split("\n    function ")[0]
     assert "parent = guide" not in body
-    assert ".parent =" not in body or "textL.parent = plate" in body
+    assert "plate.parent" not in body
+    assert "guide" not in body
 
 
 def test_source_caption_called_in_build():

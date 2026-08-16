@@ -151,10 +151,14 @@ function akApplyPreset(type, amount) {
                     }
                 } else if (type === "stamp") {
                     var m0 = (amt && amt > 100) ? amt : 300;
-                    var hit = t0 + 5 / 30.0;
+                    var hit = t0 + 5 / (comp.frameRate || 30);
                     var st = il.property("Scale");
                     st.setValueAtTime(t0, [S[0] * m0 / 100, S[1] * m0 / 100]);
                     st.setValueAtTime(hit, [S[0], S[1]]);
+                    try {
+                        var ezt = new KeyframeEase(0, 33.34);
+                        st.setTemporalEaseAtKey(st.nearestKeyIndex(hit), [ezt, ezt], [ezt, ezt]);
+                    } catch (eEz) { }
                     var ot = il.property("Opacity");
                     ot.setValueAtTime(t0, 0); ot.setValueAtTime(hit, 100);
                 } else if (type === "wiggle") {

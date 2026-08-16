@@ -641,7 +641,12 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
         cues = srt.parse_srt(b.get("srt") or "")
         if not cues:
             return 422, {"error": "유효한 자막 큐 없음"}
-        return 200, {"cues": cues}
+        # 패널은 절대 경로를 모른다 — 빌드가 쓰는 것과 같은 토큰 파일 경로를 실어 준다.
+        tokens_path = Path(__file__).resolve().parents[1] / "data" / "artstyle" / "ae_tokens.json"
+        out = {"cues": cues}
+        if tokens_path.is_file():
+            out["tokens_path"] = str(tokens_path)
+        return 200, out
 
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")

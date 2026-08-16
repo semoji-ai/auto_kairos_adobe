@@ -411,7 +411,7 @@ function akBuildScene(manifestPath) {
         return nl;
     }
 
-    function applyMoves(comp, il, layer, sceneStart, sceneDur, cw, ch) {
+    function applyMoves(comp, il, layer, sceneStart, sceneDur, cw, ch, fps) {
         var moves = layer.moves;
         if (!moves || !moves.length) return;
         var P = il.property("Position").value;
@@ -476,13 +476,15 @@ function akBuildScene(manifestPath) {
                     // 도장 — 크게서 제 크기로 5프레임 내리찍기. SEMOJI 도장효과의 타격부.
                     // 잔상 복제본은 결정적 재빌드와 충돌해 생략(설계 문서 결정 2).
                     var m0 = (amt && amt > 100) ? amt : 300;
-                    var hit = t0 + 5 / 30.0;
+                    var hit = t0 + 5 / (fps || 30);
                     var sst = il.property("Scale");
                     sst.setValueAtTime(t0, [S[0] * m0 / 100, S[1] * m0 / 100]);
                     sst.setValueAtTime(hit, [S[0], S[1]]);
-                    var ost = il.property("Opacity");
-                    ost.setValueAtTime(t0, 0);
-                    ost.setValueAtTime(hit, 100);
+                    if (!mv.noFade) {                        // 캐릭터(noFade)는 오퍼시티 키프레임 금지
+                        var ost = il.property("Opacity");
+                        ost.setValueAtTime(t0, 0);
+                        ost.setValueAtTime(hit, 100);
+                    }
                     try {
                         var ezs = new KeyframeEase(0, 33.34);
                         sst.setTemporalEaseAtKey(sst.nearestKeyIndex(hit), [ezs, ezs], [ezs, ezs]);
@@ -556,11 +558,16 @@ function akBuildScene(manifestPath) {
         } catch (eX) { }
 
         // 텍스트 앵커 중앙 → 판 중앙과 겹치게 우하단 배치
+        var tw = 0;
         try {
             var tb = textL.sourceRectAtTime(t0, false);
             textL.property("Anchor Point").setValue([tb.left + tb.width / 2, tb.top + tb.height / 2]);
+            tw = tb.width;
         } catch (eA) { }
-        var px = W - mx;                                   // 판 중심 x — 우측 여백만큼 안쪽
+        // 판 우변이 W-mx에 오도록 중심을 안쪽으로 당긴다 — 폭의 절반만큼 왼쪽으로.
+        // (판 폭 익스프레션 [w+50, 50]과 동일한 폭을 정적으로 계산해 위치를 잡는다.
+        //  출처 텍스트는 빌드 후 바뀌지 않으므로 정적 계산으로 충분하다.)
+        var px = W - mx - (tw + 50) / 2;
         var py = H - mx;
         plate.property("Position").setValue([px, py]);
         textL.property("Position").setValue([px, py]);
@@ -570,7 +577,7 @@ function akBuildScene(manifestPath) {
 
     // 씬 하나를 평면 컴프에 놓는다. 쌓임은 위에서 아래로 요소 → 배경 → 판 → 가이드 널.
     // comp.layers.add는 맨 위에 넣으므로 가이드부터 거꾸로 추가하면 그 순서가 나온다.
-    function buildSceneGroup(proj, comp, s, W, H, log) {
+    function buildSceneGroup(proj, comp, s, W, H, log, fps) {
         var pf = s.prefix || "S00_";
         var t0 = s.start || 0;
         var dur = s.duration || 5;
@@ -604,7 +611,7 @@ function akBuildScene(manifestPath) {
                 il.name = lay.aeName || lay.name;
                 il.inPoint = t0; il.outPoint = t1;
                 il.parent = guide;
-                if (lay.moves) { applyMoves(comp, il, lay, t0, dur, W, H); }
+                if (lay.moves) { applyMoves(comp, il, lay, t0, dur, W, H, fps); }
                 var top = il;                             // 까딱까딱 널이 끼면 그 널이 가이드의 자식
                 while (top.parent && top.parent !== guide) { top = top.parent; }
                 if (top !== guide && !top.parent) { top.parent = guide; }
@@ -702,7 +709,7 @@ function akBuildScene(manifestPath) {
             var s = scenes[i];
             akRemoveSceneGroup(comp, s.prefix);           // 재빌드 — 지우고 다시 넣는다
             var before = comp.numLayers;
-            try { buildSceneGroup(proj, comp, s, W, H, log); }
+            try { buildSceneGroup(proj, comp, s, W, H, log, FPS); }
             catch (eB) {
                 log.push((s.prefix || "") + "빌드 실패 " + eB.toString());
                 // 실패해도 이미 만들어진 레이어는 남는다 — 접두사를 붙여 두지 않으면

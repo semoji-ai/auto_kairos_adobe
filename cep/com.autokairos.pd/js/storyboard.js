@@ -1244,7 +1244,7 @@ function importSrtFile() {
       .then(function (j) {
         if (!j.cues || !j.cues.length) { _toolsSay("실패: " + (j.error || "큐 없음")); return; }
         _toolsSay("AE에 넣는 중... (" + j.cues.length + "줄)");
-        var tokens = "";   // 토큰 경로는 빌드와 동일 파일 — 없으면 기본 스타일
+        var tokens = j.tokens_path || "";   // 백엔드가 빌드와 동일 토큰 파일의 절대 경로를 실어 준다
         _runTool("akImportSrt(" + JSON.stringify(JSON.stringify(j.cues)) + ", " + JSON.stringify(tokens) + ");");
       })
       .catch(function (e) { _toolsSay("오류: " + e); });

@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from backend import scene_layouts, scenes, themes, timeline
+from backend import motion, scene_layouts, scenes, themes, timeline
 
 W, H, FPS = 1920, 1080, 30
 DEFAULT_DUR = timeline.DEFAULT_DUR      # 길이 규칙은 timeline이 단일 기준
@@ -181,6 +181,14 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
         layers = [] if is_layout_scene else _scene_layers(
             proj_dir, s.get("_layers") or [], sid, sw,
             prefix=prefix, f=f, ox=ox, scene_height=sh)
+        # 레이어 종류(캐릭터/사물) — 옛 모션 사이드카·기본 bob 규칙 둘 다 이걸 쓴다.
+        kinds = {}
+        kp = proj_dir / "layers" / f"{sid}__kinds.json"
+        if kp.is_file():
+            try:
+                kinds = json.loads(kp.read_text(encoding="utf-8"))
+            except Exception:
+                kinds = {}
         cam = None
         mp = proj_dir / f"motion_{sid}.json"
         if mp.is_file():
@@ -190,11 +198,15 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
                 for entry in layers:
                     mv = moves_by.get(entry["name"])
                     if mv:
-                        # 캐릭터는 오퍼시티 키프레임 금지 — fade류 제거, slide는 noFade 플래그
+                        # 캐릭터는 오퍼시티 키프레임 금지 — fade류·stamp 제거, slide는 noFade 플래그
                         if "_char" in entry["name"]:
-                            mv = [m for m in mv if m.get("type") not in ("fade_in", "exit_fade")]
+                            mv = [m for m in mv if m.get("type") not in ("fade_in", "exit_fade", "stamp")]
                             for m in mv:
                                 m["noFade"] = True
+                        # 옛 사이드카는 종류별 허용 목록을 거치지 않았을 수 있다 — 여기서 한 번 더 거른다.
+                        kind = "character" if "_char" in entry["name"] else (kinds.get(entry["name"]) or "object")
+                        allowed = motion.ALLOWED_BY_KIND.get(kind) or set()
+                        mv = [m for m in mv if m.get("type") in allowed]
                         if mv:
                             entry["moves"] = mv
                 c = mo.get("camera") or {}
@@ -223,13 +235,7 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
                     map_geo = None
         # 결정적 규칙: 캐릭터 레이어(_char 접미사 또는 kinds 사이드카)는 LLM 플랜 없이도
         # 항상 발밑 피벗 bob(까딱임) — 모션 버튼은 부가 연출(fade_in/camera)용 옵션
-        kinds = {}
-        kp = proj_dir / "layers" / f"{sid}__kinds.json"
-        if kp.is_file():
-            try:
-                kinds = json.loads(kp.read_text(encoding="utf-8"))
-            except Exception:
-                kinds = {}
+        # (kinds는 위 모션 사이드카 필터에서 이미 로드했다)
         for entry in layers:
             if entry["kind"] != "element" or entry.get("moves") or not entry.get("foot"):
                 continue

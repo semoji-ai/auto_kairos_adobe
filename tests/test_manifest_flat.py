@@ -170,6 +170,48 @@ def test_fractional_scene_prefix(tmp_path):
     assert mf["scenes"][1]["prefix"] == "S25-25_"
 
 
+def test_motion_sidecar_stamp_filtered_for_character(tmp_path):
+    """옛 모션 사이드카가 캐릭터 레이어에 stamp를 얹혀도 매니페스트가 걸러낸다(2차 방어)."""
+    proj = _project(tmp_path)
+    sid = "aaa111"
+    (proj / f"motion_{sid}.json").write_text(json.dumps({
+        "layers": [{"layer": f"{sid}__0_kid_char", "moves": [
+            {"type": "stamp", "start": 0, "duration": 0.5},
+            {"type": "bob", "start": 0, "duration": 4},
+        ]}],
+    }, ensure_ascii=False), encoding="utf-8")
+    mf = _manifest(proj)
+    char = [L for L in mf["scenes"][0]["layers"] if L["name"] == f"{sid}__0_kid_char"][0]
+    types = [m["type"] for m in char.get("moves", [])]
+    assert "stamp" not in types
+    assert "bob" in types
+
+
+def test_motion_sidecar_bob_filtered_for_object(tmp_path):
+    """사물 레이어의 bob은 ALLOWED_BY_KIND에 없다 — 옛 사이드카가 얹혀도 매니페스트가 걸러낸다."""
+    from PIL import Image
+    proj = _project(tmp_path)
+    sid = "aaa111"
+    Image.new("RGBA", (100, 100), (0, 0, 0, 255)).save(proj / "layers" / f"{sid}__1_box.png")
+    specs = json.loads((proj / "layers" / f"{sid}__elements.json").read_text(encoding="utf-8"))
+    specs.append({"layer": f"{sid}__1_box", "index": 1, "name": "상자",
+                  "name_en": "box", "location": "", "kind": "object", "intent": "",
+                  "z": 2, "bbox": [10, 10, 90, 90]})
+    (proj / "layers" / f"{sid}__elements.json").write_text(
+        json.dumps(specs, ensure_ascii=False), encoding="utf-8")
+    (proj / f"motion_{sid}.json").write_text(json.dumps({
+        "layers": [{"layer": f"{sid}__1_box", "moves": [
+            {"type": "bob", "start": 0, "duration": 4},
+            {"type": "pop", "start": 0, "duration": 0.5},
+        ]}],
+    }, ensure_ascii=False), encoding="utf-8")
+    mf = _manifest(proj)
+    obj = [L for L in mf["scenes"][0]["layers"] if L["name"] == f"{sid}__1_box"][0]
+    types = [m["type"] for m in obj.get("moves", [])]
+    assert "bob" not in types
+    assert "pop" in types
+
+
 def test_source_field_passed(tmp_path):
     proj = _project(tmp_path)
     data = json.loads((proj / "scenes.json").read_text(encoding="utf-8"))
