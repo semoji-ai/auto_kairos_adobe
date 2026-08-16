@@ -472,6 +472,25 @@ function akBuildScene(manifestPath) {
                         var ts = t0 + (t1 - t0) * si2 / 6;
                         ps.setValueAtTime(ts, [P[0] + ((si2 % 2) ? s2 : -s2) * (1 - si2 / 6), P[1]]);
                     }
+                } else if (mv.type === "stamp") {
+                    // 도장 — 크게서 제 크기로 5프레임 내리찍기. SEMOJI 도장효과의 타격부.
+                    // 잔상 복제본은 결정적 재빌드와 충돌해 생략(설계 문서 결정 2).
+                    var m0 = (amt && amt > 100) ? amt : 300;
+                    var hit = t0 + 5 / 30.0;
+                    var sst = il.property("Scale");
+                    sst.setValueAtTime(t0, [S[0] * m0 / 100, S[1] * m0 / 100]);
+                    sst.setValueAtTime(hit, [S[0], S[1]]);
+                    var ost = il.property("Opacity");
+                    ost.setValueAtTime(t0, 0);
+                    ost.setValueAtTime(hit, 100);
+                    try {
+                        var ezs = new KeyframeEase(0, 33.34);
+                        sst.setTemporalEaseAtKey(sst.nearestKeyIndex(hit), [ezs, ezs], [ezs, ezs]);
+                    } catch (eSt) { }
+                } else if (mv.type === "wiggle") {
+                    // 위글 — 익스프레션이라 레이어 수명 전체에 걸린다(구간 제어는 범위 밖).
+                    var wa = amt || 8;
+                    try { il.property("Position").expression = "wiggle(1, " + wa + ")"; } catch (eWg) { }
                 }
             } catch (e) { /* 모션 1개 실패는 무시 — 빌드 지속 */ }
         }
@@ -497,6 +516,56 @@ function akBuildScene(manifestPath) {
                 pp2.setValueAtTime(t + dur, [base[0] + dir2 * px / 2, base[1]]);
             }
         } catch (e) { }
+    }
+
+    // 출처 자막 — 우하단 검정 판(60%) + 흰 텍스트. SEMOJI 출처자막 구조.
+    // 판 폭은 텍스트 폭 + 50px을 따라간다(익스프레션). 가이드에 페어런팅하지 않는다 —
+    // 카메라 줌이 출처 표기까지 키우면 안 된다. 접두사 덕에 재빌드 시 함께 지워진다.
+    function addSourceCaption(comp, s, W, H) {
+        var pf = s.prefix || "S00_";
+        var t0 = s.start || 0;
+        var t1 = t0 + (s.duration || 5);
+        var mx = W * 0.03;                                // 우측 여백 3%
+
+        var plate = comp.layers.addShape();
+        plate.name = pf + "출처판";
+        var grp = plate.property("Contents").addProperty("ADBE Vector Group");
+        var rect = grp.property("Contents").addProperty("ADBE Vector Shape - Rect");
+        var fillP = grp.property("Contents").addProperty("ADBE Vector Graphic - Fill");
+        fillP.property("Color").setValue([0, 0, 0]);
+        plate.property("Opacity").setValue(60);
+        plate.inPoint = t0; plate.outPoint = t1;
+
+        var textL = comp.layers.addText(String(s.source));
+        textL.name = pf + "출처";
+        var tp = textL.property("Source Text");
+        var doc = tp.value;
+        doc.fontSize = 24;
+        doc.fillColor = [1, 1, 1];
+        try { if (TK.fonts && TK.fonts.subtitle) { doc.font = TK.fonts.subtitle; } } catch (eF) { }
+        try { doc.justification = ParagraphJustification.CENTER_JUSTIFY; } catch (eJ) { }
+        tp.setValue(doc);
+        textL.inPoint = t0; textL.outPoint = t1;
+
+        // 판 크기 — 텍스트 폭을 따라가는 익스프레션(SEMOJI 그대로)
+        try {
+            rect.property("Size").expression =
+                'var t = thisComp.layer("' + textL.name + '");\n' +
+                'var w = t.sourceRectAtTime(time, false).width;\n' +
+                '[w + 50, 50]';
+        } catch (eX) { }
+
+        // 텍스트 앵커 중앙 → 판 중앙과 겹치게 우하단 배치
+        try {
+            var tb = textL.sourceRectAtTime(t0, false);
+            textL.property("Anchor Point").setValue([tb.left + tb.width / 2, tb.top + tb.height / 2]);
+        } catch (eA) { }
+        var px = W - mx;                                   // 판 중심 x — 우측 여백만큼 안쪽
+        var py = H - mx;
+        plate.property("Position").setValue([px, py]);
+        textL.property("Position").setValue([px, py]);
+        textL.parent = plate;                              // 판이 움직이면 텍스트가 따라간다
+        return plate;
     }
 
     // 씬 하나를 평면 컴프에 놓는다. 쌓임은 위에서 아래로 요소 → 배경 → 판 → 가이드 널.
@@ -558,6 +627,11 @@ function akBuildScene(manifestPath) {
             try { renderMapOverlay(comp, s.mapGeo, W, H, dur); }
             catch (eMap) { log.push(pf + "지도 오버레이 실패 " + eMap.toString()); }
             akTagGroup(comp, comp.numLayers - beforeM, pf, guide, t0, t1);
+        }
+
+        if (s.source) {
+            try { addSourceCaption(comp, s, W, H); }
+            catch (eSrc) { log.push(pf + "출처 자막 실패 " + eSrc.toString()); }
         }
 
         if (s.audio) {

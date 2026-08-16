@@ -168,3 +168,14 @@ def test_fractional_scene_prefix(tmp_path):
     (proj / "scenes.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     mf = _manifest(proj)
     assert mf["scenes"][1]["prefix"] == "S25-25_"
+
+
+def test_source_field_passed(tmp_path):
+    proj = _project(tmp_path)
+    data = json.loads((proj / "scenes.json").read_text(encoding="utf-8"))
+    data["scenes"][0]["source"] = "자료: 국토부 2025"
+    data["scenes"][1]["source"] = "   "          # 공백뿐 — 실리면 안 된다
+    (proj / "scenes.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    mf = _manifest(proj)
+    assert mf["scenes"][0]["source"] == "자료: 국토부 2025"
+    assert "source" not in mf["scenes"][1]
