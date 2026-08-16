@@ -20,7 +20,7 @@
               "properties": {
                 "type": { "type": "string",
                   "enum": ["slide_in", "fade_in", "pop", "drift", "bob",
-                           "shake", "zoom_emphasis", "exit_fade"] },
+                           "shake", "zoom_emphasis", "exit_fade", "stamp", "wiggle"] },
                 "start": { "type": "number" },
                 "duration": { "type": "number" },
                 "direction": { "type": ["string", "null"],
