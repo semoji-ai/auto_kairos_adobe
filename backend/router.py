@@ -7,7 +7,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, vectorize
+from backend import projects, skills_cfg, sessions, pipeline, imagegen, scenes, search, media, tts, manifest, assistant, llm, motion, v3_import, edits, vault, subtitles, chartgen, themes, vectorize, srt
 from backend.codex_runner import run_skill
 from backend.jobs import run_async
 
@@ -635,6 +635,13 @@ def _dispatch(method: str, path: str, query: dict, body: dict | None, ctx: dict)
             return res
         run_async(jobs, jid, _do_vec)
         return 200, {"job_id": jid, "status": "running"}
+
+    if method == "POST" and p == "/api/tools/srt-parse":
+        b = body or {}
+        cues = srt.parse_srt(b.get("srt") or "")
+        if not cues:
+            return 422, {"error": "유효한 자막 큐 없음"}
+        return 200, {"cues": cues}
 
     if method == "GET" and p == "/api/media":
         pid = query.get("project_id", "")
