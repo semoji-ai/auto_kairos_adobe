@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend import scenes, llm, tts, imagegen
+from backend import scenes, llm, tts, imagegen, camera_plan
 
 _SCHEMA = Path(__file__).resolve().parent / "schemas" / "motion_plan.schema.json"
 
@@ -88,6 +88,8 @@ def _clamp_plan(plan: dict, dur: float) -> dict:
             mv["start"] = max(0.0, min(float(mv.get("start") or 0), dur))
             mv["duration"] = max(0.1, min(float(mv.get("duration") or 0.5), dur - mv["start"]))
     cam = plan.get("camera") or {}
+    if isinstance(cam, list):                   # 화각 키 배열 — camera_plan이 이미 규칙을 지켰다
+        return plan
     amt = cam.get("amount")
     if amt is not None:
         amt = float(amt)
@@ -158,5 +160,13 @@ def plan_scene_motion(proj_dir: Path, scene_number: int, *, on_line=None) -> dic
         return {"error": "모션 플랜 파싱 실패"}
     plan = filter_plan_moves(plan, kind_map)
     plan = _clamp_plan(plan, dur)
+    # 나레이션 기반 화각 키 — 타임스탬프와 bbox가 있으면 LLM의 카메라 type을 대체한다.
+    # 결정적이라 검증 가능하고, "말보다 먼저 도착" 규칙을 기계가 지킨다.
+    try:
+        cam_keys = camera_plan.plan_scene_camera(proj_dir, s, duration=dur)
+        if cam_keys:
+            plan["camera"] = cam_keys
+    except Exception:
+        pass                                    # 화각 플랜 실패는 모션 플랜을 막지 않는다
     motion_path(proj_dir, sid).write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     return plan
