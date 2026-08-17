@@ -77,10 +77,10 @@ def test_unexpected_layers_are_reported_not_dropped(tmp_path, monkeypatch):
 
 
 def test_budget_caps_names_sent(tmp_path, monkeypatch):
-    six = [{"name": f"요소{i}", "name_en": f"thing {i}", "location": "",
-            "kind": "object", "reason": "r", "intent": "i"} for i in range(6)]
-    _res, seen, _d = _run(tmp_path, monkeypatch, elements=six)
-    assert len(seen["names"]) == imagegen.MAX_ELEMENTS == 4
+    twelve = [{"name": f"요소{i}", "name_en": f"thing {i}", "location": "",
+            "kind": "object", "reason": "r", "intent": "i"} for i in range(12)]
+    _res, seen, _d = _run(tmp_path, monkeypatch, elements=twelve)
+    assert len(seen["names"]) == imagegen.MAX_ELEMENTS == 10
 
 
 def test_missing_requested_elements_are_reported(tmp_path, monkeypatch):

@@ -47,7 +47,8 @@ def test_prompt_carries_direction_inputs():
 def test_prompt_demands_minimality_and_intent():
     """연출로 물으면 없는 움직임을 지어내기 쉽다 — 최소성과 intent를 프롬프트가 강제해야 한다."""
     p = imagegen.build_layer_analysis_prompt()
-    assert "인물 1장 + 배경 1장" in p            # 최소 구성 반례
+    assert "의미 있는 소품·전경 하나는 분리" in p   # 최소 2개 구성 지침
+    assert str(imagegen.MIN_ELEMENTS) in p       # 하한 명시
     assert "intent" in p
     assert "배경에" in p                          # intent를 못 대면 분리하지 않는다
     assert "name_en" in p                        # 영어 이름 요구

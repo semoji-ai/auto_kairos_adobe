@@ -240,7 +240,8 @@ def generate_asset(proj_dir: Path, rel_out: str, image_prompt: str,
 _LAYER_SCHEMA = Path(__file__).resolve().parent / "schemas" / "layer_elements.schema.json"
 
 
-MAX_ELEMENTS = 4        # 씬당 요소 레이어 상한. 배경 1장을 더해 최대 5레이어.
+MIN_ELEMENTS = 2        # 씬당 요소 레이어 권장 하한 — 프롬프트가 지시(강제는 안 함: 없는 요소를 지어낼 수 없다).
+MAX_ELEMENTS = 10       # 씬당 요소 레이어 상한. 배경 1장을 더해 최대 11레이어.
 
 
 def apply_element_budget(elements: list) -> dict:
@@ -281,9 +282,10 @@ def build_layer_analysis_prompt(*, narration: str = "", context: str = "",
         "따라서 사물을 분리하는 근거는 셋이다 — 내레이션이 요구하는 등장/제거/움직임, 인물을 가리는 전경(원근 겹침), "
         "카메라가 밀 때의 앞뒤 분리. 이 중 하나도 대지 못하면 배경에 남긴다.\n\n"
         "## 최소성(중요)\n"
-        f"요소는 최대 {MAX_ELEMENTS}개지만 그것은 상한이지 목표가 아니다. "
-        "연출에 필요한 최소로 나눈다. **인물 한 명이 말하는 씬은 인물 1장 + 배경 1장이면 충분하다.** "
-        "더 쪼개도 연출이 나아지지 않으면 쪼개지 않는다. 요소 1~2개가 가장 흔한 정답이다.\n"
+        f"요소는 최소 {MIN_ELEMENTS}개, 최대 {MAX_ELEMENTS}개다. 상한은 목표가 아니다 — "
+        "연출에 필요한 만큼만 나눈다. 단순한 씬도 인물과 함께 의미 있는 소품·전경 하나는 분리해 "
+        "깊이를 만든다. 복잡한 씬(군중·소품 많은 실내)은 내레이션이 요구하는 것부터 채워 "
+        "상한 안에서 고른다.\n"
         "각 요소에 intent(그 레이어로 무엇을 할 것인가)를 쓸 수 없다면 분리 근거가 없는 것이므로 "
         "목록에서 빼고 배경에 남긴다.\n\n"
         "## 항상 지키는 규칙\n"

@@ -868,8 +868,8 @@ function _renderLayerPane(n, els, err, dropped) {
   _enforceLayerCap(pane);
 }
 
-/* 씬당 요소 레이어 상한 — 배경 1장을 더해 최대 5레이어(백엔드 MAX_ELEMENTS와 같은 값). */
-var MAX_LAYER_ELEMENTS = 4;
+/* 씬당 요소 레이어 상한 — 배경 1장을 더해 최대 11레이어(백엔드 MAX_ELEMENTS와 같은 값). */
+var MAX_LAYER_ELEMENTS = 10;
 
 /* 체크 개수를 상한으로 묶는다 — 상한에 닿으면 꺼진 체크박스를 잠근다. */
 function _enforceLayerCap(pane) {
