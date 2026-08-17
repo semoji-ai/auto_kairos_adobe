@@ -50,6 +50,61 @@ def fit_transform(sw, sh, comp_w: int = W, comp_h: int = H):
     return (f, (comp_w - sw * f) / 2)
 
 
+def camera_keys(cam, *, sw, sh, f: float, ox: float, dur: float,
+                comp_w: int = W, comp_h: int = H) -> list:
+    """카메라를 가이드 널 키프레임 [{t, scale, position, ease?}]로 굽는다.
+
+    입력 두 형태:
+    - [{t, rect:[x,y,w,h], ease?}] — 인수인계 문서의 화각 키. rect는 씬 이미지 좌표라
+      레이어와 같은 f·ox 변환을 거친다(두 번 변환 금지). 널의 자식은 바인딩 시점의
+      상대 위치를 유지하므로 P = 중앙 - (화각중심 - 중앙) × s 로 역산한다.
+    - {type, amount} — 구 모션 플랜·지도 기본값. 같은 수치의 키 2개로 번역한다.
+    jsx는 이 값을 그대로 찍는다 — 계산하지 않는다."""
+    cx0, cy0 = comp_w / 2, comp_h / 2
+    if cam is None:
+        return []
+    if isinstance(cam, dict):
+        t = cam.get("type")
+        if not t or t == "none":
+            return []
+        amt = cam.get("amount")
+        if t in ("slow_zoom_in", "slow_zoom_out"):
+            z = 1 + float(amt or 6) / 100.0
+            s0, s1 = (100.0, 100.0 * z) if t == "slow_zoom_in" else (100.0 * z, 100.0)
+            return [{"t": 0.0, "scale": round(s0, 3), "position": [cx0, cy0]},
+                    {"t": round(float(dur), 3), "scale": round(s1, 3),
+                     "position": [cx0, cy0], "ease": "70:30"}]
+        if t in ("pan_left", "pan_right"):
+            px = float(amt or 40)
+            d = -1.0 if t == "pan_left" else 1.0
+            return [{"t": 0.0, "scale": 100.0, "position": [cx0 - d * px / 2, cy0]},
+                    {"t": round(float(dur), 3), "scale": 100.0,
+                     "position": [cx0 + d * px / 2, cy0], "ease": "70:30"}]
+        return []
+    out = []
+    for k in cam or []:
+        r = (k or {}).get("rect")
+        if not r or len(r) != 4:
+            continue
+        try:
+            vx, vy, vw, vh = [float(v) for v in r]
+        except (TypeError, ValueError):
+            continue
+        if vw <= 0 or vh <= 0:
+            continue
+        vx, vy, vw, vh = vx * f + ox, vy * f, vw * f, vh * f
+        s = comp_w / vw
+        ccx, ccy = vx + vw / 2, vy + vh / 2
+        entry = {"t": round(float(k.get("t") or 0), 3),
+                 "scale": round(s * 100, 3),
+                 "position": [round(cx0 - (ccx - cx0) * s, 2),
+                              round(cy0 - (ccy - cy0) * s, 2)]}
+        if k.get("ease"):
+            entry["ease"] = str(k["ease"])
+        out.append(entry)
+    return out
+
+
 def _scene_layers(proj_dir: Path, layer_rels: list, sid: str = "", scene_width: int | None = None,
                   *, prefix: str = "", f: float = 1.0, ox: float = 0.0,
                   scene_height: int | None = None) -> list:
@@ -211,13 +266,19 @@ def build_manifest(proj_dir: Path, only_scene: int | None = None,
                         mv = [m for m in mv if m.get("type") in allowed]
                         if mv:
                             entry["moves"] = mv
-                c = mo.get("camera") or {}
-                if c.get("type") and c["type"] != "none":
+                c = mo.get("camera")
+                if isinstance(c, list) and c:            # 화각 키 배열(신형)
+                    cam = c
+                elif isinstance(c, dict) and c.get("type") and c["type"] != "none":
                     cam = c
             except Exception:
                 cam = None
+        # 씬 자체에 화각 키가 실려 있으면(v3 파이프라인 산출) 그것을 쓴다 — 사이드카가 우선
+        if cam is None and isinstance(s.get("camera"), list) and s.get("camera"):
+            cam = s["camera"]
         if is_map and cam is None:
             cam = {"type": "slow_zoom_in", "amount": 6}   # 지도 씬 기본 — 천천히 푸시인
+        cam = camera_keys(cam, sw=sw, sh=sh, f=f, ox=ox, dur=dur) or None
         # 차트 명세서 사이드카(chart_{sid}.spec.json) — chartagent 패턴/모티프 토큰을 jsx bar에 전달
         chart_spec = None
         csp = proj_dir / f"chart_{sid}.spec.json"

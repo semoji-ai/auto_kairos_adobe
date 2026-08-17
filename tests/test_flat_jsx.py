@@ -31,8 +31,19 @@ def test_guide_null_created_and_named():
 def test_camera_targets_guide():
     """카메라는 가이드 널을 잡는다 — 씬 컴프 레이어가 아니다."""
     src = _src()
-    assert "applyCamera(guide" in src
+    assert "applyCamera(guide, s.camera, t0)" in src
     assert "fc.layers.add(comps[" not in src
+
+
+def test_camera_is_baked_keyframes():
+    """jsx는 카메라 좌표를 계산하지 않는다 — 매니페스트가 구운 키를 찍기만 한다."""
+    src = _src()
+    assert "cam.type" not in src                      # 구형 type 분기 제거
+    assert "k.scale" in src and "k.position" in src
+    assert "function akCamEase" in src
+    # 70:30 기본 이징 — 카메라가 툭 출발하고 툭 멈추면 싸구려로 보인다
+    assert "70" in src and "30" in src
+    assert "nearestKeyIndex" in src
 
 
 def test_layers_use_baked_coords_only():

@@ -86,7 +86,12 @@ def test_manifest_merges_motion(tmp_path):
     assert car["moves"][0]["type"] == "pop"
     bg = next(L for L in sc["layers"] if L["kind"] == "bg")
     assert "moves" not in bg
-    assert sc["camera"]["type"] == "pan_left"
+    # 카메라는 널 키프레임 배열로 구워진다 — pan_left 40px = 널 x가 +20에서 -20으로
+    cam = sc["camera"]
+    assert isinstance(cam, list) and len(cam) == 2
+    assert cam[0]["position"] == [980.0, 540.0]
+    assert cam[1]["position"] == [940.0, 540.0]
+    assert cam[1]["ease"] == "70:30"
 
 
 def test_manifest_no_motion_file_ok(tmp_path):
@@ -214,7 +219,11 @@ def test_map_scene_becomes_image_scene_with_default_camera(tmp_path):
     manifest.build_manifest(d)
     sc = json.loads((d / "manifest.json").read_text(encoding="utf-8"))["scenes"][0]
     assert sc["layout"] == "cinematic" and sc["image"]
-    assert sc["camera"] == {"type": "slow_zoom_in", "amount": 6}
+    cam = sc["camera"]
+    assert isinstance(cam, list) and len(cam) == 2
+    assert cam[0]["scale"] == 100.0
+    assert cam[1]["scale"] == 106.0        # 기본 slow_zoom_in 6%
+    assert cam[1]["ease"] == "70:30"
 
 
 def test_map_scene_without_image_stays_layout(tmp_path):

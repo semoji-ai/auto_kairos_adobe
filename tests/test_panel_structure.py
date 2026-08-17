@@ -319,8 +319,10 @@ def test_jsx_uses_json_parse():
 def test_jsx_has_motion():
     jsx = (PANEL / "jsx" / "build_scene.jsx").read_text(encoding="utf-8")
     assert "function applyMoves" in jsx and "function applyCamera" in jsx
-    for t in ["slide_in", "pop", "bob", "zoom_emphasis", "slow_zoom_in"]:
+    for t in ["slide_in", "pop", "bob", "zoom_emphasis"]:
         assert t in jsx
+    # 카메라는 이제 type 분기가 아니라 매니페스트가 구운 키프레임 — camera_keys(manifest.py)가 번역한다
+    assert "slow_zoom_in" not in jsx
 
 
 def test_panel_motion_button():

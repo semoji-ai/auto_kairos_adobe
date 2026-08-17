@@ -499,23 +499,44 @@ function akBuildScene(manifestPath) {
     }
 
     // Final 씬 레이어 카메라 — slow zoom/pan(결정적)
-    function applyCamera(fl, cam, t, dur, baseScale, W, H) {
-        if (!cam || !cam.type || cam.type === "none") return;
+    // 카메라 이징 — 도착 키에 붙은 ease가 그 직전 구간의 성격을 정한다.
+    // "ease"=양쪽 33.34, "70:30"=이전 키 나감 70 / 이 키 들어옴 30(속도 0 — 툭 출발·툭 멈춤 방지).
+    // dims: Scale은 2, Position(공간 속성)은 1 — AE가 요구하는 이징 배열 길이가 다르다.
+    function akCamEase(prop, keyTime, outInf, inInf, dims) {
         try {
-            var amt = cam.amount || 6;
-            if (cam.type === "slow_zoom_in" || cam.type === "slow_zoom_out") {
-                var z = 1 + amt / 100.0;
-                var sIn = cam.type === "slow_zoom_in";
-                var sp = fl.property("Scale");
-                sp.setValueAtTime(t, [baseScale * (sIn ? 1 : z), baseScale * (sIn ? 1 : z)]);
-                sp.setValueAtTime(t + dur, [baseScale * (sIn ? z : 1), baseScale * (sIn ? z : 1)]);
-            } else {
-                var px = cam.amount || 40;
-                var dir2 = cam.type === "pan_left" ? -1 : 1;
-                var pp2 = fl.property("Position");
-                var base = fl.property("Position").value;
-                pp2.setValueAtTime(t, [base[0] - dir2 * px / 2, base[1]]);
-                pp2.setValueAtTime(t + dur, [base[0] + dir2 * px / 2, base[1]]);
+            var ki = prop.nearestKeyIndex(keyTime);
+            var eIn = [], eOut = [], d;
+            for (d = 0; d < dims; d++) { eIn.push(new KeyframeEase(0, inInf)); }
+            prop.setTemporalEaseAtKey(ki, eIn, eIn);
+            if (ki > 1) {
+                for (d = 0; d < dims; d++) { eOut.push(new KeyframeEase(0, outInf)); }
+                prop.setTemporalEaseAtKey(ki - 1, eOut, eOut);
+            }
+        } catch (e) { }
+    }
+
+    // 가이드 널 카메라 — 매니페스트가 구운 키 [{t, scale, position, ease?}]를 그대로 찍는다.
+    // 좌표·배율 계산은 백엔드(camera_keys)가 이미 끝냈다. 같은 값 연속 키 = 정지 구간.
+    function applyCamera(guide, keys, sceneStart) {
+        if (!keys || !keys.length) return;
+        try {
+            var sp = guide.property("Scale");
+            var pp = guide.property("Position");
+            var i, k, tt;
+            for (i = 0; i < keys.length; i++) {
+                k = keys[i];
+                tt = sceneStart + (k.t || 0);
+                sp.setValueAtTime(tt, [k.scale, k.scale]);
+                pp.setValueAtTime(tt, [k.position[0], k.position[1]]);
+            }
+            for (i = 0; i < keys.length; i++) {
+                k = keys[i];
+                if (!k.ease || k.ease === "linear") { continue; }
+                tt = sceneStart + (k.t || 0);
+                var outInf = 70, inInf = 30;             // 기본 70:30
+                if (k.ease === "ease") { outInf = 33.34; inInf = 33.34; }
+                akCamEase(sp, tt, outInf, inInf, 2);
+                akCamEase(pp, tt, outInf, inInf, 1);
             }
         } catch (e) { }
     }
@@ -651,7 +672,7 @@ function akBuildScene(manifestPath) {
             }
         }
 
-        if (s.camera) { applyCamera(guide, s.camera, t0, dur, 100, W, H); }
+        if (s.camera && s.camera.length) { applyCamera(guide, s.camera, t0); }
         return guide;
     }
     try {
